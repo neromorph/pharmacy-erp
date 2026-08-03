@@ -184,3 +184,74 @@ ALTER TABLE public.goods_receipt_items ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tenant isolation for goods_receipt_items" ON public.goods_receipt_items
     FOR ALL
     USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
+-- Sale Status Enum
+CREATE TYPE public.sale_status AS ENUM (
+    'DRAFT',
+    'PAID',
+    'VOID'
+);
+
+-- Sales Table
+CREATE TABLE public.sales (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL,
+    sale_number VARCHAR(50) NOT NULL,
+    status public.sale_status NOT NULL DEFAULT 'DRAFT',
+    subtotal NUMERIC(18,2) NOT NULL DEFAULT 0,
+    discount_total NUMERIC(18,2) NOT NULL DEFAULT 0,
+    tax_total NUMERIC(18,2) NOT NULL DEFAULT 0,
+    grand_total NUMERIC(18,2) NOT NULL DEFAULT 0,
+    paid_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    change_amount NUMERIC(18,2) NOT NULL DEFAULT 0,
+    cashier_id UUID,
+    sold_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, sale_number)
+);
+
+-- RLS for sales
+ALTER TABLE public.sales ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation for sales" ON public.sales
+    FOR ALL
+    USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+-- Sale Items Table
+CREATE TABLE public.sale_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL,
+    sale_id UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE RESTRICT,
+    product_batch_id UUID NOT NULL REFERENCES public.product_batches(id) ON DELETE RESTRICT,
+    batch_number VARCHAR(100) NOT NULL,
+    expiry_date DATE NOT NULL,
+    qty_sold NUMERIC(14,3) NOT NULL,
+    unit_price NUMERIC(18,2) NOT NULL,
+    line_total NUMERIC(18,2) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- RLS for sale_items
+ALTER TABLE public.sale_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation for sale_items" ON public.sale_items
+    FOR ALL
+    USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+-- Sale Payments Table
+CREATE TABLE public.sale_payments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL,
+    sale_id UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    payment_method VARCHAR(30) NOT NULL,
+    amount NUMERIC(18,2) NOT NULL,
+    reference_number VARCHAR(100),
+    paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- RLS for sale_payments
+ALTER TABLE public.sale_payments ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tenant isolation for sale_payments" ON public.sale_payments
+    FOR ALL
+    USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
