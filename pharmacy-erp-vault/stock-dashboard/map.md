@@ -1,17 +1,18 @@
 ## Destination
 
-A dashboard that shows exactly three KPIs — daily sales, low stock, and near-expiry — backed by stock alert and stock adjustment (opnudge) flows. All existing phases (master data, procurement, POS) are shipped; nothing before them is on this map.
+A dashboard that shows exactly three KPIs — daily sales, low stock, and near-expiry — backed by stock alert and stock adjustment (opname) flows. All existing phases (master data, procurement, POS) are shipped; nothing before them is on this map.
 
 ## Notes
 
 - Domain: pharmacy stock + sales analytics. Read `CONTEXT.md` and `AGENTS.md` first. Follow ASD-STE100 Simplified Technical English.
 - Skills: `/wayfinder`, `/grilling`, `/domain-modeling`. The web UI queries Supabase directly via the server client (NestJS API is not deployed — do not assume an API hop).
 - Drift rule: no `service_role` in request paths; RLS filters by JWT `app_metadata.tenant_id`.
-- Tracker: this vault. Format per `agents/issue-tracker.md`.
+- Tracker: this vault. Format per `docs/agents/issue-tracker.md`.
 
 ## Decisions so far
 
 - [01 Define the three KPI rules](issues/01-kpi-rules.md) — near-expiry: 30d flag-sensitive / 60d other; low-stock: total <= min_stock_level (zero-stock always flagged); daily sales: PAID minus VOID, WIB (Asia/Jakarta) calendar day, IDR.
+- [02 Stock opname and adjustment flow](issues/02-opname-flow.md) — batch-level, session-based `stock_opnames`/`stock_opname_items`, DRAFT→PENDING_APPROVAL→APPROVED|CANCELLED, batch quantity changes only on APPROVED, immutable log; only OWNER/PHARMACIST approve, INVENTORY/CASHIER never self-approve, role from `app_metadata`.
 
 ## Not yet specified
 
@@ -19,4 +20,4 @@ A dashboard that shows exactly three KPIs — daily sales, low stock, and near-e
 
 ## Out of scope
 
--_(none yet — nothing on this route is ruled out so far.)_
+_(none yet — nothing on this route is ruled out so far.)_
