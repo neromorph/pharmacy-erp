@@ -59,7 +59,7 @@ CREATE TABLE public.product_batches (
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     batch_number VARCHAR NOT NULL,
     expiry_date DATE,
-    current_qty INT NOT NULL DEFAULT 0,
+    current_qty NUMERIC(14,3) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

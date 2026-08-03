@@ -138,6 +138,22 @@ export default async function PurchaseOrderDetailPage({
           </button>
         </form>
       )}
+      {po.status === 'APPROVED' && (
+        <Link
+          href={`/procurement/${po.id}/receive`}
+          style={{
+            display: 'inline-block',
+            marginTop: 16,
+            background: 'var(--primary)',
+            color: '#fff',
+            padding: '8px 16px',
+            borderRadius: 6,
+            textDecoration: 'none',
+          }}
+        >
+          Receive Goods
+        </Link>
+      )}
     </section>
   )
 }
