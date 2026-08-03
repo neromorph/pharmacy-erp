@@ -12,7 +12,8 @@
 - **Product Unit**: a selling multiplier of the base unit (e.g., Box = 30 tablets). Holds the barcode and price.
 - **Batch**: stock lot with expiry date and source record. Stock quantity is strictly held at the batch level in base units.
 - **FEFO**: stock allocation rule using earliest expiry first.
-- **Purchase Order (PO)**: request to supplier/PBF.
+- **Purchase Order (PO)**: request to supplier/PBF. Has a status: DRAFT, PENDING_APPROVAL, APPROVED, RECEIVED, CANCELLED.
+- **Supplier**: external entity a PO is sent to. Technical model name; shown as **PBF** in the UI. Has `is_pbf`, `pbf_license_number`, `payment_terms_days`.
 - **Goods Receipt**: receiving event that records invoice, batch, expiry date, and stock increase.
 - **Stock Opname**: physical stock count plus system adjustment.
 - **Sale**: POS transaction.
@@ -33,6 +34,7 @@
 - FEFO is the primary stock rule.
 - Supplier is the technical model name; PBF is the UI label.
 - Dashboard shows only 3 KPIs on day 1.
+- PO approval is 1-step conditional: Owner/Pharmacist direct-approve; Inventory/Purchasing requires approval.
 
 ## UI reference
 

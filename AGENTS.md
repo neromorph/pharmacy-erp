@@ -20,6 +20,7 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 - Domain docs: `CONTEXT.md`, ADRs in `docs/adr/` (tenant=branch, FEFO primary, UI reference, user=one tenant)
 - Auth: Supabase login page + middleware (`apps/web`), NestJS JWT strategy extracting `tenant_id` (`apps/api/src/auth`), provisioning script (`scripts/provision-tenant.ts`)
 - Master data: `tenants`, `products`, `product_units`, `product_batches` tables with RLS (migration in `supabase/migrations/`); NestJS `ProductsModule` with scoped Supabase service
+- **Procurement locked (design)**: separate `suppliers` table (name, is_pbf, pbf_license_number, phone, payment_terms_days); PO status machine DRAFT→PENDING_APPROVAL→APPROVED→RECEIVED / CANCELLED with 1-step conditional approval (Owner/Pharmacist direct-approve; Inventory/Purchasing needs approval)
 - **Remote Supabase deployed** (2nd instance `pharmacy-supabase` on `185.197.250.97`) — live at `https://pharmacy-api.nmrooms.biz.id`, studio at `https://pharmacy-studio.nmrooms.biz.id`
 - RLS verified end-to-end: login → JWT carries tenant_id → scoped product CRUD works (201)
 - Provisioned: tenant "Apotek Sehat" + users `owner@mufid.dev`, `cashier@mufid.dev` (pw `Test1234!`)
