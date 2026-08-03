@@ -14,7 +14,7 @@
 - **FEFO**: stock allocation rule using earliest expiry first.
 - **Purchase Order (PO)**: request to supplier/PBF. Has a status: DRAFT, PENDING_APPROVAL, APPROVED, RECEIVED, CANCELLED.
 - **Supplier**: external entity a PO is sent to. Technical model name; shown as **PBF** in the UI. Has `is_pbf`, `pbf_license_number`, `payment_terms_days`.
-- **Goods Receipt**: receiving event that records invoice, batch, expiry date, and stock increase.
+- **Goods Receipt**: receiving event that records invoice, batch, expiry date, and stock increase. On receipt, one `product_batches` row is created per item (FEFO entry point) and the PO becomes RECEIVED.
 - **Stock Opname**: physical stock count plus system adjustment.
 - **Sale**: POS transaction.
 - **Prescription Tag**: lightweight marker for prescription-related sale context.
