@@ -2,6 +2,49 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
 import { statusColors, parseDate } from '../status'
+import { getUserRole, canVoidSale } from '../../../utils/auth'
+
+async function voidSaleAction(formData: FormData) {
+  'use server'
+  const id = formData.get('sale_id') as string
+  const supabase = await createClient()
+  const role = await getUserRole(supabase)
+  if (!canVoidSale(role)) redirect(`/sales/${id}`)
+
+  const { data: sale } = await supabase
+    .from('sales')
+    .select('status')
+    .eq('id', id)
+    .single()
+  if (!sale || sale.status !== 'PAID') redirect(`/sales/${id}`)
+
+  // Restore batch quantities for all sale items.
+  const { data: items } = await supabase
+    .from('sale_items')
+    .select('product_batch_id, qty_sold')
+    .eq('sale_id', id)
+
+  for (const item of items || []) {
+    if (!item.product_batch_id) continue
+    const { data: batch } = await supabase
+      .from('product_batches')
+      .select('current_qty')
+      .eq('id', item.product_batch_id)
+      .single()
+    if (batch) {
+      await supabase
+        .from('product_batches')
+        .update({ current_qty: Number(batch.current_qty) + Number(item.qty_sold) })
+        .eq('id', item.product_batch_id)
+    }
+  }
+
+  await supabase
+    .from('sales')
+    .update({ status: 'VOID' })
+    .eq('id', id)
+  redirect(`/sales/${id}`)
+}
 
 const paymentMethods = ['CASH', 'CARD', 'TRANSFER', 'QRIS']
 
@@ -134,6 +177,7 @@ export default async function SaleDetailPage({
 }) {
   const { id } = await params
   const supabase = await createClient()
+  const userRole = await getUserRole(supabase)
   const { data: sale } = await supabase
     .from('sales')
     .select('*, sale_items (*, products (name, sku)), sale_payments (*)')
@@ -230,6 +274,25 @@ export default async function SaleDetailPage({
             }}
           >
             Complete Sale (Paid)
+          </button>
+        </form>
+      )}
+
+      {sale.status === 'PAID' && canVoidSale(userRole) && (
+        <form action={voidSaleAction} style={{ marginTop: 16 }}>
+          <input type="hidden" name="sale_id" value={sale.id} />
+          <button
+            type="submit"
+            style={{
+              background: 'var(--danger, #ef4444)',
+              color: '#fff',
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            Void Sale
           </button>
         </form>
       )}

@@ -12,6 +12,7 @@ const navLinks = [
   { href: '/sales', label: 'Sales' },
   { href: '/suppliers', label: 'Suppliers' },
   { href: '/procurement', label: 'Procurement' },
+  { href: '/stock-opname', label: 'Stock Opname' },
 ]
 
 export default function RootLayout({
