@@ -15,11 +15,12 @@ A dashboard that shows exactly three KPIs — daily sales, low stock, and near-e
 - [02 Stock opname and adjustment flow](issues/02-opname-flow.md) — batch-level, session-based `stock_opnames`/`stock_opname_items`, DRAFT→PENDING_APPROVAL→APPROVED|CANCELLED, batch quantity changes only on APPROVED, immutable log; only OWNER/PHARMACIST approve, INVENTORY/CASHIER never self-approve, role from `app_metadata`.
 - [03 Dashboard source](issues/03-dashboard-source.md) — single `get_dashboard_kpis()` Postgres RPC, SECURITY INVOKER (RLS passthrough), one JSON payload with the three KPI numbers, one HTTP roundtrip.
 - [04 Void restores stock to batches](issues/04-void-restores-stock.md) — VOIDED sale returns qty to its exact batch (reverse FEFO); only OWNER/PHARMACIST may void (no cashier self-void); gated on role in 05.
+- [05 Provision role in app_metadata](issues/05-provision-role.md) — role in `app_metadata.role`, enum OWNER/PHARMACIST/INVENTORY/CASHIER, first tenant user=OWNER, staff invites default CASHIER, read from JWT.
 
 ## Not yet specified
 
-- The dashboard layout and how the three KPI cards are presented, once their data shape is fixed by 01 and 03.
+_(none — the route to the destination is now clear: all decisions are made; the next step is implementation.)_
 
 ## Out of scope
 
-_(none yet — nothing on this route is ruled out so far.)_
+- Prescription tracking, compliance (hard drugs/psychotropics), multi-branch, SATUSEHAT — later phases, beyond this effort.

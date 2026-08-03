@@ -1,18 +1,13 @@
 # 05 Provision role in app_metadata
 
 Type: grilling
-Status: open
+Status: resolved
 
-Blocked by: 02
+## Answer
 
-## Question
+Role lives in **`app_metadata.role`** as a fixed enum, protected from self-edit (only `service_role` admin API writes it), read from the JWT by both the web server client and any future NestJS guard.
 
-How does the app know a user's role (CASHIER / INVENTORY / PHARMACIST / OWNER) so opname approval can be gated?
-
-`scripts/provision-tenant.ts` currently writes only `tenant_id` into `app_metadata`. The stock-opname approval rule (02) needs a role.
-
-- Add a `role` claim to `app_metadata` at provisioning time? What default role for newly created users?
-- How does the web server client read it — `user.app_metadata.role`?
-- Are the four canonical roles the fixed set, or should role become a free value?
-
-Resolve the field name, the accepted values, and the default.
+1. **Canonical values**: `OWNER`, `PHARMACIST` (APJ), `INVENTORY`, `CASHIER`. Type-safe via `UserRole` enum and `JWTAppMetadata { tenant_id, role }` in `packages/domain`.
+2. **First tenant user** (initial provisioning, `provision-tenant.ts`): forced `OWNER`. Without one, a tenant cannot invite staff, approve opnames, or configure the store.
+3. **Invited staff**: the owner UI explicitly requires a role choice (`CASHIER`/`INVENTORY`/`PHARMACIST`); if an API call omits `role`, the backend falls back to **`CASHIER`** (least privilege).
+4. **Read path**: web server client `(await supabase.auth.getUser()).data.user?.app_metadata?.role`; RLS can use `auth.jwt() -> 'app_metadata' ->> 'role'` if needed.
