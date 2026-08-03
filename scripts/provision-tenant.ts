@@ -42,7 +42,7 @@ async function run() {
     email,
     password,
     email_confirm: true,
-    app_metadata: { tenant_id: tenantId },
+    app_metadata: { tenant_id: tenantId, role: 'OWNER' },
   })
 
   if (uErr) {
