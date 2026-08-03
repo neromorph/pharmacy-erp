@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Operational state for the pharmacy-erp project: progress, next steps, infrastructure, and knowledge. Domain vocabulary lives in `CONTEXT.md`; deep infra details in `docs/supabase-deployment.md`.
+Operational state for the pharmacy-erp project: progress, next steps, infrastructure, and knowledge. All markdown files live in the Obsidian vault at `pharmacy-erp-vault/`. Domain vocabulary lives in `pharmacy-erp-vault/CONTEXT.md`; deep infra details in `pharmacy-erp-vault/supabase-deployment.md`.
 
 ## Project
 
@@ -17,7 +17,7 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 
 ### Done
 - Workspace skeleton (web/api/domain), all tests + builds green (`pnpm -r test`, `pnpm -r build`)
-- Domain docs: `CONTEXT.md`, ADRs in `docs/adr/` (tenant=branch, FEFO primary, UI reference, user=one tenant)
+- Domain docs: `pharmacy-erp-vault/CONTEXT.md`, ADRs in `pharmacy-erp-vault/adr/` (tenant=branch, FEFO primary, UI reference, user=one tenant)
 - Auth: Supabase login page + middleware (`apps/web`), NestJS JWT strategy extracting `tenant_id` (`apps/api/src/auth`), provisioning script (`scripts/provision-tenant.ts`)
 - Master data: `tenants`, `products`, `product_units`, `product_batches` tables with RLS (migration in `supabase/migrations/`); NestJS `ProductsModule` with scoped Supabase service
 - **Procurement locked (design)**: separate `suppliers` table (name, is_pbf, pbf_license_number, phone, payment_terms_days); PO status machine DRAFT→PENDING_APPROVAL→APPROVED→RECEIVED / CANCELLED with 1-step conditional approval (Owner/Pharmacist direct-approve; Inventory/Purchasing needs approval)
@@ -64,14 +64,14 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Email autoconfirm is ON for dev provisioning — revisit for production
 
 ### Env vars (never commit real values)
-- `.env.local`, `apps/web/.env.local`, `apps/api/.env.local` hold live credentials — see `docs/supabase-deployment.md`
+- `.env.local`, `apps/web/.env.local`, `apps/api/.env.local` hold live credentials — see `pharmacy-erp-vault/supabase-deployment.md`
 
 ## Rules for agents
 
 - **Always use ASD-STE100 Simplified Technical English** (controlled vocabulary, short sentences, one meaning per word) in all written output: code comments, commit messages, ADRs, docs, and chat responses.
 - Avoid jargon, idioms, passive voice, and long sentences. Prefer simple approved words. Use the noun/verb directly.
 - Example: "We end the process" not "We are going to be concluding the operation in the near future."
-- Follow `CONTEXT.md` vocabulary (FEFO, Batch, Goods Receipt, etc.) and UI reference (Emerald/Teal on Slate, light-first, compact, no dark POS screens)
+- Follow `pharmacy-erp-vault/CONTEXT.md` vocabulary (FEFO, Batch, Goods Receipt, etc.) and UI reference (Emerald/Teal on Slate, light-first, compact, no dark POS screens)
 - Respect RLS: backend passes the user's JWT through; never use service_role in request paths
 - Tests: keep `pnpm -r test` + `pnpm -r build` green after every change
 - No git repo initialized yet — commits/skills that assume git will fail; `git init` when user asks
@@ -80,8 +80,8 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 
 ### Issue tracker
 
-Issues, specs, and wayfinding maps live as markdown files in the Obsidian vault at `pharmacy-erp-vault/` in this repo. See `docs/agents/issue-tracker.md`.
+Issues, specs, and wayfinding maps live as markdown files in the Obsidian vault at `pharmacy-erp-vault/` in this repo. See `pharmacy-erp-vault/agents/issue-tracker.md`.
 
 ### Domain docs
 
-Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
+Single-context: `pharmacy-erp-vault/CONTEXT.md` + `pharmacy-erp-vault/adr/`. See `pharmacy-erp-vault/agents/domain.md`.
