@@ -1,16 +1,16 @@
 # 03 Dashboard data source and day boundary
 
 Type: grilling
-Status: open
+Status: claimed
 
 Blocked by: 01
 
-## Question
+Type: grilling
+Status: resolved
 
-Where does the dashboard read its three KPIs, and how is "daily" defined?
+## Answer
 
-- Source: a server-component query each render, or a cached/home-made aggregate stored on write? Keep it consistent with the direct-Supabase server-client pattern.
-- Day boundary for "daily sales": branch local calendar day (WIB, UTC+7)? Or another convention?
-- KPI numbers: exact counts/amounts per rule in 01 — total daily sales amount, low-stock product count, near-expiry batch count.
+Dashboard source is a **single live Postgres RPC, SECURITY INVOKER**:
 
-Resolve the data source and the three numbers to render.
+1. **One function**: `get_dashboard_kpis()` returns a single JSON payload with all three KPI numbers — daily-sales amount (PAID minus VOID, WIB Asia/Jakarta calendar day), low-stock product count, near-expiry batch count, per the 01 rules. One HTTP roundtrip from the Next.js server component.
+2. **SECURITY INVOKER (RLS passthrough)**: the function does NOT bypass RLS and does NOT use SECURITY DEFINER. Tenant isolation relies on the existing `tenant_id` policies on `sales`, `products`, `product_batches`. Next.js calls it via `createClient()` `.rpc('get_dashboard_kpis')`.
