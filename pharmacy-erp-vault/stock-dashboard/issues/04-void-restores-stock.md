@@ -1,14 +1,12 @@
 # 04 Void restores stock to batches
 
 Type: grilling
-Status: open
+Status: resolved
 
-## Question
+## Answer
 
-When a sale is VOIDed, does its stock return to `product_batches`?
+Void **restores stock** and is **privilege-limited**:
 
-- Current POS marks a sale VOID but does not restore batch quantity. Should voiding add the sold quantities back to the original batches (reverse the FEFO decrement)?
-- Does a voided sale keep its `sale_items` batch references so the exact quantities can be returned?
-- Or is void a financial-only flag that keeps stock unchanged (count as a loss)?
-
-Resolve whether void restores stock, and if so, how the reversal is recorded.
+1. **Reverse FEFO**: a VOIDED sale returns each `sale_items.qty_sold` to its exact `product_batch_id` (already recorded at payment). An inverse query adds qty back to the original `product_batches` row. Keeps physical vs system stock drift-free.
+2. **Actor rule**: only OWNER and PHARMACIST (APJ) may void. CASHIER cannot self-void — void requires supervisor approval (the reason is cash deficit / theft prevention).
+3. Depends on ticket 05 for the role field in `app_metadata`. The void action (web + API) is gated on `app_metadata.role`.
