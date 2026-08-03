@@ -1,0 +1,214 @@
+{
+  "main": {
+    "id": "ce0439b76d9ef371",
+    "type": "split",
+    "children": [
+      {
+        "id": "2c796d0cc34c72d6",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "317b0ef4c544bebd",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "stock-dashboard/map.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "map"
+            }
+          }
+        ]
+      },
+      {
+        "id": "b1bda1186b0fdedf",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "4209aa80590835d1",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "0dae22c9af517ef9",
+    "type": "split",
+    "children": [
+      {
+        "id": "29b650e65b4cb436",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "d3c0675ef2093405",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "93607c2943a17334",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "bfbebd0101aa5b04",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "7776befe48ee975f",
+    "type": "split",
+    "children": [
+      {
+        "id": "272deebb8d3e0ec3",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8303f1534c4b58fa",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "stock-dashboard/map.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks for map"
+            }
+          },
+          {
+            "id": "bbca011cdfda0cae",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "stock-dashboard/map.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links from map"
+            }
+          },
+          {
+            "id": "714537672cea0379",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "cd966a6282f85037",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "efd1ab9c4057144a",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "stock-dashboard/map.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline of map"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "d3c0675ef2093405",
+  "lastOpenFiles": [
+    "stock-dashboard/issues/04-void-restores-stock.md",
+    "stock-dashboard/issues/03-dashboard-source.md",
+    "stock-dashboard/issues/02-opname-flow.md",
+    "stock-dashboard/issues/02-opnudge-flow.md",
+    "stock-dashboard/issues/01-kpi-rules.md",
+    "stock-dashboard/issues",
+    "stock-dashboard/map.md",
+    "stock-dashboard",
+    "Welcome.md"
+  ]
+}
