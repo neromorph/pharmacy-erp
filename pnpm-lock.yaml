@@ -75,6 +75,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@pharmacy/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@supabase/ssr':
         specifier: ^0.12.4
         version: 0.12.4(@supabase/supabase-js@2.111.0)
