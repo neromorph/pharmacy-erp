@@ -140,7 +140,7 @@ CREATE POLICY "Tenant isolation for stock_opname_items" ON public.stock_opname_i
 The function `get_dashboard_kpis()` must be `SECURITY INVOKER`. It calculates:
 1. Daily Sales: `SUM(grand_total)` of `sales` where `status = 'PAID'` and `sold_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta'::date = CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta'::date`. Subtract `sales` where `status = 'VOID'`.
 2. Low Stock: count of `products` where `COALESCE((SELECT SUM(current_qty) FROM product_batches WHERE product_id = products.id), 0) <= min_stock_level`.
-3. Near Expiry: count of `product_batches` where `expiry_date` <= CURRENT_DATE + (CASE WHEN (SELECT is_expired_sensitive FROM products WHERE id = product_batches.product_id) THEN 30 ELSE 60 END).
+3. Near Expiry: count of distinct `products` where ANY of its `product_batches` has `expiry_date` <= CURRENT_DATE + (CASE WHEN product.is_expired_sensitive THEN 30 ELSE 60 END). A product with no batches is not near-expiry (it is low-stock instead).
 
 (Write this as a clean PL/pgSQL function returning `json`).
 
