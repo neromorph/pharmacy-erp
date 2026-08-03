@@ -209,9 +209,42 @@ export class SalesService {
     return { sale, payment }
   }
 
-  // Mark a sale as VOID.
+  // Mark a paid sale as VOID and restore its stock to the batches.
+  // Only a PAID sale can be voided. Each sold item with a batch is returned
+  // to that batch's current_qty.
   async voidSale(id: string) {
     const supabase = this.getClient()
+
+    const { data: sale } = await supabase.from('sales').select('*').eq('id', id).single()
+    if (!sale) throw new NotFoundException(`Sale ${id} not found`)
+    if (sale.status !== 'PAID') {
+      throw new ConflictException('Only a PAID sale can be voided')
+    }
+
+    const { data: saleItems, error: itemErr } = await supabase
+      .from('sale_items')
+      .select('*')
+      .eq('sale_id', id)
+    if (itemErr) throw new InternalServerErrorException(itemErr.message)
+
+    // Restore each item's quantity to its allocated batch.
+    for (const item of saleItems) {
+      if (!item.product_batch_id) continue
+      const { data: batch, error: fErr } = await supabase
+        .from('product_batches')
+        .select('current_qty')
+        .eq('id', item.product_batch_id)
+        .single()
+      if (fErr) throw new InternalServerErrorException(fErr.message)
+
+      const newQty = Number(batch.current_qty) + Number(item.qty_sold)
+      const { error: bErr } = await supabase
+        .from('product_batches')
+        .update({ current_qty: newQty })
+        .eq('id', item.product_batch_id)
+      if (bErr) throw new InternalServerErrorException(bErr.message)
+    }
+
     const { data, error } = await supabase
       .from('sales')
       .update({ status: 'VOID' })
