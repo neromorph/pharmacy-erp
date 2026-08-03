@@ -75,3 +75,13 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Respect RLS: backend passes the user's JWT through; never use service_role in request paths
 - Tests: keep `pnpm -r test` + `pnpm -r build` green after every change
 - No git repo initialized yet — commits/skills that assume git will fail; `git init` when user asks
+
+## Agent skills
+
+### Issue tracker
+
+Issues, specs, and wayfinding maps live as markdown files in the Obsidian vault at `pharmacy-erp-vault/` in this repo. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` + `docs/adr/`. See `docs/agents/domain.md`.
