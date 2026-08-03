@@ -1,0 +1,28 @@
+:root {
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --surface: #f8fafc;
+  --card: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+main {
+  padding: 2rem;
+}
