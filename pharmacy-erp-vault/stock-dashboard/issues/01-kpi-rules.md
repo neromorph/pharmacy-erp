@@ -1,14 +1,17 @@
 # 01 Define the three KPI rules
 
 Type: grilling
-Status: open
+Status: claimed
 
-## Question
+Type: grilling
+Status: resolved
 
-What are the exact calculation rules for the dashboard's three KPIs?
+## Answer
 
-- Near-expiry: how many days before expiry counts as "near"? A sliding threshold or a fixed window (e.g. 30 days)?
-- Low stock: is a product low when `sum(product_batches.current_qty)` is below `products.min_stock_level`? What about products with no batch rows?
-- Daily sales: is "daily" the current calendar day (branch local timezone), counted from PAID sales only? Currency is IDR throughout.
+The three KPI rules are locked:
 
-Resolve each with a concrete rule the query layer can implement. Give one number or rule per KPI, not a range.
+1. **Near-expiry** (flag-aware): a product is near-expiry when any of its batches expires within **30 days** for `is_expired_sensitive=true` products, or **60 days** for others.
+2. **Low stock**: a product is low when `SUM(product_batches.current_qty) <= products.min_stock_level`. Any product with zero total stock (no batches) is always counted as low/out of stock.
+3. **Daily sales** (net, WIB): sum of PAID sales minus VOIDed sales for the day, using `sold_at`. Day boundary is the WIB (Asia/Jakarta, UTC+7) calendar day; the query must explicitly convert the UTC `sold_at` to `Asia/Jakarta` — never use UTC or server-local CURRENT_DATE.
+
+All amounts are IDR.

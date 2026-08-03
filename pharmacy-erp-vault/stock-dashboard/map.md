@@ -7,16 +7,15 @@ A dashboard that shows exactly three KPIs — daily sales, low stock, and near-e
 - Domain: pharmacy stock + sales analytics. Read `CONTEXT.md` and `AGENTS.md` first. Follow ASD-STE100 Simplified Technical English.
 - Skills: `/wayfinder`, `/grilling`, `/domain-modeling`. The web UI queries Supabase directly via the server client (NestJS API is not deployed — do not assume an API hop).
 - Drift rule: no `service_role` in request paths; RLS filters by JWT `app_metadata.tenant_id`.
-- Tracker: this vault. Format per `docs/agents/issue-tracker.md`.
+- Tracker: this vault. Format per `agents/issue-tracker.md`.
 
 ## Decisions so far
 
-<!-- one line per resolved ticket: gist + link -->
+- [01 Define the three KPI rules](issues/01-kpi-rules.md) — near-expiry: 30d flag-sensitive / 60d other; low-stock: total <= min_stock_level (zero-stock always flagged); daily sales: PAID minus VOID, WIB (Asia/Jakarta) calendar day, IDR.
 
 ## Not yet specified
 
-- The dashboard layout and how the three KPI cards are presented after their rules are set (graduates after 01 and 03).
-- Whether reception/opname shares a stock-tree query with the dashboard, or each runs its own query.
+- The dashboard layout and how the three KPI cards are presented, once their data shape is fixed by 01 and 03.
 
 ## Out of scope
 
