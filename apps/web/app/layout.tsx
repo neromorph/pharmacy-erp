@@ -16,6 +16,8 @@ const navLinks = [
   { href: '/procurement', label: 'Procurement' },
   { href: '/kartu-stok', label: 'Kartu Stok' },
   { href: '/stock-opname', label: 'Stock Opname' },
+  { href: '/doctors', label: 'Doctors' },
+  { href: '/patients', label: 'Patients' },
   { href: '/settings', label: 'Settings' },
 ]
 
