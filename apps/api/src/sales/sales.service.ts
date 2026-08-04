@@ -118,8 +118,10 @@ export class SalesService {
     if (itemErr) throw new InternalServerErrorException(itemErr.message)
 
     // Compute per-product quantities, then allocate batches per product.
+    // Parent compound rows (product_id null) never enter stock allocation.
     const perProduct = new Map<string, number>()
     for (const item of saleItems) {
+      if (!item.product_id) continue
       const key = item.product_id
       perProduct.set(key, (perProduct.get(key) || 0) + Number(item.qty_sold))
     }
@@ -194,6 +196,18 @@ export class SalesService {
     const grandTotal = subtotal - discountTotal + taxTotal
     const changeAmount = payDto.paid_amount - grandTotal
 
+    // Aggregate per-parent embalase fees into the sale total (Q3 locked).
+    const { data: parentItems, error: peErr } = await supabase
+      .from('sale_items')
+      .select('embalase_amount')
+      .eq('sale_id', id)
+      .is('parent_item_id', null)
+    if (peErr) throw new InternalServerErrorException(peErr.message)
+    const embalaseTotal = (parentItems || []).reduce(
+      (sum, it) => sum + Number(it.embalase_amount || 0),
+      0
+    )
+
     const { error: uErr } = await supabase
       .from('sales')
       .update({
@@ -201,6 +215,7 @@ export class SalesService {
         paid_amount: payDto.paid_amount,
         change_amount: changeAmount,
         grand_total: grandTotal,
+        embalase_amount: embalaseTotal,
         sold_at: new Date().toISOString(),
       })
       .eq('id', id)

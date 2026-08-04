@@ -4,6 +4,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { statusColors, parseDate } from '../status'
 import { getUserRole, canVoidSale } from '../../../utils/auth'
 import { listOpenShift } from '../../shifts/actions'
+import { perProductQuantities, sumEmbalase } from '../../../lib/compound'
 
 async function voidSaleAction(formData: FormData) {
   'use server'
@@ -89,11 +90,8 @@ async function paySale(formData: FormData) {
     .eq('sale_id', id)
 
   // FEFO allocation per product: oldest expiry first, then earliest created.
-  const perProduct = new Map<string, number>()
-  for (const item of saleItems || []) {
-    const key = item.product_id
-    perProduct.set(key, (perProduct.get(key) || 0) + Number(item.qty_sold))
-  }
+  // Parent compound rows (product_id null) never enter stock allocation.
+  const perProduct = perProductQuantities(saleItems || [])
 
   const allocated: Record<string, { product_batch_id: string; qty: number }[]> = {}
   for (const [productId, qtyNeeded] of perProduct.entries()) {
@@ -161,6 +159,9 @@ async function paySale(formData: FormData) {
   const grandTotal = Number(sale.grand_total)
   const changeAmount = paidAmount - grandTotal
 
+  // Aggregate per-parent embalase fees into the sale total (Q3 locked).
+  const embalaseTotal = sumEmbalase(saleItems || [])
+
   await supabase.from('sale_payments').insert([
     {
       tenant_id: tenantId,
@@ -176,6 +177,7 @@ async function paySale(formData: FormData) {
       status: 'PAID',
       paid_amount: paidAmount,
       change_amount: changeAmount,
+      embalase_amount: embalaseTotal,
       sold_at: new Date().toISOString(),
     })
     .eq('id', id)
