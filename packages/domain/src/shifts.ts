@@ -14,4 +14,5 @@ export interface ShiftRow {
   opened_at: string
   closed_at: string | null
   notes: string | null
+  cashier_name: string | null
 }

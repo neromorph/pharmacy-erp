@@ -71,6 +71,18 @@ async function paySale(formData: FormData) {
     return
   }
 
+  // Hard block: a draft sale may only be paid inside the cashier's own open shift.
+  const { data: openShift } = await supabase
+    .from('shifts')
+    .select('id')
+    .eq('user_id', user?.id)
+    .eq('status', 'OPEN')
+    .maybeSingle()
+  if (!openShift || sale.shift_id !== openShift.id) {
+    redirect(`/sales/${id}?error=No open shift for this sale`)
+    return
+  }
+
   const { data: saleItems } = await supabase
     .from('sale_items')
     .select('*')
@@ -190,8 +202,11 @@ export default async function SaleDetailPage({
     return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
   }
 
-  // Shift gate: draft sale without a shift cannot be paid — keep read-only.
-  const shiftMissing = sale.status === 'DRAFT' && !sale.shift_id && !openShift
+  // Shift gate: draft sale with no shift cannot be paid — keep read-only.
+  const shiftMissing = sale.status === 'DRAFT' && !sale.shift_id
+
+  // Pay only if a shift is open.
+  const canPay = sale.status === 'DRAFT' && !!openShift
 
   return (
     <section>
@@ -240,7 +255,7 @@ export default async function SaleDetailPage({
         )}
       </div>
 
-      {sale.status === 'DRAFT' && !shiftMissing && (
+      {sale.status === 'DRAFT' && canPay && (
         <form
           action={paySale}
           style={{
@@ -283,7 +298,7 @@ export default async function SaleDetailPage({
         </form>
       )}
 
-      {shiftMissing && (
+      {(shiftMissing || (sale.status === 'DRAFT' && !canPay)) && (
         <div
           style={{
             marginTop: 16,
@@ -297,7 +312,7 @@ export default async function SaleDetailPage({
           }}
         >
           <span style={{ fontSize: 14, color: '#ef4444' }}>
-            Cannot pay: no open shift. This draft sale has no associated shift.
+            Cannot pay: {shiftMissing ? 'this draft sale has no associated shift.' : 'no open shift.'}
           </span>
           <a
             href="/shifts/new"

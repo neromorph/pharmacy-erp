@@ -83,11 +83,19 @@ export default async function ShiftDetailPage({
   const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
   const variance = closing !== null ? closing - opening : null
 
-  // Cash summary from paid sales
+  // Total sales received in this shift (any payment method).
   const totalPaid = (sales || [])
     .filter((s) => s.status === 'PAID')
     .reduce((sum, s) => sum + Number(s.paid_amount || 0), 0)
-  const expectedClosing = opening + totalPaid
+
+  // Cash summary: expected closing = opening + cash sales only (map Q3).
+  const { data: cashPayments } = await supabase
+    .from('sale_payments')
+    .select('amount, sales!inner(shift_id)')
+    .eq('payment_method', 'CASH')
+    .eq('sales.shift_id', id)
+  const cashTotal = (cashPayments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+  const expectedClosing = opening + cashTotal
   const cashVariance = closing !== null ? closing - expectedClosing : null
 
   const isOwner = canForceCloseShift(role)

@@ -2,9 +2,13 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
 import { requireOpenShift } from '../../shifts/actions'
+import { ShiftRow } from '@pharmacy/domain'
 
 async function createDraftSale(formData: FormData) {
   'use server'
+  // Hard block: POS is only reachable with an open shift.
+  const openShift = await requireOpenShift()
+
   const productIds = formData.getAll('product_id') as string[]
   const qtys = formData.getAll('qty_sold') as string[]
   const prices = formData.getAll('unit_price') as string[]
@@ -34,6 +38,7 @@ async function createDraftSale(formData: FormData) {
         subtotal,
         grand_total: subtotal,
         cashier_id: user?.id,
+        shift_id: openShift.id,
       },
     ])
     .select()
@@ -143,7 +148,7 @@ export default async function NewSalePage({
   const error = params.error
 
   // Hard block: require open shift before POS is accessible.
-  let openShiftData: any
+  let openShiftData: ShiftRow | null = null
   try {
     openShiftData = await requireOpenShift()
   } catch {
@@ -157,6 +162,9 @@ export default async function NewSalePage({
       </section>
     )
   }
+
+  // Non-null here: requireOpenShift throws or we returned above.
+  const openShift = openShiftData as ShiftRow
 
   const supabase = await createClient()
   const { data: products } = await supabase
@@ -182,7 +190,7 @@ export default async function NewSalePage({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1 style={{ fontSize: 20, margin: 0 }}>New Sale</h1>
         <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Shift: {openShiftData.id.slice(0, 8)}… · Opened {parseDate(openShiftData.opened_at)}
+          Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
         </span>
       </div>
 

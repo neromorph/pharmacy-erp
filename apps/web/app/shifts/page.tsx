@@ -78,6 +78,9 @@ export default async function ShiftsPage() {
             <span style={badgeStyle(statusColors['OPEN'])}>OPEN</span>
           </div>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
+            Cashier: <strong>{currentShift.cashier_name || user?.email || '-'}</strong>
+          </p>
+          <p style={{ margin: '4px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
             Opened: {parseDate(currentShift.opened_at)}
           </p>
           <p style={{ margin: '4px 0', fontSize: 14 }}>
@@ -104,6 +107,7 @@ export default async function ShiftsPage() {
           <thead>
             <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
               <th style={thStyle}>Status</th>
+              <th style={thStyle}>Cashier</th>
               <th style={thStyle}>Opened</th>
               <th style={thStyle}>Closed</th>
               <th style={thStyle}>Opening Cash</th>
@@ -123,6 +127,7 @@ export default async function ShiftsPage() {
                   <td style={tdStyle}>
                     <span style={badgeStyle(statusColors[shift.status] || '#64748b')}>{shift.status}</span>
                   </td>
+                  <td style={tdStyle}>{shift.cashier_name || '—'}</td>
                   <td style={tdStyle}>{parseDate(shift.opened_at)}</td>
                   <td style={tdStyle}>{shift.closed_at ? parseDate(shift.closed_at) : '-'}</td>
                   <td style={tdStyle}>{opening.toFixed(2)}</td>

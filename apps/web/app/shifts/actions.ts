@@ -21,6 +21,11 @@ export async function openShift(formData: FormData) {
   const tenantId = user.app_metadata?.tenant_id
   if (!tenantId) throw new Error('No tenant context')
 
+  // Display name for the shift owner (auth.users is not queryable via PostgREST).
+  const userMeta = user.user_metadata as Record<string, unknown> | undefined
+  const cashierName =
+    (typeof userMeta?.name === 'string' && userMeta.name.trim()) || user.email || null
+
   // Reject if user already has an open shift.
   const { data: existing } = await supabase
     .from('shifts')
@@ -37,6 +42,7 @@ export async function openShift(formData: FormData) {
     status: 'OPEN',
     opening_cash: openingCash,
     notes,
+    cashier_name: cashierName,
   })
 
   if (error) throw new Error(error.message)
