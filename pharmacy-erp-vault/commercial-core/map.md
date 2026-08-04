@@ -27,7 +27,7 @@ Ship the P0+P1 "commercially deployable core" end-to-end: **Shift Management**, 
 ## Not yet specified
 
 - [Regulatory report content resolved](issues/01-bpom-report-content.md) — monthly Narkotika/Psikotropika/Prekursor/OOT reports, due by the 10th, APJ-signed; SIPNAP columns = Saldo Awal / Pemasukan / Pengeluaran / Status Pemusnahan / Saldo Akhir; Kartu Stok mandated by Permenkes 73/2016.
-- **Kartu Stok filter surface** — exact filters (product, batch, date range, movement type) and whether the ledger view is batch-level or product-level.
+- [Kartu Stok surface resolved](issues/02-kartu-stok-surface.md) — batch-level ledger, product-grouped default view; running balance column; four movement types IN/OUT/ADJUSTMENT/VOID; opening anchor = first approved opname; filters = product + date range + regulatory category; fresh tenants get an empty-state prompt to run the initial opname.
 - **Receipt data wiring** — which fields flow onto the thermal receipt (store profile, SIA/SIPA via `tenants`).
 - **Shift POS blocking UX** — the exact rule for "no active shift → can the POS open?" and how a mid-shift staff change is handled.
 
