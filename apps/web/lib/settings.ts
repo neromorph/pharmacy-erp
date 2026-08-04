@@ -26,8 +26,12 @@ export function buildTenantPatch(input: {
   receipt_footer: string | null
 } {
   const trim = (v: string) => (v.trim() ? v.trim() : null)
+  const name = input.name.trim()
+  if (!name) {
+    throw new Error('Tenant name is required')
+  }
   return {
-    name: input.name.trim(),
+    name,
     address: trim(input.address),
     phone: trim(input.phone),
     sia_number: trim(input.sia_number),

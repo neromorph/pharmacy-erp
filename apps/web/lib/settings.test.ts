@@ -38,6 +38,19 @@ describe('buildTenantPatch', () => {
     expect(patch.sia_number).toBe('SIA-001')
     expect(patch.sipa_number).toBeNull()
   })
+
+  it('rejects empty tenant name', () => {
+    expect(() =>
+      buildTenantPatch({
+        name: '   ',
+        address: '',
+        phone: '',
+        sia_number: '',
+        sipa_number: '',
+        receipt_footer: '',
+      })
+    ).toThrow('Tenant name is required')
+  })
 })
 
 describe('logoPath', () => {
