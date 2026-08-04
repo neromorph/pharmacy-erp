@@ -23,13 +23,13 @@ Ship the P0+P1 "commercially deployable core" end-to-end: **Shift Management**, 
 - [Client-side export](issues/) — SheetJS `xlsx` + print-to-PDF; no server-side file generation.
 - [Store profile = columns on `tenants`; logo in Storage bucket](issues/) — `tenants.logo_url` + tenant-scoped storage RLS.
 - [Self-close + owner force-close; no auto-close](issues/) — cashier closes own shift; owner can force-close any; stays open across midnight.
+- [Regulatory report content resolved](issues/01-bpom-report-content.md) — monthly Narkotika/Psikotropika/Prekursor/OOT reports, due by the 10th, APJ-signed; SIPNAP columns = Saldo Awal / Pemasukan / Pengeluaran / Status Pemusnahan / Saldo Akhir; Kartu Stok mandated by Permenkes 73/2016.
+- [Kartu Stok surface resolved](issues/02-kartu-stok-surface.md) — batch-level ledger, product-grouped default view; running balance column; four movement types IN/OUT/ADJUSTMENT/VOID; opening anchor = first approved opname; filters = product + date range + regulatory category; fresh tenants get an empty-state prompt to run the initial opname.
+- [Shift blocking resolved](issues/03-shift-blocking.md) — hard block when no open shift; one shift per cashier; opening cash required; draft sale blocks shift close; staff change means close old shift and open new shift.
 
 ## Not yet specified
 
-- [Regulatory report content resolved](issues/01-bpom-report-content.md) — monthly Narkotika/Psikotropika/Prekursor/OOT reports, due by the 10th, APJ-signed; SIPNAP columns = Saldo Awal / Pemasukan / Pengeluaran / Status Pemusnahan / Saldo Akhir; Kartu Stok mandated by Permenkes 73/2016.
-- [Kartu Stok surface resolved](issues/02-kartu-stok-surface.md) — batch-level ledger, product-grouped default view; running balance column; four movement types IN/OUT/ADJUSTMENT/VOID; opening anchor = first approved opname; filters = product + date range + regulatory category; fresh tenants get an empty-state prompt to run the initial opname.
 - **Receipt data wiring** — which fields flow onto the thermal receipt (store profile, SIA/SIPA via `tenants`).
-- **Shift POS blocking UX** — the exact rule for "no active shift → can the POS open?" and how a mid-shift staff change is handled.
 
 ## Out of scope
 
