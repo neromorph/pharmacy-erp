@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '../../utils/supabase/server'
 import { getKartuStokRows } from './actions'
-import { buildKartuStokRows, formatKartuStokMovement } from '../../lib/kartu-stok'
+import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../lib/kartu-stok'
 
 const thStyle: React.CSSProperties = {
   padding: '8px 12px',
@@ -14,13 +14,14 @@ const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
 
 // Build a query string that preserves active filters and sets the view.
 function viewQuery(
-  filters: { q?: string; date_from?: string; date_to?: string },
+  filters: { q?: string; date_from?: string; date_to?: string; regulatory_category?: string },
   view: string
 ): string {
   const params = new URLSearchParams()
   if (filters.q) params.set('q', filters.q)
   if (filters.date_from) params.set('date_from', filters.date_from)
   if (filters.date_to) params.set('date_to', filters.date_to)
+  if (filters.regulatory_category) params.set('regulatory_category', filters.regulatory_category)
   params.set('view', view)
   return params.toString()
 }
@@ -43,7 +44,7 @@ function parseDate(value: string | null | undefined): string {
 }
 
 interface PageProps {
-  searchParams: Promise<{ q?: string; date_from?: string; date_to?: string; view?: string }>
+  searchParams: Promise<{ q?: string; date_from?: string; date_to?: string; regulatory_category?: string; view?: string }>
 }
 
 export default async function KartuStokPage({ searchParams }: PageProps) {
@@ -52,6 +53,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
     q: params.q,
     date_from: params.date_from,
     date_to: params.date_to,
+    regulatory_category: params.regulatory_category,
   }
   const view = params.view === 'batch' ? 'batch' : 'product'
 
@@ -216,7 +218,26 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
             }}
           />
         </div>
-        {/* TODO: regulatory_category filter — requires products.regulatory_category column (future task) */}
+        {/* Regulatory category filter — requires products.regulatory_category column */}
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
+          <select
+            name="regulatory_category"
+            defaultValue={filters.regulatory_category ?? ''}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              fontSize: 14,
+              background: 'var(--surface)',
+            }}
+          >
+            <option value="">All</option>
+            {REGULATORY_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
         <div>
           <button
             type="submit"
@@ -233,7 +254,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
             Filter
           </button>
         </div>
-        {filters.q || filters.date_from || filters.date_to ? (
+        {filters.q || filters.date_from || filters.date_to || filters.regulatory_category ? (
           <div>
             <a
               href="/kartu-stok"

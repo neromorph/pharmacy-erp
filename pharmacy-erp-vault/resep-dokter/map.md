@@ -1,0 +1,35 @@
+# Map: Resep Dokter & Obat Racikan
+
+## Destination
+
+Upgrade the POS from a retail engine to a clinical pharmacy engine: **prescriptions (Resep) and compounded preparations (Racikan) as first-class sales**. One map, one destination. Accounts Payable and SIPNAP reporting are out of scope for this map.
+
+The POS, Cart, and Inventory engine mutate to handle clinical realities: fractional dosage, compound packaging, prescription metadata, and legal drug-category gates.
+
+## Notes
+
+- **Tracker**: this vault. Format per `pharmacy-erp-vault/agents/issue-tracker.md`.
+- **Domain**: pharmacy clinical + Indonesian regulatory compliance. Read `CONTEXT.md` and `AGENTS.md` first. ASD-STE100 in all output.
+- **Skills**: `/wayfinder`, `/grilling`, `/domain-modeling`, `/prototype`, `/research`. Web queries Supabase directly via the server client.
+- **Destination framing**: Path B (Resep & Racikan) was picked over Path A (AP) and Path C (SIPNAP) because compounding and prescriptions are the *daily clinical spine* a pharmacy cannot run without, and the deepest schema mutation (fractional + compound) benefits most from wayfinding. Path A and C remain out of scope.
+
+## Decisions so far
+
+- [Fractional stock: hybrid rule](issues/) — universal `NUMERIC(14,3)` engine already in place; new `products.allow_fractional BOOLEAN DEFAULT FALSE`. Solids (tablets/capsules/blisters) = integer at POS. Liquids/topicals (syrups/creams) = decimal. Racikan context bypasses the integer guard for split doses (0.5 / 0.333 tablets).
+- [Racikan cart: Parent/Child bundle](issues/) — one parent `sale_items` row = dispensed dosage units + compound price; child rows (`parent_item_id` FK, `unit_price = 0`, `product_id` non-null) carry exact ingredient quantities for FEFO deduction. Receipt shows parent with collapsible ingredients; patient receipt hides children.
+- [Service fees: per-parent embalase + transaction tuslah](issues/) — `sale_items.embalase_amount` on parent rows (per-compound packaging), aggregated into `sales.embalase_amount`. `sales.tuslah_amount` for the dispensing fee. Both `NUMERIC(18,2) NOT NULL DEFAULT 0`.
+- [Prescription metadata: twin-track OTC/RESEP](issues/) — `sales.sale_type` enum `OTC`/`RESEP`. Relational `doctors` + `patients` tables. OTC bypasses metadata. RESEP requires doctor/patient.
+- [Two-tiered gate model](issues/) — separated prescription gate from compliance gate: `BEBAS`/`BEBAS_TERBATAS` = OTC or RESEP (no metadata); `KERAS` = RESEP-only auto-flip (doctor + patient soft-prompt, address optional); `PSIKOTROPIKA`/`NARKOTIKA` = RESEP-only auto-flip + hard gate (doctor + patient + patient address required before PAID). Mirrors Permenkes.
+- [`regulatory_category` brought into scope as prerequisite](issues/) — `products.regulatory_category` column (BEBAS/BEBAS_TERBATAS/KERAS/PSIKOTROPIKA/NARKOTIKA, default BEBAS) gates the auto-flip. Unblocks the existing Kartu Stok regulatory filter TODO.
+- [DDL refinements](issues/) — `uuid_generate_v4()` to match existing migrations; `ON DELETE SET NULL` on `sales.doctor_id`/`sales.patient_id`; DB CHECK `(parent_item_id IS NULL OR embalase_amount = 0)` on `sale_items`; `product_id` nullable on `sale_items` for parent rows.
+
+## Not yet specified
+
+- [Tuslah & Embalase valuation resolved](issues/01-tuslah-embalase-valuation) — no fixed price in regulation; facility policy per IAI ethics. Tenant sets default Tuslah (flat per RESEP sale) + default Embalase per preparation form; cashier-adjustable. Embalase per-parent matches practice. BPJS/JKN sales must zero both fees (SE 031/XI/2014) — future edge, out of scope.
+
+## Out of scope
+
+- Accounts Payable / hutang PBF — separate follow-up effort.
+- SIPNAP compliance *reporting* — separate follow-up effort. This map only lays the data (`regulatory_category`, doctors/patients) it needs.
+- Hardware printer driver code — superseded by `window.print()` decision.
+- Multi-branch, SATUSEHAT, full OOT dosing rules — later phases.

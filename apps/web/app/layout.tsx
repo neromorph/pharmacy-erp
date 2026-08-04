@@ -11,6 +11,7 @@ const navLinks = [
   { href: '/', label: 'Dashboard' },
   { href: '/shifts', label: 'Shifts' },
   { href: '/sales', label: 'Sales' },
+  { href: '/products', label: 'Products' },
   { href: '/suppliers', label: 'Suppliers' },
   { href: '/procurement', label: 'Procurement' },
   { href: '/kartu-stok', label: 'Kartu Stok' },

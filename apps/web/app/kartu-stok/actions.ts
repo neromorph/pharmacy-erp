@@ -7,7 +7,7 @@ export interface KartuStokFilters {
   q?: string
   date_from?: string
   date_to?: string
-  // TODO: regulatory_category filter — requires products.regulatory_category column (future task)
+  regulatory_category?: string
 }
 
 export async function getKartuStokFilters(): Promise<KartuStokFilters> {
@@ -19,15 +19,24 @@ export async function getKartuStokFilters(): Promise<KartuStokFilters> {
 async function resolveProductIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   tenantId: string,
-  q: string | undefined
+  q: string | undefined,
+  regulatoryCategory: string | undefined
 ): Promise<string[] | null> {
-  if (!q || !q.trim()) return null
-  const term = q.trim()
-  const { data } = await supabase
+  let query = supabase
     .from('products')
     .select('id')
     .eq('tenant_id', tenantId)
-    .or(`name.ilike.%${term}%,sku.ilike.%${term}%`)
+
+  if (q && q.trim()) {
+    const term = q.trim()
+    query = query.or(`name.ilike.%${term}%,sku.ilike.%${term}%`)
+  }
+  if (regulatoryCategory) {
+    query = query.eq('regulatory_category', regulatoryCategory)
+  }
+  if (!q && !regulatoryCategory) return null
+
+  const { data } = await query
   if (!data || data.length === 0) return []
   return data.map((p) => p.id)
 }
@@ -40,8 +49,9 @@ export async function getKartuStokRows(filters: KartuStokFilters = {}): Promise<
   const tenantId = user.app_metadata?.tenant_id as string | undefined
   if (!tenantId) return { rows: [], hasAnchor: false }
 
-  // Free-text product search resolves to ids; empty match means no rows.
-  const productIds = await resolveProductIds(supabase, tenantId, filters.q)
+  // Free-text product search and regulatory category resolve to ids; an empty
+  // match means no rows.
+  const productIds = await resolveProductIds(supabase, tenantId, filters.q, filters.regulatory_category)
   if (productIds && productIds.length === 0) {
     return { rows: [], hasAnchor: true }
   }

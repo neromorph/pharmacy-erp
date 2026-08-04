@@ -1,5 +1,13 @@
 // Kartu Stok — pure helpers for derived stock ledger rows.
 
+export const REGULATORY_CATEGORIES = [
+  'BEBAS',
+  'BEBAS_TERBATAS',
+  'KERAS',
+  'PSIKOTROPIKA',
+  'NARKOTIKA',
+] as const
+
 export type KartuStokMovementType = 'IN' | 'OUT' | 'ADJUSTMENT' | 'VOID'
 
 export interface KartuStokRow {
