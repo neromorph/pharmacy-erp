@@ -57,7 +57,7 @@ export default async function ReceiptPage({
   const { data: { user } } = await supabase.auth.getUser()
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
   const { data: tenant } = tenantId
-    ? await supabase.from('tenants').select('id, name').eq('id', tenantId).single()
+    ? await supabase.from('tenants').select('id, name, address, phone, sia_number, sipa_number, logo_url, receipt_footer').eq('id', tenantId).single()
     : { data: null }
 
   // Cashier display name comes from the sale's shift (auth.users is not
@@ -111,11 +111,28 @@ export default async function ReceiptPage({
         >
           {/* Store header */}
           <div style={{ textAlign: 'center', marginBottom: 8 }}>
+            {tenant?.logo_url && (
+              <img
+                src={tenant.logo_url}
+                alt="Store logo"
+                style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }}
+              />
+            )}
             <strong style={{ fontSize: 14, display: 'block' }}>
               {tenant?.name ?? 'TOKO FARMASI'}
             </strong>
-            {/* TODO: add address, phone when tenants table has those columns */}
-            <span style={{ fontSize: 11 }} />
+            {tenant?.address && (
+              <span style={{ fontSize: 10 }}>{tenant.address}</span>
+            )}
+            {tenant?.phone && (
+              <span style={{ fontSize: 10, display: 'block' }}>{tenant.phone}</span>
+            )}
+            {tenant?.sia_number && (
+              <span style={{ fontSize: 10 }}>SIA: {tenant.sia_number}</span>
+            )}
+            {tenant?.sipa_number && (
+              <span style={{ fontSize: 10, display: 'block' }}>SIPA: {tenant.sipa_number}</span>
+            )}
           </div>
 
           <div style={{ textAlign: 'center', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '4px 0', marginBottom: 8 }}>
@@ -212,7 +229,11 @@ export default async function ReceiptPage({
           <div style={{ textAlign: 'center', fontSize: 10 }}>
             Terima kasih atas kunjungan Anda
           </div>
-          {/* TODO: add tenants.receipt_footer when column exists */}
+          {tenant?.receipt_footer && (
+            <div style={{ textAlign: 'center', fontSize: 9, marginTop: 4, color: '#666' }}>
+              {tenant.receipt_footer}
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 16 }} className="no-print">

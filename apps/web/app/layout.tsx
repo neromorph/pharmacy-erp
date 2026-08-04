@@ -15,6 +15,7 @@ const navLinks = [
   { href: '/procurement', label: 'Procurement' },
   { href: '/kartu-stok', label: 'Kartu Stok' },
   { href: '/stock-opname', label: 'Stock Opname' },
+  { href: '/settings', label: 'Settings' },
 ]
 
 export default function RootLayout({
