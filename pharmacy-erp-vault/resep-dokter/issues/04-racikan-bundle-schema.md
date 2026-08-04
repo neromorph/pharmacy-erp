@@ -1,7 +1,7 @@
 # 04 Racikan bundle schema and FEFO guards
 
 Type: task
-Status: 
+Status: resolved
 
 ## Question
 
@@ -20,3 +20,7 @@ Mutate `sale_items` to support parent/child compound bundles and add the FEFO al
 - DB CHECK rejects a child row that carries embalase.
 
 Blocked by: none
+
+## Answer
+
+Resolved in session. Migration `20260804000006_racikan_bundle_schema.sql` makes `sale_items.product_id` nullable, adds `parent_item_id` self-FK (ON DELETE CASCADE), `embalase_amount` default 0, and `check_child_no_embalase` (parent_item_id IS NULL OR embalase_amount = 0). Applied to remote; the CHECK was verified functionally — parent row with embalase 3000 accepted, child row with embalase 500 rejected. Pay/void flows (web `apps/web/app/sales/[id]/page.tsx` + API `sales.service.ts`) now skip parent rows in FEFO allocation via a `product_id IS NOT NULL` guard and aggregate parent embalase into `sales.embalase_amount` at pay; void already skipped null-batch rows. Pure helpers `perProductQuantities` + `sumEmbalase` in `apps/web/lib/compound.ts` with unit tests (web 33/33, api 6/6, all builds green). Commit `b313869`, both containers deployed and healthy.

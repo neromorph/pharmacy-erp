@@ -15,6 +15,8 @@ The POS, Cart, and Inventory engine mutate to handle clinical realities: fractio
 
 ## Decisions so far
 
+- [Racikan bundle schema resolved](issues/04-racikan-bundle-schema.md) — `sale_items.product_id` nullable, `parent_item_id` self-FK, `embalase_amount`, `check_child_no_embalase` landed (migration `20260804000006`, CHECK verified live). Pay/void FEFO skips parent rows; pay aggregates parent embalase into `sales.embalase_amount`. Helpers + unit tests in `apps/web/lib/compound.ts`.
+
 - [Prescription master data resolved](issues/03-prescription-master-data.md) — `doctors`/`patients` tables + `sales.sale_type` (OTC/RESEP) + `sales.doctor_id`/`patient_id` (SET NULL) + `tuslah_amount`/`embalase_amount` landed (migration `20260804000005`, applied + live-verified). `/doctors` + `/patients` OWNER-gated CRUD pages. Cart pick-or-create UI ships with ticket 05.
 
 - [Product classification + fractional flags resolved](issues/02-product-classification.md) — `products.allow_fractional` + `products.regulatory_category` landed (migration `20260804000004`, applied + live-verified). New `/products` master-data page (create/edit, OWNER/PHARMACIST/INVENTORY). Kartu Stok Regulatory Category filter now functional.
