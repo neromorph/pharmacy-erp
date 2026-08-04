@@ -7,10 +7,12 @@
     "dev": "pnpm -r dev",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "provision": "tsx scripts/provision-tenant.ts"
+    "provision": "tsx scripts/provision-tenant.ts",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.111.0",
+    "husky": "^9.1.7",
     "tsx": "^4.23.1"
   }
 }

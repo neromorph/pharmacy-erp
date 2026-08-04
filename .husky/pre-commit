@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+# Pre-commit: pnpm audit + trivy scan.
+# Fail the commit on HIGH or CRITICAL vulnerabilities.
+
+set -e
+
+echo "==> pnpm audit"
+pnpm audit --prod --audit-level high
+
+echo "==> trivy scan (pnpm-lock.yaml)"
+trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 pnpm-lock.yaml
