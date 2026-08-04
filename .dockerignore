@@ -1,0 +1,21 @@
+# Local build artifacts — never ship into the image build context.
+node_modules
+**/node_modules
+**/.next
+**/dist
+**/coverage
+
+# Secrets — build args are the only channel for values.
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Repo operational files not needed by the build.
+.git
+.gitignore
+.husky
+pharmacy-erp-vault
+docs
+.pi-subagents
+.superpowers
+*.log

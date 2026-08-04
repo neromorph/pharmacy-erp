@@ -1,0 +1,52 @@
+# Pharmacy ERP — web frontend (Next.js, standalone build) in a nonroot
+# distroless container. Runs against the self-hosted Supabase API.
+# Served through the VPS Traefik (network traefik_web, Cloudflare TLS).
+#
+# Build-time: NEXT_PUBLIC_SUPABASE_* are inlined into the client bundle.
+# Runtime:    the Supabase server client reads the same vars from env.
+# Secrets live in .env (VPS-side), never committed.
+
+networks:
+  traefik_web:
+    external: true
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    image: pharmacy-erp-web:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      # Keep the build-time NEXT_PUBLIC_* for the server client; the
+      # .env file also supplies them, but this is an explicit guard.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    networks:
+      - traefik_web
+    labels:
+      - "traefik.docker.network=traefik_web"
+      - "traefik.enable=true"
+      - "traefik.http.routers.pharmacy-web.entrypoints=websecure"
+      - "traefik.http.routers.pharmacy-web.rule=Host(`pharmacy.nmrooms.biz.id`)"
+      - "traefik.http.routers.pharmacy-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.pharmacy-web.loadbalancer.server.port=3000"
+    # Health probe uses Node itself — distroless has no curl/wget.
+    # / redirects to login (307) for anonymous users, which is healthy.
+    healthcheck:
+      test:
+        - CMD
+        - /nodejs/bin/node
+        - -e
+        - "fetch('http://localhost:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
