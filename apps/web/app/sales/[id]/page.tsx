@@ -329,6 +329,25 @@ export default async function SaleDetailPage({
         </div>
       )}
 
+      {sale.status === 'PAID' && (
+        <div style={{ marginTop: 16 }}>
+          <Link
+            href={`/receipts/${sale.id}`}
+            style={{
+              display: 'inline-block',
+              background: 'var(--primary)',
+              color: '#fff',
+              padding: '8px 16px',
+              borderRadius: 6,
+              textDecoration: 'none',
+              fontSize: 14,
+            }}
+          >
+            Cetak Struk
+          </Link>
+        </div>
+      )}
+
       {sale.status === 'PAID' && canVoidSale(userRole) && (
         <form action={voidSaleAction} style={{ marginTop: 16 }}>
           <input type="hidden" name="sale_id" value={sale.id} />
