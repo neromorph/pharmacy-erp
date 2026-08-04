@@ -4,6 +4,11 @@
 
 set -e
 
+if ! command -v trivy >/dev/null 2>&1; then
+  echo "ERROR: trivy is not installed. Install it with: brew install trivy"
+  exit 1
+fi
+
 echo "==> pnpm audit"
 pnpm audit --prod --audit-level high
 
