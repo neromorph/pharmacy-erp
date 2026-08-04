@@ -29,7 +29,7 @@ Ship the P0+P1 "commercially deployable core" end-to-end: **Shift Management**, 
 
 ## Not yet specified
 
-- **Receipt data wiring** — which fields flow onto the thermal receipt (store profile, SIA/SIPA via `tenants`).
+- [Receipt data wiring resolved](issues/04-receipt-data.md) — source of truth = `tenants`; header = store identity + SIA/SIPA + logo; body = invoice/date/cashier/items/totals/payment; footer policy prints by default and hides when empty.
 
 ## Out of scope
 
