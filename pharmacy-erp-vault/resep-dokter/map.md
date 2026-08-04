@@ -15,6 +15,8 @@ The POS, Cart, and Inventory engine mutate to handle clinical realities: fractio
 
 ## Decisions so far
 
+- [Product classification + fractional flags resolved](issues/02-product-classification.md) — `products.allow_fractional` + `products.regulatory_category` landed (migration `20260804000004`, applied + live-verified). New `/products` master-data page (create/edit, OWNER/PHARMACIST/INVENTORY). Kartu Stok Regulatory Category filter now functional.
+
 - [Fractional stock: hybrid rule](issues/) — universal `NUMERIC(14,3)` engine already in place; new `products.allow_fractional BOOLEAN DEFAULT FALSE`. Solids (tablets/capsules/blisters) = integer at POS. Liquids/topicals (syrups/creams) = decimal. Racikan context bypasses the integer guard for split doses (0.5 / 0.333 tablets).
 - [Racikan cart: Parent/Child bundle](issues/) — one parent `sale_items` row = dispensed dosage units + compound price; child rows (`parent_item_id` FK, `unit_price = 0`, `product_id` non-null) carry exact ingredient quantities for FEFO deduction. Receipt shows parent with collapsible ingredients; patient receipt hides children.
 - [Service fees: per-parent embalase + transaction tuslah](issues/) — `sale_items.embalase_amount` on parent rows (per-compound packaging), aggregated into `sales.embalase_amount`. `sales.tuslah_amount` for the dispensing fee. Both `NUMERIC(18,2) NOT NULL DEFAULT 0`.
