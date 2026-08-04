@@ -36,8 +36,8 @@ export function buildKartuStokRows(items: KartuStokRaw[]): KartuStokRow[] {
 }
 
 export function movementSign(type: KartuStokMovementType): number {
-  if (type === 'IN' || type === 'ADJUSTMENT') return 1
-  return -1 // OUT and VOID both subtract from balance
+  if (type === 'OUT') return -1 // sale reduces stock
+  return 1 // IN, ADJUSTMENT, VOID increase stock (VOID restores a sale)
 }
 
 export function formatKartuStokMovement(type: KartuStokMovementType): string {

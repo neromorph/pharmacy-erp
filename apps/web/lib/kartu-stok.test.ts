@@ -22,7 +22,7 @@ describe('kartu stok helpers', () => {
     expect(movementSign('IN')).toBe(1)
     expect(movementSign('OUT')).toBe(-1)
     expect(movementSign('ADJUSTMENT')).toBe(1)
-    expect(movementSign('VOID')).toBe(-1)
+    expect(movementSign('VOID')).toBe(1) // void restores stock
   })
 
   it('formats movement types', () => {

@@ -12,6 +12,19 @@ const thStyle: React.CSSProperties = {
 }
 const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
 
+// Build a query string that preserves active filters and sets the view.
+function viewQuery(
+  filters: { q?: string; date_from?: string; date_to?: string },
+  view: string
+): string {
+  const params = new URLSearchParams()
+  if (filters.q) params.set('q', filters.q)
+  if (filters.date_from) params.set('date_from', filters.date_from)
+  if (filters.date_to) params.set('date_to', filters.date_to)
+  params.set('view', view)
+  return params.toString()
+}
+
 function typeColor(type: string): string {
   switch (type) {
     case 'IN': return '#0d9488'
@@ -30,16 +43,17 @@ function parseDate(value: string | null | undefined): string {
 }
 
 interface PageProps {
-  searchParams: Promise<{ product_id?: string; date_from?: string; date_to?: string }>
+  searchParams: Promise<{ q?: string; date_from?: string; date_to?: string; view?: string }>
 }
 
 export default async function KartuStokPage({ searchParams }: PageProps) {
   const params = await searchParams
   const filters = {
-    product_id: params.product_id,
+    q: params.q,
     date_from: params.date_from,
     date_to: params.date_to,
   }
+  const view = params.view === 'batch' ? 'batch' : 'product'
 
   const supabase = await createClient()
 
@@ -100,7 +114,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
   }
 
   // Load data
-  const { rows: rawRows, hasAnchor: anchorOk } = await getKartuStokRows(filters)
+  const { rows: rawRows } = await getKartuStokRows(filters)
   const rows = buildKartuStokRows(rawRows)
 
   // Load products for display names
@@ -110,11 +124,25 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
     .order('name', { ascending: true })
   const productMap = new Map((products || []).map((p: any) => [p.id, p.name]))
 
-  // Group rows by product_id
+  // Group rows by product_id; within a product, optionally by batch.
   const grouped: Record<string, typeof rows> = {}
   for (const row of rows) {
     if (!grouped[row.product_id]) grouped[row.product_id] = []
     grouped[row.product_id].push(row)
+  }
+
+  // Batch sub-groups per product (used in batch view).
+  const batchesByProduct: Record<string, Record<string, typeof rows>> = {}
+  if (view === 'batch') {
+    for (const [productId, productRows] of Object.entries(grouped)) {
+      const byBatch: Record<string, typeof rows> = {}
+      for (const row of productRows) {
+        const key = row.batch_number || '(no batch)'
+        if (!byBatch[key]) byBatch[key] = []
+        byBatch[key].push(row)
+      }
+      batchesByProduct[productId] = byBatch
+    }
   }
 
   return (
@@ -145,9 +173,9 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
           <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Product</label>
           <input
             type="text"
-            name="product_id"
-            defaultValue={filters.product_id ?? ''}
-            placeholder="Product name or ID"
+            name="q"
+            defaultValue={filters.q ?? ''}
+            placeholder="Search by product name or SKU"
             style={{
               padding: '6px 12px',
               borderRadius: 6,
@@ -205,7 +233,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
             Filter
           </button>
         </div>
-        {filters.product_id || filters.date_from || filters.date_to ? (
+        {filters.q || filters.date_from || filters.date_to ? (
           <div>
             <a
               href="/kartu-stok"
@@ -220,6 +248,38 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
           </div>
         ) : null}
       </form>
+
+      {/* View toggle: product-grouped (default) or batch-grouped */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <a
+          href={`/kartu-stok?${viewQuery(filters, 'product')}`}
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            fontSize: 13,
+            textDecoration: 'none',
+            background: view === 'product' ? 'var(--primary)' : 'var(--card)',
+            color: view === 'product' ? '#fff' : 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          By Product
+        </a>
+        <a
+          href={`/kartu-stok?${viewQuery(filters, 'batch')}`}
+          style={{
+            padding: '6px 14px',
+            borderRadius: 6,
+            fontSize: 13,
+            textDecoration: 'none',
+            background: view === 'batch' ? 'var(--primary)' : 'var(--card)',
+            color: view === 'batch' ? '#fff' : 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          By Batch
+        </a>
+      </div>
 
       {/* Table */}
       {rows.length === 0 ? (
@@ -246,51 +306,115 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                 </span>
               </div>
 
-              {/* Rows for this product */}
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface)' }}>
-                    <th style={thStyle}>Date</th>
-                    <th style={thStyle}>Type</th>
-                    <th style={thStyle}>Batch</th>
-                    <th style={thStyle}>Expiry</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
-                    <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productRows.map((row, i) => (
-                    <tr
-                      key={`${row.source_id}-${i}`}
-                      style={{ borderTop: '1px solid var(--border)' }}
-                    >
-                      <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
-                      <td style={tdStyle}>
-                        <span
-                          style={{
-                            background: typeColor(row.type),
-                            color: '#fff',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            padding: '2px 8px',
-                            borderRadius: 4,
-                          }}
-                        >
-                          {formatKartuStokMovement(row.type)}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>{row.batch_number || '-'}</td>
-                      <td style={tdStyle}>{row.expiry_date ?? '-'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        {row.qty > 0 ? `+${row.qty}` : row.qty}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
-                        {row.balance.toFixed(3)}
-                      </td>
-                    </tr>
+              {/* Batch sub-groups (batch view) */}
+              {view === 'batch' && (
+                <div>
+                  {Object.entries(batchesByProduct[productId] || {}).map(([batchKey, batchRows]) => (
+                    <div key={batchKey}>
+                      <div
+                        style={{
+                          padding: '6px 16px',
+                          background: 'var(--surface)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: 'var(--text-secondary)',
+                          borderTop: '1px solid var(--border)',
+                        }}
+                      >
+                        Batch: {batchKey}
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: 'var(--surface)' }}>
+                            <th style={thStyle}>Date</th>
+                            <th style={thStyle}>Type</th>
+                            <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
+                            <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {batchRows.map((row, i) => (
+                            <tr
+                              key={`${row.source_id}-${i}`}
+                              style={{ borderTop: '1px solid var(--border)' }}
+                            >
+                              <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
+                              <td style={tdStyle}>
+                                <span
+                                  style={{
+                                    background: typeColor(row.type),
+                                    color: '#fff',
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    padding: '2px 8px',
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {formatKartuStokMovement(row.type)}
+                                </span>
+                              </td>
+                              <td style={{ ...tdStyle, textAlign: 'right' }}>
+                                {row.qty > 0 ? `+${row.qty}` : row.qty}
+                              </td>
+                              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                                {row.balance.toFixed(3)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              )}
+
+              {/* Flat rows (product view) */}
+              {view !== 'batch' && (
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface)' }}>
+                      <th style={thStyle}>Date</th>
+                      <th style={thStyle}>Type</th>
+                      <th style={thStyle}>Batch</th>
+                      <th style={thStyle}>Expiry</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {productRows.map((row, i) => (
+                      <tr
+                        key={`${row.source_id}-${i}`}
+                        style={{ borderTop: '1px solid var(--border)' }}
+                      >
+                        <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
+                        <td style={tdStyle}>
+                          <span
+                            style={{
+                              background: typeColor(row.type),
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: 4,
+                            }}
+                          >
+                            {formatKartuStokMovement(row.type)}
+                          </span>
+                        </td>
+                        <td style={tdStyle}>{row.batch_number || '-'}</td>
+                        <td style={tdStyle}>{row.expiry_date ?? '-'}</td>
+                        <td style={{ ...tdStyle, textAlign: 'right' }}>
+                          {row.qty > 0 ? `+${row.qty}` : row.qty}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                          {row.balance.toFixed(3)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           ))}
         </div>
