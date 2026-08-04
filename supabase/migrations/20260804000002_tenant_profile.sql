@@ -9,8 +9,10 @@ ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS logo_url TEXT;
 ALTER TABLE public.tenants ADD COLUMN IF NOT EXISTS receipt_footer TEXT;
 
 -- Storage bucket for tenant logos.
+-- Public bucket: logo URLs must load in the browser (receipt/settings) without
+-- signed tokens. Upload RLS policies below still gate API-level writes per tenant.
 INSERT INTO storage.buckets (id, name, public)
-    VALUES ('tenant-logos', 'Tenant Logos', false)
+    VALUES ('tenant-logos', 'Tenant Logos', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- RLS: only the tenant that owns the file can read/write it.

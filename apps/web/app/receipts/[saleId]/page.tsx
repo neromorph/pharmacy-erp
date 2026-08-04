@@ -141,7 +141,6 @@ export default async function ReceiptPage({
 
           {/* Invoice info */}
           <div style={{ fontSize: 11 }}>
-            {/* TODO: add sia_number, sipa_number when tenants table has those columns */}
             <div>No: {sale.sale_number}</div>
             <div>Tanggal: {parseDate(sale.sold_at || sale.created_at)}</div>
             {cashierName && <div>Kasir: {cashierName}</div>}
