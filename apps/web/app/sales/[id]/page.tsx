@@ -196,7 +196,9 @@ export default async function SaleDetailPage({
   const openShift = await listOpenShift()
   const { data: sale } = await supabase
     .from('sales')
-    .select('*, sale_items (*, products (name, sku)), sale_payments (*)')
+    .select(
+      '*, sale_items (*, products (name, sku)), sale_payments (*), doctors (name, sip_number), patients (name, address)'
+    )
     .eq('id', id)
     .single()
 
@@ -218,8 +220,15 @@ export default async function SaleDetailPage({
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         <h1 style={{ fontSize: 20, margin: '0' }}>{sale.sale_number}</h1>
         <span style={badgeStyle(statusColors[sale.status] || '#64748b')}>{sale.status}</span>
+        <span style={badgeStyle(sale.sale_type === 'RESEP' ? '#8b5cf6' : '#0d9488')}>{sale.sale_type}</span>
       </div>
       <p style={{ color: 'var(--text-secondary)' }}>Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
+      {sale.sale_type === 'RESEP' && (
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
+          {sale.patients?.name || '-'}
+        </p>
+      )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
         <thead>
@@ -234,12 +243,18 @@ export default async function SaleDetailPage({
         </thead>
         <tbody>
           {(sale.sale_items || []).map((it: any) => (
-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={tdStyle}>{it.products?.name || it.product_id}</td>
+            <tr key={it.id} style={{ borderTop: '1px solid var(--border)', background: it.parent_item_id ? '#f8fafc' : undefined }}>
+              <td style={{ ...tdStyle, paddingLeft: it.parent_item_id ? 28 : 12 }}>
+                {it.parent_item_id ? '↳ ' : ''}
+                {it.item_name || it.products?.name || it.product_id}
+              </td>
               <td style={tdStyle}>{it.batch_number || '-'}</td>
               <td style={tdStyle}>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</td>
               <td style={tdStyle}>{it.qty_sold}</td>
-              <td style={tdStyle}>{Number(it.unit_price).toFixed(2)}</td>
+              <td style={tdStyle}>
+                {Number(it.unit_price).toFixed(2)}
+                {it.embalase_amount && Number(it.embalase_amount) > 0 ? ` + emb ${Number(it.embalase_amount).toFixed(2)}` : ''}
+              </td>
               <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
             </tr>
           ))}
