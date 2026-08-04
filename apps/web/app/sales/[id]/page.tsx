@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
 import { statusColors, parseDate } from '../status'
 import { getUserRole, canVoidSale } from '../../../utils/auth'
+import { listOpenShift } from '../../shifts/actions'
 
 async function voidSaleAction(formData: FormData) {
   'use server'
@@ -178,6 +179,7 @@ export default async function SaleDetailPage({
   const { id } = await params
   const supabase = await createClient()
   const userRole = await getUserRole(supabase)
+  const openShift = await listOpenShift()
   const { data: sale } = await supabase
     .from('sales')
     .select('*, sale_items (*, products (name, sku)), sale_payments (*)')
@@ -187,6 +189,9 @@ export default async function SaleDetailPage({
   if (!sale) {
     return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
   }
+
+  // Shift gate: draft sale without a shift cannot be paid — keep read-only.
+  const shiftMissing = sale.status === 'DRAFT' && !sale.shift_id && !openShift
 
   return (
     <section>
@@ -235,7 +240,7 @@ export default async function SaleDetailPage({
         )}
       </div>
 
-      {sale.status === 'DRAFT' && (
+      {sale.status === 'DRAFT' && !shiftMissing && (
         <form
           action={paySale}
           style={{
@@ -276,6 +281,37 @@ export default async function SaleDetailPage({
             Complete Sale (Paid)
           </button>
         </form>
+      )}
+
+      {shiftMissing && (
+        <div
+          style={{
+            marginTop: 16,
+            background: '#fef2f2',
+            border: '1px solid #fca5a5',
+            borderRadius: 8,
+            padding: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 14, color: '#ef4444' }}>
+            Cannot pay: no open shift. This draft sale has no associated shift.
+          </span>
+          <a
+            href="/shifts/new"
+            style={{
+              color: 'var(--primary)',
+              fontSize: 13,
+              whiteSpace: 'nowrap',
+              textDecoration: 'none',
+              fontWeight: 500,
+            }}
+          >
+            Open Shift →
+          </a>
+        </div>
       )}
 
       {sale.status === 'PAID' && canVoidSale(userRole) && (

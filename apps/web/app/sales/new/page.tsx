@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../utils/supabase/server'
+import { requireOpenShift } from '../../shifts/actions'
 
 async function createDraftSale(formData: FormData) {
   'use server'
@@ -61,7 +62,102 @@ async function createDraftSale(formData: FormData) {
   redirect(`/sales/${sale.id}`)
 }
 
-export default async function NewSalePage() {
+// POS blocked when no shift is open.
+async function PosBlock() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 320,
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        padding: 32,
+        textAlign: 'center',
+      }}
+    >
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>No Open Shift</h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '0 0 20px' }}>
+        Open a shift before you can start a sale.
+      </p>
+      <Link
+        href="/shifts/new"
+        style={{
+          background: 'var(--primary)',
+          color: '#fff',
+          padding: '10px 20px',
+          borderRadius: 6,
+          textDecoration: 'none',
+          fontSize: 14,
+          fontWeight: 500,
+        }}
+      >
+        Open Shift
+      </Link>
+    </div>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  fontSize: 14,
+  background: '#fff',
+}
+
+const miniTh: React.CSSProperties = {
+  padding: '6px 8px',
+  fontSize: 11,
+  fontWeight: 600,
+  borderBottom: '1px solid var(--border)',
+}
+
+const miniTd: React.CSSProperties = {
+  padding: '6px 8px',
+  fontSize: 12,
+}
+
+function parseDate(value: string | null): string {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleDateString()
+}
+
+export default async function NewSalePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>
+}) {
+  const params = await searchParams
+  const error = params.error
+
+  // Hard block: require open shift before POS is accessible.
+  let openShiftData: any
+  try {
+    openShiftData = await requireOpenShift()
+  } catch {
+    return (
+      <section style={{ maxWidth: 480 }}>
+        <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+          Back to Sales
+        </Link>
+        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Sale</h1>
+        <PosBlock />
+      </section>
+    )
+  }
+
   const supabase = await createClient()
   const { data: products } = await supabase
     .from('products')
@@ -83,7 +179,18 @@ export default async function NewSalePage() {
       <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
         Back to Sales
       </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Sale</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <h1 style={{ fontSize: 20, margin: 0 }}>New Sale</h1>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+          Shift: {openShiftData.id.slice(0, 8)}… · Opened {parseDate(openShiftData.opened_at)}
+        </span>
+      </div>
+
+      {error && (
+        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+          {error}
+        </p>
+      )}
 
       <form
         action={createDraftSale}
@@ -153,32 +260,4 @@ export default async function NewSalePage() {
       </form>
     </section>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
-}
-
-const miniTh: React.CSSProperties = {
-  padding: '6px 8px',
-  fontSize: 11,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const miniTd: React.CSSProperties = {
-  padding: '6px 8px',
-  fontSize: 12,
-}
-
-function parseDate(value: string | null): string {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString()
 }
