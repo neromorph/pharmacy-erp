@@ -5,6 +5,7 @@ import { statusColors, parseDate } from '../status'
 import { getUserRole, canVoidSale } from '../../../utils/auth'
 import { listOpenShift } from '../../shifts/actions'
 import { perProductQuantities, sumEmbalase } from '../../../lib/compound'
+import { updateSaleClinicalInfo } from './actions'
 
 async function voidSaleAction(formData: FormData) {
   'use server'
@@ -202,6 +203,11 @@ export default async function SaleDetailPage({
     .eq('id', id)
     .single()
 
+  const [doctorListRes, patientListRes] = await Promise.all([
+    supabase.from('doctors').select('id, name, sip_number').order('name', { ascending: true }),
+    supabase.from('patients').select('id, name, address').order('name', { ascending: true }),
+  ])
+
   if (!sale) {
     return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
   }
@@ -372,6 +378,60 @@ export default async function SaleDetailPage({
             Cetak Struk
           </Link>
         </div>
+      )}
+
+      {sale.status === 'PAID' && sale.sale_type === 'RESEP' && canVoidSale(userRole) && (
+        <form
+          action={updateSaleClinicalInfo}
+          style={{
+            background: 'var(--card)',
+            padding: 16,
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            marginTop: 16,
+            maxWidth: 480,
+          }}
+        >
+          <h3 style={{ fontSize: 14, margin: '0 0 8px' }}>Edit Prescription Info</h3>
+          <input type="hidden" name="sale_id" value={sale.id} />
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Doctor</label>
+            <select name="doctor_id" defaultValue={sale.doctor_id || ''} style={inputStyle}>
+              <option value="">-</option>
+              {(doctorListRes.data || []).map((d: any) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                  {d.sip_number ? ` (${d.sip_number})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Patient</label>
+            <select name="patient_id" defaultValue={sale.patient_id || ''} style={inputStyle}>
+              <option value="">-</option>
+              {(patientListRes.data || []).map((p: any) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {p.address ? ` (${p.address})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="submit"
+            style={{
+              background: 'var(--primary)',
+              color: '#fff',
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+            }}
+          >
+            Save
+          </button>
+        </form>
       )}
 
       {sale.status === 'PAID' && canVoidSale(userRole) && (
