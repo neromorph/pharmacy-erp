@@ -33,11 +33,12 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 
 ### Next plan (phase order)
 
-Done: procurement, POS (sales), stock, dashboard, prescriptions + racikan, accounts payable v1 (all live).
+Done: procurement, POS (sales), stock, dashboard, prescriptions + racikan, accounts payable v1, SIPNAP v1 (all live). SIPNAP: `get_sipnap_report` RPC + `sipnap_exports` audit table on remote; `/reports/sipnap` page (month picker, inbox, CSV download); fix-metadata form on `/sales/[id]`; plan `docs/superpowers/plans/2026-08-05-sipnap-reporting.md`, map `pharmacy-erp-vault/sipnap-reporting/map.md` (all tickets resolved).
 
-1. **SIPNAP Reporting** — charted map `pharmacy-erp-vault/sipnap-reporting/map.md` (all 4 tickets resolved: monthly export, Narkotika+Psikotropika, hard-block validation, inbox UI, idempotent export + `sipnap_exports` audit row). Plan in `docs/superpowers/plans/` pending.
-2. **Accounts Payable (hutang PBF)** — v1 done; possible v2: retur pembelian, aging report, supplier statement.
-3. Later: multi-branch, SATUSEHAT, BPJS/JKN zero-fee rule for Tuslah/Embalase (SE 031/XI/2014).
+1. **Deploy web app to VPS domain** — next before more features. Browser E2E is blocked until features are live on a VPS domain (`localhost` is rejected by browser automation).
+2. **Accounts Payable v2** — retur pembelian, aging report, supplier statement.
+3. **SIPNAP v2** — Pemusnahan status, harder checks (IN/HB), export history screen.
+4. Later: multi-branch, SATUSEHAT, BPJS/JKN zero-fee rule for Tuslah/Embalase (SE 031/XI/2014).
 
 ## Commands
 
