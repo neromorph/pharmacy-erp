@@ -1,7 +1,7 @@
 # 06 Receipt regeneration for clinical sales
 
 Type: task
-Status: 
+Status: claimed
 
 ## Question
 

@@ -12,6 +12,8 @@ function receiptCss(width: string): string {
     .receipt-print, .receipt-print * { visibility: visible; }
     .receipt-print { position: fixed; top: 0; left: 0; width: ${mm}; }
     .no-print { display: none !important; }
+    /* Ingredient lists collapse to just the summary on print (e.g. "3 bahan"). */
+    .receipt-print details > :not(summary) { display: none !important; }
   }
 `
 }
@@ -45,7 +47,7 @@ export default async function ReceiptPage({
   const { data: sale } = await supabase
     .from('sales')
     .select(
-      '*, sale_items(*, products(name, sku)), sale_payments(*)'
+      '*, sale_items(*, products(name, sku)), sale_payments(*), doctors(name, sip_number), patients(name, address)'
     )
     .eq('id', saleId)
     .single()
@@ -75,6 +77,18 @@ export default async function ReceiptPage({
   const items = sale.sale_items || []
   const payments = sale.sale_payments || []
   const tender = formatReceiptTender(payments, Number(sale.grand_total))
+
+  // Group children under their parent compound row. Parents carry item_name
+  // and the compound price; children carry the real product and qty consumed.
+  const childByParent = new Map<string, any[]>()
+  for (const it of items) {
+    if (it.parent_item_id) {
+      const list = childByParent.get(it.parent_item_id) || []
+      list.push(it)
+      childByParent.set(it.parent_item_id, list)
+    }
+  }
+  const parentItems = items.filter((it: any) => !it.parent_item_id)
 
   return (
     <>
@@ -144,26 +158,62 @@ export default async function ReceiptPage({
             <div>No: {sale.sale_number}</div>
             <div>Tanggal: {parseDate(sale.sold_at || sale.created_at)}</div>
             {cashierName && <div>Kasir: {cashierName}</div>}
+            {sale.sale_type === 'RESEP' && (
+              <>
+                {sale.doctors && (
+                  <div>
+                    Dokter: {sale.doctors.name}
+                    {sale.doctors.sip_number ? ` (${sale.doctors.sip_number})` : ''}
+                  </div>
+                )}
+                {sale.patients && <div>Pasien: {sale.patients.name}</div>}
+              </>
+            )}
           </div>
 
           <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '4px 0', margin: '8px 0' }} />
 
-          {/* Line items */}
+          {/* Line items. Parent compound rows show price; ingredients are
+              collapsible on screen and hidden on print. */}
           <div style={{ fontSize: 11 }}>
-            {items.map((it: any) => (
-              <div key={it.id} style={{ marginBottom: 6 }}>
-                <div style={{ fontWeight: 600 }}>
-                  {it.products?.name ?? it.product_id}
+            {parentItems.map((it: any) => {
+              const children = childByParent.get(it.id) || []
+              return (
+                <div key={it.id} style={{ marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600 }}>
+                    {it.item_name || it.products?.name || it.product_id}
+                  </div>
+                  <div style={{ color: '#555', fontSize: 10 }}>
+                    {it.qty_sold} x {formatRupiah(Number(it.unit_price))}
+                    {Number(it.embalase_amount) > 0
+                      ? ` + Emb ${formatRupiah(Number(it.embalase_amount))}`
+                      : ''}
+                  </div>
+                  <div style={{ textAlign: 'right', fontWeight: 600 }}>
+                    {formatRupiah(Number(it.line_total))}
+                  </div>
+                  {children.length > 0 && (
+                    <details>
+                      <summary style={{ fontSize: 10, color: '#555', cursor: 'pointer' }}>
+                        {children.length} bahan
+                      </summary>
+                      <div style={{ marginTop: 2, paddingLeft: 8, borderLeft: '1px solid #ddd' }}>
+                        {children.map((ch: any) => (
+                          <div key={ch.id} style={{ marginBottom: 3 }}>
+                            <div>
+                              {ch.products?.name ?? ch.product_id}
+                            </div>
+                            <div style={{ color: '#555', fontSize: 10 }}>
+                              {ch.qty_sold} x {formatRupiah(Number(ch.unit_price || 0))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                 </div>
-                <div style={{ color: '#555', fontSize: 10 }}>
-                  {it.qty_sold} x {formatRupiah(Number(it.unit_price))}
-                  {it.batch_number ? ` | Batch: ${it.batch_number}` : ''}
-                </div>
-                <div style={{ textAlign: 'right', fontWeight: 600 }}>
-                  {formatRupiah(Number(it.line_total))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           <div style={{ borderTop: '1px dashed #000', padding: '4px 0', marginTop: 8 }} />
@@ -174,6 +224,18 @@ export default async function ReceiptPage({
               <span>Subtotal</span>
               <span>{formatRupiah(Number(sale.subtotal || 0))}</span>
             </div>
+            {Number(sale.embalase_amount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Embalase</span>
+                <span>{formatRupiah(Number(sale.embalase_amount))}</span>
+              </div>
+            )}
+            {Number(sale.tuslah_amount || 0) > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Tuslah</span>
+                <span>{formatRupiah(Number(sale.tuslah_amount))}</span>
+              </div>
+            )}
             {Number(sale.discount_total || 0) > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span>Diskon</span>

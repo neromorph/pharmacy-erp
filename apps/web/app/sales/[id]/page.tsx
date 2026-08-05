@@ -263,6 +263,15 @@ export default async function SaleDetailPage({
 
       <div style={{ marginTop: 16, textAlign: 'right' }}>
         <p style={{ margin: 0, fontSize: 14 }}>
+          Subtotal: {Number(sale.subtotal).toFixed(2)}
+          {Number(sale.embalase_amount || 0) > 0 && (
+            <> • Emb: {Number(sale.embalase_amount).toFixed(2)}</>
+          )}
+          {Number(sale.tuslah_amount || 0) > 0 && (
+            <> • Tuslah: {Number(sale.tuslah_amount).toFixed(2)}</>
+          )}
+        </p>
+        <p style={{ margin: 0, fontSize: 14 }}>
           Grand Total: <strong>{Number(sale.grand_total).toFixed(2)}</strong>
         </p>
         {sale.status === 'PAID' && (
