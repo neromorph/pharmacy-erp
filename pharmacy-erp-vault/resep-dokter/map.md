@@ -15,6 +15,8 @@ The POS, Cart, and Inventory engine mutate to handle clinical realities: fractio
 
 ## Decisions so far
 
+- [POS cart: racikan builder + two-tiered gate resolved](issues/05-pos-racikan-gate.md) — interactive cart (`cart-builder.tsx` + server actions): dynamic item rows, racikan compound builder (parent + per-dose ingredients), fractional entry per `allow_fractional`, KERAS/narcotic auto-flip to RESEP with doctor/patient pick-or-create, narcotic hard gate requires patient address. `sale_items.item_name` added (migration `20260804000007`). Live-verified both flows end-to-end.
+
 - [Racikan bundle schema resolved](issues/04-racikan-bundle-schema.md) — `sale_items.product_id` nullable, `parent_item_id` self-FK, `embalase_amount`, `check_child_no_embalase` landed (migration `20260804000006`, CHECK verified live). Pay/void FEFO skips parent rows; pay aggregates parent embalase into `sales.embalase_amount`. Helpers + unit tests in `apps/web/lib/compound.ts`.
 
 - [Prescription master data resolved](issues/03-prescription-master-data.md) — `doctors`/`patients` tables + `sales.sale_type` (OTC/RESEP) + `sales.doctor_id`/`patient_id` (SET NULL) + `tuslah_amount`/`embalase_amount` landed (migration `20260804000005`, applied + live-verified). `/doctors` + `/patients` OWNER-gated CRUD pages. Cart pick-or-create UI ships with ticket 05.
