@@ -34,11 +34,11 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 ### Next plan (phase order)
 
 Done: procurement, POS (sales), stock, dashboard, prescriptions + racikan, accounts payable v1, SIPNAP v1 (all live). SIPNAP: `get_sipnap_report` RPC + `sipnap_exports` audit table on remote; `/reports/sipnap` page (month picker, inbox, CSV download); fix-metadata form on `/sales/[id]`; plan `docs/superpowers/plans/2026-08-05-sipnap-reporting.md`, map `pharmacy-erp-vault/sipnap-reporting/map.md` (all tickets resolved).
+- **Web app deployed to VPS**: live at `https://pharmacy.nmrooms.biz.id` (Traefik + Cloudflare, Docker image `pharmacy-erp-web:latest`, compose in `~/pharmacy-erp/compose.yaml` on VPS). Deploy = `rsync -az --delete --exclude node_modules --exclude .next --exclude .env --exclude .git ./ mufid@100.119.164.5:~/pharmacy-erp/` then `docker compose up -d --build web` on the VPS. NestJS API image built but not routed. Browser E2E via firecrawl interact on the domain (login → payables payout flow verified live: UNPAID→PARTIAL→PAID; SIPNAP page renders).
 
-1. **Deploy web app to VPS domain** — next before more features. Browser E2E is blocked until features are live on a VPS domain (`localhost` is rejected by browser automation).
-2. **Accounts Payable v2** — retur pembelian, aging report, supplier statement.
-3. **SIPNAP v2** — Pemusnahan status, harder checks (IN/HB), export history screen.
-4. Later: multi-branch, SATUSEHAT, BPJS/JKN zero-fee rule for Tuslah/Embalase (SE 031/XI/2014).
+1. **Accounts Payable v2** — retur pembelian, aging report, supplier statement.
+2. **SIPNAP v2** — Pemusnahan status, harder checks (IN/HB), export history screen.
+3. Later: multi-branch, SATUSEHAT, BPJS/JKN zero-fee rule for Tuslah/Embalase (SE 031/XI/2014).
 
 ## Commands
 
