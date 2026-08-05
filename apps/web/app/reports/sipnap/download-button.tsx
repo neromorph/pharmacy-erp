@@ -1,10 +1,17 @@
 'use client'
 
 import { buildSipnapCsv, type SipnapReport } from '../../../lib/sipnap'
+import { recordSipnapExport } from './actions'
 
-// Download the report as CSV. The server records the audit row separately.
+// Download the report as CSV and record the export in the audit trail.
 export function DownloadButton({ report }: { report: SipnapReport }) {
-  function download() {
+  async function download() {
+    await recordSipnapExport({
+      month: report.month,
+      year: report.year,
+      transactionCount: report.transactions.length,
+      productCount: report.products.length,
+    })
     const blob = new Blob([buildSipnapCsv(report)], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
