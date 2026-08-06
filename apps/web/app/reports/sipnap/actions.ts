@@ -6,8 +6,8 @@ import { buildSipnapV2Csv, type SipnapV2Report } from '../../../lib/sipnap-v2'
 
 // Store the exact export CSV in the private sipnap-archives bucket and record
 // the audit row. Re-download always serves the stored file, never a recompute.
-// The DB payload (csv) is kept as a fallback for rows created while the bucket
-// was broken (storage-api < 1.68.7 on this deployment).
+// The DB payload (csv) is kept as a fallback for rows recorded while the bucket
+// was broken (GLOBAL_S3_BUCKET unset on the VPS made every key absolute).
 export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: boolean }> {
   const supabase = await createClient()
   const {
