@@ -15,6 +15,7 @@ function fields(formData: FormData) {
     address: String(formData.get('address') || '').trim() || null,
     phone: String(formData.get('phone') || '').trim() || null,
     birth_date: birth ? new Date(birth).toISOString().slice(0, 10) : null,
+    bpjs_number: String(formData.get('bpjs_number') || '').trim() || null,
   }
 }
 

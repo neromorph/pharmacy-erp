@@ -71,6 +71,10 @@ export default async function PatientsPage() {
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
               <input name="birth_date" type="date" style={fieldStyle} />
             </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
+              <input name="bpjs_number" placeholder="e.g. 0001234567890" style={fieldStyle} />
+            </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>
                 Add Patient
@@ -90,6 +94,7 @@ export default async function PatientsPage() {
               <th style={thStyle}>Address</th>
               <th style={thStyle}>Phone</th>
               <th style={thStyle}>Birth Date</th>
+              <th style={thStyle}>No. Peserta BPJS</th>
               {isOwner ? <th style={thStyle}></th> : null}
             </tr>
           </thead>
@@ -100,6 +105,7 @@ export default async function PatientsPage() {
                 <td style={tdStyle}>{p.address || '-'}</td>
                 <td style={tdStyle}>{p.phone || '-'}</td>
                 <td style={tdStyle}>{fmtDate(p.birth_date)}</td>
+                <td style={tdStyle}>{p.bpjs_number || '-'}</td>
                 {isOwner ? (
                   <td style={tdStyle}>
                     <details>
@@ -121,6 +127,10 @@ export default async function PatientsPage() {
                         <div>
                           <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
                           <input name="birth_date" type="date" defaultValue={p.birth_date ?? ''} style={fieldStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
+                          <input name="bpjs_number" defaultValue={p.bpjs_number ?? ''} style={fieldStyle} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                           <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>Save</button>
