@@ -22,7 +22,10 @@ export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: 
 
   const { error: upErr } = await supabase.storage
     .from('sipnap-archives')
-    .upload(fileName, csv, { contentType: 'text/csv' })
+    .upload(fileName, new Blob([csv], { type: 'text/csv' }), {
+      contentType: 'text/csv',
+      upsert: true,
+    })
   if (upErr) throw new Error(upErr.message)
 
   const { error } = await supabase.from('sipnap_exports').insert({
