@@ -28,6 +28,7 @@ function enrich(formData: FormData) {
       | 'KERAS'
       | 'PSIKOTROPIKA'
       | 'NARKOTIKA',
+    kfa_code: String(formData.get('kfa_code') || '').trim() || null,
   }
 }
 

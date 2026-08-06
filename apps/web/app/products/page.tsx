@@ -104,6 +104,11 @@ export default async function ProductsPage() {
                 Allow decimals
               </label>
             </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
+              <input name="kfa_code" placeholder="e.g. 93000515" style={fieldStyle} />
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' }}>SATUSEHAT: products without KFA are skipped from submission.</p>
+            </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <button
                 type="submit"
@@ -128,6 +133,7 @@ export default async function ProductsPage() {
               <th style={thStyle}>Min Stock</th>
               <th style={thStyle}>Rack</th>
               <th style={thStyle}>Fractional</th>
+              <th style={thStyle}>KFA</th>
             </tr>
           </thead>
           <tbody>
@@ -142,6 +148,7 @@ export default async function ProductsPage() {
                 <td style={tdStyle}>{p.min_stock_level}</td>
                 <td style={tdStyle}>{p.rack_location || '-'}</td>
                 <td style={tdStyle}>{p.allow_fractional ? 'Yes' : 'No'}</td>
+                <td style={tdStyle}>{p.kfa_code || <span style={{ color: '#d97706' }}>none</span>}</td>
                 {canEdit ? (
                   <td style={tdStyle}>
                     <details>
@@ -184,6 +191,10 @@ export default async function ProductsPage() {
                             <input type="checkbox" name="allow_fractional" defaultChecked={p.allow_fractional} />
                             Allow decimals
                           </label>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
+                          <input name="kfa_code" defaultValue={p.kfa_code ?? ''} placeholder="e.g. 93000515" style={fieldStyle} />
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                           <button
