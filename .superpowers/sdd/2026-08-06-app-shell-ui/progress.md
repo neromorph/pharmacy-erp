@@ -36,3 +36,6 @@
 ## Runs
 - Worker model: opencode/deepseek-v4-flash-free (fallback 9router/free:high)
 - Reviewer model: 9router/kimi (user directive)
+
+
+CLOSED (+hotfix): staff sync trigger broke gotrue login (SECURITY INVOKER + unscoped trigger → applied 20260806000007 SECURITY DEFINER + INSERT/UPDATE OF metadata columns; commit follows hotfix HEAD). DB anomaly: suppliers/sales/AP/submissions zeroed + satusehat_submission_queue table missing — external reset after 15:47 UTC, not from this SDD pipe; flagged to user.
