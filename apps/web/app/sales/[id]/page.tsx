@@ -6,6 +6,14 @@ import { getUserRole, canVoidSale } from '../../../utils/auth'
 import { listOpenShift } from '../../shifts/actions'
 import { perProductQuantities, sumEmbalase } from '../../../lib/compound'
 import { updateSaleClinicalInfo } from './actions'
+import { retrySatusehatSubmission } from './satusehat-actions'
+
+const satusehatStatusColor: Record<string, string> = {
+  PENDING: '#d97706',
+  SENT: '#16a34a',
+  FAILED: '#dc2626',
+  SKIPPED: '#64748b',
+}
 
 async function voidSaleAction(formData: FormData) {
   'use server'
@@ -208,6 +216,13 @@ export default async function SaleDetailPage({
     supabase.from('patients').select('id, name, address, bpjs_number').order('name', { ascending: true }),
   ])
 
+  // SATUSEHAT submission row for this sale (RLS scopes it to the tenant).
+  const { data: satusehatSubmission } = await supabase
+    .from('satusehat_submissions')
+    .select('status, last_error, sent_at')
+    .eq('sale_id', id)
+    .maybeSingle()
+
   if (!sale) {
     return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
   }
@@ -247,6 +262,54 @@ export default async function SaleDetailPage({
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
           Facility: {sale.patients?.name || '-'}
         </p>
+      )}
+
+      {satusehatSubmission && (
+        <div
+          style={{
+            marginTop: 16,
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            padding: 12,
+            maxWidth: 480,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={badgeStyle(satusehatStatusColor[satusehatSubmission.status] || '#64748b')}>
+              SATUSEHAT: {satusehatSubmission.status}
+            </span>
+            {satusehatSubmission.sent_at && (
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                Sent: {parseDate(satusehatSubmission.sent_at)}
+              </span>
+            )}
+          </div>
+          {satusehatSubmission.last_error && (
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+              {satusehatSubmission.last_error}
+            </p>
+          )}
+          {satusehatSubmission.status === 'FAILED' &&
+            (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
+              <form action={retrySatusehatSubmission.bind(null, sale.id)} style={{ marginTop: 8 }}>
+                <button
+                  type="submit"
+                  style={{
+                    background: 'transparent',
+                    color: 'var(--primary)',
+                    padding: '4px 12px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry
+                </button>
+              </form>
+            )}
+        </div>
       )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
