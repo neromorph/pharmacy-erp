@@ -4,7 +4,7 @@
   "packageManager": "pnpm@11.18.0",
   "scripts": {
     "build": "pnpm -r build",
-    "dev": "pnpm -r dev",
+    "dev": "pnpm -r --parallel dev",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
     "provision": "tsx scripts/provision-tenant.ts",
