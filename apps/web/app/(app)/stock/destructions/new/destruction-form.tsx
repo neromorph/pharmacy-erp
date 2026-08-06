@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { createDestruction } from './actions'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export interface DestructionBatch {
   id: string
@@ -23,14 +26,8 @@ interface ItemRow {
   qty: string
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
-}
+const selectClass =
+  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export function DestructionForm({
   products,
@@ -60,29 +57,29 @@ export function DestructionForm({
   return (
     <form
       action={createDestruction}
-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+      className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
     >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>BAP Number</label>
-          <input name="bap_number" required placeholder="BAP-2608-001" style={inputStyle} />
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
+        <div className="grid gap-1.5">
+          <Label htmlFor="bap_number">BAP Number</Label>
+          <Input id="bap_number" name="bap_number" required placeholder="BAP-2608-001" />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>BAP Date</label>
-          <input name="bap_date" type="date" required style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="bap_date">BAP Date</Label>
+          <Input id="bap_date" name="bap_date" type="date" required />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Witness Names</label>
-          <input
+        <div className="grid gap-1.5">
+          <Label htmlFor="witness_names">Witness Names</Label>
+          <Input
+            id="witness_names"
             name="witness_names"
             required
             placeholder="Names of BPOM/Dinkes witnesses"
-            style={inputStyle}
           />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Reason</label>
-          <select name="reason" required style={inputStyle} defaultValue="">
+        <div className="grid gap-1.5">
+          <Label htmlFor="reason">Reason</Label>
+          <select name="reason" required className={selectClass} defaultValue="">
             <option value="" disabled>
               Select reason
             </option>
@@ -90,33 +87,26 @@ export function DestructionForm({
             <option value="DAMAGED">Damaged</option>
           </select>
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Notes</label>
-          <input name="notes" placeholder="Optional" style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="notes">Notes</Label>
+          <Input id="notes" name="notes" placeholder="Optional" />
         </div>
       </div>
 
-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
-      <div style={{ display: 'grid', gap: 12 }}>
+      <h2 className="mt-6 mb-3 text-base font-medium text-slate-900">Items</h2>
+      <div className="grid gap-3">
         {rows.map((row, index) => (
           <div
             key={index}
-            style={{
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: 12,
-              display: 'grid',
-              gridTemplateColumns: '2fr 1.5fr 1fr auto',
-              gap: 8,
-              alignItems: 'end',
-            }}
+            className="grid items-end gap-x-3 gap-y-2 rounded-lg border border-border/60 p-3 sm:grid-cols-[2fr_1.5fr_1fr_auto]"
           >
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
+            <div className="grid gap-1.5">
+              <Label htmlFor={`product-${index}`}>Product</Label>
               <select
+                id={`product-${index}`}
                 value={row.productId}
                 required
-                style={inputStyle}
+                className={selectClass}
                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
               >
                 <option value="" disabled>
@@ -129,13 +119,14 @@ export function DestructionForm({
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
+            <div className="grid gap-1.5">
+              <Label htmlFor={`batch-${index}`}>Batch</Label>
               <select
+                id={`batch-${index}`}
                 name="batch_id"
                 value={row.batchId}
                 required
-                style={inputStyle}
+                className={selectClass}
                 disabled={!row.productId}
                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
               >
@@ -149,71 +140,37 @@ export function DestructionForm({
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty Destroyed</label>
-              <input
+            <div className="grid gap-1.5">
+              <Label htmlFor={`qty-${index}`}>Qty Destroyed</Label>
+              <Input
+                id={`qty-${index}`}
                 name="qty_destroyed"
                 type="number"
                 step="0.001"
                 min="0.001"
                 required
                 value={row.qty}
-                style={inputStyle}
                 onChange={(e) => updateRow(index, { qty: e.target.value })}
               />
             </div>
             <div>
-              <button
-                type="button"
-                onClick={() => removeRow(index)}
-                style={{
-                  background: 'transparent',
-                  color: 'var(--danger)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  padding: '8px 10px',
-                  cursor: 'pointer',
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => removeRow(index)}>
                 Remove
-              </button>
+              </Button>
             </div>
             <input type="hidden" name="product_id" value={row.productId} />
           </div>
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={addRow}
-        style={{
-          marginTop: 12,
-          background: 'transparent',
-          color: 'var(--primary)',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          padding: '8px 16px',
-          cursor: 'pointer',
-        }}
-      >
-        Add Item
-      </button>
-
-      <button
-        type="submit"
-        style={{
-          marginTop: 16,
-          marginLeft: 12,
-          background: 'var(--primary)',
-          color: '#fff',
-          padding: '8px 16px',
-          border: 'none',
-          borderRadius: 6,
-          cursor: 'pointer',
-        }}
-      >
-        Create Destruction
-      </button>
+      <div className="mt-4 flex gap-2">
+        <Button type="button" variant="outline" onClick={addRow}>
+          Add Item
+        </Button>
+        <Button type="submit">
+          Create Destruction
+        </Button>
+      </div>
     </form>
   )
 }

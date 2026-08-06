@@ -2,12 +2,22 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
 import { getUserRole, canApproveOpname } from '../../../../utils/auth'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-const statusColors: Record<string, string> = {
-  DRAFT: '#64748b',
-  PENDING_APPROVAL: '#f59e0b',
-  APPROVED: '#0d9488',
-  CANCELLED: '#ef4444',
+const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  DRAFT: 'secondary',
+  PENDING_APPROVAL: 'outline',
+  APPROVED: 'default',
+  CANCELLED: 'destructive',
 }
 
 function parseDate(value: string | null | undefined): string {
@@ -16,13 +26,6 @@ function parseDate(value: string | null | undefined): string {
   if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleDateString()
 }
-
-function badgeStyle(color: string): React.CSSProperties {
-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
-}
-
-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)' }
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
 
 async function submitStockOpname(formData: FormData) {
   'use server'
@@ -88,60 +91,66 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
     .eq('opname_id', id)
 
   if (!op) {
-    return <p style={{ color: 'var(--danger)' }}>Stock opname not found</p>
+    return <p className="text-sm text-destructive">Stock opname not found</p>
   }
 
   return (
-    <section>
-      <Link href="/stock-opname" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-        Back to Stock Opname
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <h1 style={{ fontSize: 20, margin: '0' }}>{op.opname_number}</h1>
-        <span style={badgeStyle(statusColors[op.status] || '#64748b')}>{op.status}</span>
-        <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{op.type}</span>
+    <section className="space-y-6">
+      <div>
+        <Link href="/stock-opname" className="mb-4 inline-block text-sm text-primary hover:underline">
+          Back to Stock Opname
+        </Link>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-slate-900">{op.opname_number}</h1>
+          <Badge variant={statusVariant[op.status] || 'secondary'}>{op.status}</Badge>
+          <span className="text-sm text-slate-500">{op.type}</span>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Created: {parseDate(op.created_at)} • Approved: {op.approved_at ? parseDate(op.approved_at) : '-'}
+        </p>
       </div>
-      <p style={{ color: 'var(--text-secondary)' }}>
-        Created: {parseDate(op.created_at)} • Approved: {op.approved_at ? parseDate(op.approved_at) : '-'}
-      </p>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-            <th style={thStyle}>Product</th>
-            <th style={thStyle}>Batch</th>
-            <th style={thStyle}>Expiry</th>
-            <th style={thStyle}>System</th>
-            <th style={thStyle}>Physical</th>
-            <th style={thStyle}>Variance</th>
-            <th style={thStyle}>Reason</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(items || []).map((it: any) => (
-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={tdStyle}>{it.products?.name || it.product_id}</td>
-              <td style={tdStyle}>{it.product_batches?.batch_number || '-'}</td>
-              <td style={tdStyle}>{it.product_batches?.expiry_date ? parseDate(it.product_batches.expiry_date) : '-'}</td>
-              <td style={tdStyle}>{Number(it.system_qty_base).toFixed(3)}</td>
-              <td style={tdStyle}>{Number(it.physical_qty_base).toFixed(3)}</td>
-              <td style={tdStyle}>{Number(it.variance_qty_base).toFixed(3)}</td>
-              <td style={tdStyle}>{it.reason}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader className="bg-slate-50">
+            <TableRow>
+              <TableHead>Product</TableHead>
+              <TableHead>Batch</TableHead>
+              <TableHead>Expiry</TableHead>
+              <TableHead className="text-right">System</TableHead>
+              <TableHead className="text-right">Physical</TableHead>
+              <TableHead className="text-right">Variance</TableHead>
+              <TableHead>Reason</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(items || []).map((it: any) => (
+              <TableRow key={it.id} className="h-10">
+                <TableCell>{it.products?.name || it.product_id}</TableCell>
+                <TableCell>{it.product_batches?.batch_number || '-'}</TableCell>
+                <TableCell>
+                  {it.product_batches?.expiry_date ? parseDate(it.product_batches.expiry_date) : '-'}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.system_qty_base).toFixed(3)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.physical_qty_base).toFixed(3)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.variance_qty_base).toFixed(3)}</TableCell>
+                <TableCell>{it.reason}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+      <div className="flex gap-2">
         {op.status === 'DRAFT' && (
           <>
             <form action={submitStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <button type="submit" style={btnStyle('var(--primary)')}>Submit for Approval</button>
+              <Button type="submit">Submit for Approval</Button>
             </form>
             <form action={cancelStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <button type="submit" style={btnStyle('#ef4444')}>Cancel</button>
+              <Button type="submit" variant="destructive">Cancel</Button>
             </form>
           </>
         )}
@@ -149,22 +158,18 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
           <>
             <form action={approveStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <button type="submit" style={btnStyle('var(--primary)')}>Approve</button>
+              <Button type="submit">Approve</Button>
             </form>
             <form action={cancelStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <button type="submit" style={btnStyle('#ef4444')}>Cancel</button>
+              <Button type="submit" variant="destructive">Cancel</Button>
             </form>
           </>
         )}
         {op.status === 'PENDING_APPROVAL' && !canApproveOpname(role) && (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Waiting for owner or pharmacist approval.</p>
+          <p className="text-sm text-slate-500">Waiting for owner or pharmacist approval.</p>
         )}
       </div>
     </section>
   )
-}
-
-function btnStyle(bg: string): React.CSSProperties {
-  return { background: bg, color: '#fff', padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14 }
 }

@@ -1,53 +1,37 @@
 import { createClient } from '../../../utils/supabase/server'
 import { getUserRole } from '../../../utils/auth'
 import { createProduct, updateProduct } from './actions'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 const CATEGORIES = ['BEBAS', 'BEBAS_TERBATAS', 'KERAS', 'PSIKOTROPIKA', 'NARKOTIKA']
 
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-  textAlign: 'left',
-}
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
-
-const fieldStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  fontSize: 14,
-  background: 'var(--surface)',
-  width: '100%',
-  boxSizing: 'border-box',
-}
-const boxStyle: React.CSSProperties = {
-  background: 'var(--card)',
-  padding: 16,
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  marginBottom: 20,
+const catClass: Record<string, string> = {
+  BEBAS: 'bg-teal-600 text-white border-teal-600',
+  BEBAS_TERBATAS: 'bg-amber-500 text-white border-amber-500',
+  KERAS: 'bg-red-500 text-white border-red-500',
+  PSIKOTROPIKA: 'bg-purple-500 text-white border-purple-500',
+  NARKOTIKA: 'bg-red-700 text-white border-red-700',
 }
 
-function catColor(cat: string) {
-  switch (cat) {
-    case 'BEBAS': return '#0d9488'
-    case 'BEBAS_TERBATAS': return '#f59e0b'
-    case 'KERAS': return '#ef4444'
-    case 'PSIKOTROPIKA': return '#8b5cf6'
-    case 'NARKOTIKA': return '#dc2626'
-    default: return '#64748b'
-  }
-}
-const catBadge = (cat: string) => ({
-  background: catColor(cat),
-  color: '#fff',
-  fontSize: 11,
-  fontWeight: 600,
-  padding: '2px 8px',
-  borderRadius: 4,
-})
+const selectClass =
+  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export default async function ProductsPage() {
   const supabase = await createClient()
@@ -60,158 +44,210 @@ export default async function ProductsPage() {
     .order('name', { ascending: true })
 
   return (
-    <section>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Products</h1>
+    <section className="space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">Products</h1>
 
       {canEdit ? (
-        <div style={boxStyle}>
-          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Product</h2>
-          <form action={createProduct} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
-              <input name="name" required style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SKU</label>
-              <input name="sku" required style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Base Unit</label>
-              <input name="base_unit" required placeholder="tablet / ml" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Category</label>
-              <input name="category" placeholder="e.g. Analgesic" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Min Stock</label>
-              <input name="min_stock_level" type="number" defaultValue={0} style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Rack</label>
-              <input name="rack_location" placeholder="A-2" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
-              <select name="regulatory_category" defaultValue="BEBAS" style={fieldStyle}>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Fractional</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                <input type="checkbox" name="allow_fractional" />
-                Allow decimals
-              </label>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
-              <input name="kfa_code" placeholder="e.g. 93000515" style={fieldStyle} />
-              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' }}>SATUSEHAT: products without KFA are skipped from submission.</p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button
-                type="submit"
-                style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}
-              >
-                Add Product
-              </button>
-            </div>
-          </form>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium text-slate-900">New Product</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              action={createProduct}
+              className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4"
+            >
+              <div className="grid gap-1.5">
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" name="name" required />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="sku">SKU</Label>
+                <Input id="sku" name="sku" required />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="base_unit">Base Unit</Label>
+                <Input id="base_unit" name="base_unit" required placeholder="tablet / ml" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" name="category" placeholder="e.g. Analgesic" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="min_stock_level">Min Stock</Label>
+                <Input id="min_stock_level" name="min_stock_level" type="number" defaultValue={0} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="rack_location">Rack</Label>
+                <Input id="rack_location" name="rack_location" placeholder="A-2" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="regulatory_category">Regulatory Category</Label>
+                <select name="regulatory_category" defaultValue="BEBAS" className={selectClass}>
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="kfa_code">KFA Code</Label>
+                <Input id="kfa_code" name="kfa_code" placeholder="e.g. 93000515" />
+                <p className="text-xs text-slate-500">
+                  SATUSEHAT: products without KFA are skipped from submission.
+                </p>
+              </div>
+              <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+                <Label htmlFor="allow_fractional" className="flex items-center gap-2 text-sm">
+                  <input
+                    id="allow_fractional"
+                    type="checkbox"
+                    name="allow_fractional"
+                    className="size-4 rounded border-slate-300"
+                  />
+                  Allow decimals
+                </Label>
+                <Button type="submit" className="ml-auto">
+                  Add Product
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       ) : null}
 
       {!products || products.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No products yet</p>
+        <p className="text-sm text-slate-500">No products yet</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Name / SKU</th>
-              <th style={thStyle}>Category</th>
-              <th style={thStyle}>Base Unit</th>
-              <th style={thStyle}>Min Stock</th>
-              <th style={thStyle}>Rack</th>
-              <th style={thStyle}>Fractional</th>
-              <th style={thStyle}>KFA</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p: any) => (
-              <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>
-                  <div style={{ fontWeight: 600 }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{p.sku}</div>
-                </td>
-                <td style={tdStyle}><span style={catBadge(p.regulatory_category)}>{p.regulatory_category}</span></td>
-                <td style={tdStyle}>{p.base_unit}</td>
-                <td style={tdStyle}>{p.min_stock_level}</td>
-                <td style={tdStyle}>{p.rack_location || '-'}</td>
-                <td style={tdStyle}>{p.allow_fractional ? 'Yes' : 'No'}</td>
-                <td style={tdStyle}>{p.kfa_code || <span style={{ color: '#d97706' }}>none</span>}</td>
-                {canEdit ? (
-                  <td style={tdStyle}>
-                    <details>
-                      <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
-                      <form action={updateProduct} style={{ display: 'grid', gap: 10, padding: '12px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
-                          <input name="name" required defaultValue={p.name} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SKU</label>
-                          <input name="sku" required defaultValue={p.sku} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Base Unit</label>
-                          <input name="base_unit" required defaultValue={p.base_unit} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Category</label>
-                          <input name="category" defaultValue={p.category} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Min Stock</label>
-                          <input name="min_stock_level" type="number" defaultValue={p.min_stock_level} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Rack</label>
-                          <input name="rack_location" defaultValue={p.rack_location ?? ''} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
-                          <select name="regulatory_category" defaultValue={p.regulatory_category} style={fieldStyle}>
-                            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Fractional</label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
-                            <input type="checkbox" name="allow_fractional" defaultChecked={p.allow_fractional} />
-                            Allow decimals
-                          </label>
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
-                          <input name="kfa_code" defaultValue={p.kfa_code ?? ''} placeholder="e.g. 93000515" style={fieldStyle} />
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                          <button
-                            type="submit"
-                            style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </form>
-                    </details>
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>Name / SKU</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Base Unit</TableHead>
+                <TableHead>Min Stock</TableHead>
+                <TableHead>Rack</TableHead>
+                <TableHead>Fractional</TableHead>
+                <TableHead>KFA</TableHead>
+                {canEdit ? <TableHead></TableHead> : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {products.map((p: any) => (
+                <TableRow key={p.id} className="h-10">
+                  <TableCell>
+                    <div className="font-medium text-slate-900">{p.name}</div>
+                    <div className="text-xs text-slate-500">{p.sku}</div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={catClass[p.regulatory_category] || ''}>
+                      {p.regulatory_category}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{p.base_unit}</TableCell>
+                  <TableCell>{p.min_stock_level}</TableCell>
+                  <TableCell>{p.rack_location || '-'}</TableCell>
+                  <TableCell>{p.allow_fractional ? 'Yes' : 'No'}</TableCell>
+                  <TableCell>
+                    {p.kfa_code || <span className="text-amber-600">none</span>}
+                  </TableCell>
+                  {canEdit ? (
+                    <TableCell>
+                      <details>
+                        <summary className="cursor-pointer text-sm text-primary">
+                          Edit
+                        </summary>
+                        <form
+                          action={updateProduct}
+                          className="grid gap-x-4 gap-y-3 py-3 sm:grid-cols-2 lg:grid-cols-4"
+                        >
+                          <input type="hidden" name="id" value={p.id} />
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`name-${p.id}`}>Name</Label>
+                            <Input id={`name-${p.id}`} name="name" required defaultValue={p.name} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`sku-${p.id}`}>SKU</Label>
+                            <Input id={`sku-${p.id}`} name="sku" required defaultValue={p.sku} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`base_unit-${p.id}`}>Base Unit</Label>
+                            <Input
+                              id={`base_unit-${p.id}`}
+                              name="base_unit"
+                              required
+                              defaultValue={p.base_unit}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`category-${p.id}`}>Category</Label>
+                            <Input id={`category-${p.id}`} name="category" defaultValue={p.category} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`min_stock_level-${p.id}`}>Min Stock</Label>
+                            <Input
+                              id={`min_stock_level-${p.id}`}
+                              name="min_stock_level"
+                              type="number"
+                              defaultValue={p.min_stock_level}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`rack_location-${p.id}`}>Rack</Label>
+                            <Input
+                              id={`rack_location-${p.id}`}
+                              name="rack_location"
+                              defaultValue={p.rack_location ?? ''}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`regulatory_category-${p.id}`}>Regulatory Category</Label>
+                            <select
+                              name="regulatory_category"
+                              defaultValue={p.regulatory_category}
+                              className={selectClass}
+                            >
+                              {CATEGORIES.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`fractional-${p.id}`}>Fractional</Label>
+                            <label className="flex items-center gap-2">
+                              <input
+                                id={`fractional-${p.id}`}
+                                type="checkbox"
+                                name="allow_fractional"
+                                defaultChecked={p.allow_fractional}
+                                className="size-4 rounded border-slate-300"
+                              />
+                              Allow decimals
+                            </label>
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`kfa_code-${p.id}`}>KFA Code</Label>
+                            <Input
+                              id={`kfa_code-${p.id}`}
+                              name="kfa_code"
+                              defaultValue={p.kfa_code ?? ''}
+                              placeholder="e.g. 93000515"
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <Button type="submit" variant="outline">
+                              Save
+                            </Button>
+                          </div>
+                        </form>
+                      </details>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )

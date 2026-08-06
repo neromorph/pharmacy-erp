@@ -2,15 +2,18 @@ import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
 import { getKartuStokRows } from './actions'
 import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../../lib/kartu-stok'
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-  textAlign: 'left',
-}
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 // Build a query string that preserves active filters and sets the view.
 function viewQuery(
@@ -26,14 +29,11 @@ function viewQuery(
   return params.toString()
 }
 
-function typeColor(type: string): string {
-  switch (type) {
-    case 'IN': return '#0d9488'
-    case 'OUT': return '#ef4444'
-    case 'ADJUSTMENT': return '#f59e0b'
-    case 'VOID': return '#64748b'
-    default: return '#64748b'
-  }
+const typeBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+  IN: 'default',
+  OUT: 'destructive',
+  ADJUSTMENT: 'outline',
+  VOID: 'secondary',
 }
 
 function parseDate(value: string | null | undefined): string {
@@ -79,37 +79,16 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
   // Empty state — no approved opname
   if (!hasAnchor) {
     return (
-      <section>
-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Kartu Stok</h1>
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 32,
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
+      <section className="space-y-6">
+        <h1 className="text-xl font-semibold text-slate-900">Kartu Stok</h1>
+        <div className="rounded-xl bg-card px-6 py-12 text-center ring-1 ring-foreground/10">
+          <p className="mb-4 text-sm text-slate-500">
             No approved stock opname found for this store.
           </p>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 24 }}>
+          <p className="mb-6 text-xs text-slate-500">
             Run an initial stock opname to seed the opening balance.
           </p>
-          <Link
-            href="/stock-opname/new"
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 20px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-              display: 'inline-block',
-            }}
-          >
-            New Stock Opname
-          </Link>
+          <Button render={<Link href="/stock-opname/new" />}>New Stock Opname</Button>
         </div>
       </section>
     )
@@ -147,11 +126,14 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
     }
   }
 
+  const selectClass =
+    'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
   return (
-    <section>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, margin: 0 }}>Kartu Stok</h1>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Kartu Stok</h1>
+        <span className="text-xs text-slate-500">
           {rows.length} movement{rows.length !== 1 ? 's' : ''} found
         </span>
       </div>
@@ -159,78 +141,34 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
       {/* Filters */}
       <form
         method="GET"
-        style={{
-          display: 'flex',
-          gap: 12,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-          alignItems: 'flex-end',
-          background: 'var(--card)',
-          padding: 16,
-          borderRadius: 8,
-          border: '1px solid var(--border)',
-        }}
+        className="flex flex-wrap items-end gap-4 rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
       >
-        <div>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Product</label>
-          <input
+        <div className="grid gap-1.5">
+          <Label htmlFor="q">Product</Label>
+          <Input
+            id="q"
             type="text"
             name="q"
             defaultValue={filters.q ?? ''}
             placeholder="Search by product name or SKU"
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              fontSize: 14,
-              background: 'var(--surface)',
-              minWidth: 200,
-            }}
+            className="min-w-48"
           />
         </div>
-        <div>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Date From</label>
-          <input
-            type="date"
-            name="date_from"
-            defaultValue={filters.date_from ?? ''}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              fontSize: 14,
-              background: 'var(--surface)',
-            }}
-          />
+        <div className="grid gap-1.5">
+          <Label htmlFor="date_from">Date From</Label>
+          <Input id="date_from" type="date" name="date_from" defaultValue={filters.date_from ?? ''} />
         </div>
-        <div>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Date To</label>
-          <input
-            type="date"
-            name="date_to"
-            defaultValue={filters.date_to ?? ''}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              fontSize: 14,
-              background: 'var(--surface)',
-            }}
-          />
+        <div className="grid gap-1.5">
+          <Label htmlFor="date_to">Date To</Label>
+          <Input id="date_to" type="date" name="date_to" defaultValue={filters.date_to ?? ''} />
         </div>
-        {/* Regulatory category filter — requires products.regulatory_category column */}
-        <div>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
+        <div className="grid gap-1.5">
+          <Label htmlFor="regulatory_category">Regulatory Category</Label>
           <select
+            id="regulatory_category"
             name="regulatory_category"
             defaultValue={filters.regulatory_category ?? ''}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-              fontSize: 14,
-              background: 'var(--surface)',
-            }}
+            className={selectClass}
           >
             <option value="">All</option>
             {REGULATORY_CATEGORIES.map((c) => (
@@ -238,91 +176,49 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
             ))}
           </select>
         </div>
-        <div>
-          <button
-            type="submit"
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '6px 16px',
-              borderRadius: 6,
-              border: 'none',
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
+        <div className="flex items-center gap-2">
+          <Button type="submit" variant="outline">
             Filter
-          </button>
-        </div>
-        {filters.q || filters.date_from || filters.date_to || filters.regulatory_category ? (
-          <div>
-            <a
-              href="/kartu-stok"
-              style={{
-                color: 'var(--text-secondary)',
-                fontSize: 13,
-                textDecoration: 'none',
-              }}
-            >
+          </Button>
+          {filters.q || filters.date_from || filters.date_to || filters.regulatory_category ? (
+            <Link href="/kartu-stok" className="text-xs text-slate-500 hover:text-slate-700">
               Clear
-            </a>
-          </div>
-        ) : null}
+            </Link>
+          ) : null}
+        </div>
       </form>
 
       {/* View toggle: product-grouped (default) or batch-grouped */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <a
-          href={`/kartu-stok?${viewQuery(filters, 'product')}`}
-          style={{
-            padding: '6px 14px',
-            borderRadius: 6,
-            fontSize: 13,
-            textDecoration: 'none',
-            background: view === 'product' ? 'var(--primary)' : 'var(--card)',
-            color: view === 'product' ? '#fff' : 'var(--text-secondary)',
-            border: '1px solid var(--border)',
-          }}
+      <div className="flex gap-2">
+        <Button
+          render={<Link href={`/kartu-stok?${viewQuery(filters, 'product')}`} />}
+          variant={view === 'product' ? 'default' : 'outline'}
+          size="sm"
         >
           By Product
-        </a>
-        <a
-          href={`/kartu-stok?${viewQuery(filters, 'batch')}`}
-          style={{
-            padding: '6px 14px',
-            borderRadius: 6,
-            fontSize: 13,
-            textDecoration: 'none',
-            background: view === 'batch' ? 'var(--primary)' : 'var(--card)',
-            color: view === 'batch' ? '#fff' : 'var(--text-secondary)',
-            border: '1px solid var(--border)',
-          }}
+        </Button>
+        <Button
+          render={<Link href={`/kartu-stok?${viewQuery(filters, 'batch')}`} />}
+          variant={view === 'batch' ? 'default' : 'outline'}
+          size="sm"
         >
           By Batch
-        </a>
+        </Button>
       </div>
 
       {/* Table */}
       {rows.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No movements found for the selected filters.</p>
+        <p className="text-sm text-slate-500">No movements found for the selected filters.</p>
       ) : (
-        <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           {Object.entries(grouped).map(([productId, productRows]) => (
-            <div key={productId} style={{ borderTop: '1px solid var(--border)' }}>
+            <div key={productId}>
               {/* Product header */}
-              <div
-                style={{
-                  padding: '10px 16px',
-                  background: 'var(--surface)',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <span style={{ fontWeight: 600, fontSize: 14 }}>
+              <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5">
+                <span className="text-sm font-medium text-slate-900">
                   {productMap.get(productId) ?? productId}
                 </span>
-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                <span className="text-xs text-slate-500">
                   {productRows.length} row{productRows.length !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -332,58 +228,37 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                 <div>
                   {Object.entries(batchesByProduct[productId] || {}).map(([batchKey, batchRows]) => (
                     <div key={batchKey}>
-                      <div
-                        style={{
-                          padding: '6px 16px',
-                          background: 'var(--surface)',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: 'var(--text-secondary)',
-                          borderTop: '1px solid var(--border)',
-                        }}
-                      >
+                      <div className="border-t border-border/60 bg-slate-50 px-4 py-1.5 text-xs font-medium text-slate-500">
                         Batch: {batchKey}
                       </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ background: 'var(--surface)' }}>
-                            <th style={thStyle}>Date</th>
-                            <th style={thStyle}>Type</th>
-                            <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
-                            <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                      <Table>
+                        <TableHeader className="bg-slate-50">
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
                           {batchRows.map((row, i) => (
-                            <tr
-                              key={`${row.source_id}-${i}`}
-                              style={{ borderTop: '1px solid var(--border)' }}
-                            >
-                              <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
-                              <td style={tdStyle}>
-                                <span
-                                  style={{
-                                    background: typeColor(row.type),
-                                    color: '#fff',
-                                    fontSize: 11,
-                                    fontWeight: 600,
-                                    padding: '2px 8px',
-                                    borderRadius: 4,
-                                  }}
-                                >
+                            <TableRow key={`${row.source_id}-${i}`} className="h-10">
+                              <TableCell>{parseDate(row.occurred_at)}</TableCell>
+                              <TableCell>
+                                <Badge variant={typeBadge[row.type] || 'secondary'}>
                                   {formatKartuStokMovement(row.type)}
-                                </span>
-                              </td>
-                              <td style={{ ...tdStyle, textAlign: 'right' }}>
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
                                 {row.qty > 0 ? `+${row.qty}` : row.qty}
-                              </td>
-                              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                              </TableCell>
+                              <TableCell className="text-right font-medium tabular-nums">
                                 {row.balance.toFixed(3)}
-                              </td>
-                            </tr>
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   ))}
                 </div>
@@ -391,50 +266,38 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
 
               {/* Flat rows (product view) */}
               {view !== 'batch' && (
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surface)' }}>
-                      <th style={thStyle}>Date</th>
-                      <th style={thStyle}>Type</th>
-                      <th style={thStyle}>Batch</th>
-                      <th style={thStyle}>Expiry</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
-                      <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Batch</TableHead>
+                      <TableHead>Expiry</TableHead>
+                      <TableHead className="text-right">Qty</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {productRows.map((row, i) => (
-                      <tr
-                        key={`${row.source_id}-${i}`}
-                        style={{ borderTop: '1px solid var(--border)' }}
-                      >
-                        <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
-                        <td style={tdStyle}>
-                          <span
-                            style={{
-                              background: typeColor(row.type),
-                              color: '#fff',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                            }}
-                          >
+                      <TableRow key={`${row.source_id}-${i}`} className="h-10">
+                        <TableCell>{parseDate(row.occurred_at)}</TableCell>
+                        <TableCell>
+                          <Badge variant={typeBadge[row.type] || 'secondary'}>
                             {formatKartuStokMovement(row.type)}
-                          </span>
-                        </td>
-                        <td style={tdStyle}>{row.batch_number || '-'}</td>
-                        <td style={tdStyle}>{row.expiry_date ?? '-'}</td>
-                        <td style={{ ...tdStyle, textAlign: 'right' }}>
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{row.batch_number || '-'}</TableCell>
+                        <TableCell>{row.expiry_date ?? '-'}</TableCell>
+                        <TableCell className="text-right tabular-nums">
                           {row.qty > 0 ? `+${row.qty}` : row.qty}
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
                           {row.balance.toFixed(3)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               )}
             </div>
           ))}

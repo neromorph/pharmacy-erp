@@ -1,7 +1,21 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 const opnameReasons = ['DAMAGE', 'EXPIRED', 'LOST', 'COUNT_ERROR', 'MISC']
+
+const selectClass =
+  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 async function createStockOpname(formData: FormData) {
   'use server'
@@ -68,102 +82,80 @@ export default async function NewStockOpnamePage() {
     .order('product_id', { ascending: true })
 
   if (!batches || batches.length === 0) {
-    return <p style={{ color: 'var(--text-secondary)' }}>No batches in stock to count.</p>
+    return <p className="text-sm text-slate-500">No batches in stock to count.</p>
   }
 
   return (
-    <section>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Stock Opname</h1>
+    <section className="space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">New Stock Opname</h1>
       <form
         action={createStockOpname}
-        style={{
-          background: 'var(--card)',
-          padding: 16,
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-        }}
+        className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
       >
-        <label style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
-          Opname type
+        <div className="grid gap-1.5">
+          <Label htmlFor="type">Opname type</Label>
           <select
+            id="type"
             name="type"
-            style={{
-              display: 'block',
-              marginTop: 4,
-              padding: '8px 12px',
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              fontSize: 14,
-              background: '#fff',
-            }}
+            className={`${selectClass} max-w-64`}
             defaultValue="FULL_STORE"
           >
             <option value="FULL_STORE">Full Store</option>
             <option value="RACK_BASED">Rack Based</option>
             <option value="AD_HOC_SINGLE">Ad Hoc Single</option>
           </select>
-        </label>
+        </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Product</th>
-              <th style={thStyle}>Batch</th>
-              <th style={thStyle}>Expiry</th>
-              <th style={thStyle}>System</th>
-              <th style={thStyle}>Physical</th>
-              <th style={thStyle}>Reason</th>
-            </tr>
-          </thead>
-          <tbody>
-            {batches.map((b: any) => (
-              <tr key={b.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>{b.products?.name || b.sku}</td>
-                <td style={tdStyle}>{b.batch_number}</td>
-                <td style={tdStyle}>{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '-'}</td>
-                <td style={tdStyle}>{Number(b.current_qty).toFixed(3)}</td>
-                <td style={tdStyle}>
-                  <input type="hidden" name="batch_id" value={b.id} />
-                  <input
-                    type="number"
-                    step="0.001"
-                    name="physical_qty"
-                    style={inputStyle}
-                    defaultValue={Number(b.current_qty)}
-                  />
-                </td>
-                <td style={tdStyle}>
-                  <select name="reason" style={inputStyle} defaultValue="MISC">
-                    {opnameReasons.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button
-          type="submit"
-          style={{
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            marginTop: 16,
-          }}
-        >
+        <div className="mt-6 overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead className="text-right">System</TableHead>
+                <TableHead>Physical</TableHead>
+                <TableHead>Reason</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {batches.map((b: any) => (
+                <TableRow key={b.id} className="h-10">
+                  <TableCell>{b.products?.name || b.sku}</TableCell>
+                  <TableCell>{b.batch_number}</TableCell>
+                  <TableCell>
+                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {Number(b.current_qty).toFixed(3)}
+                  </TableCell>
+                  <TableCell className="w-36">
+                    <input type="hidden" name="batch_id" value={b.id} />
+                    <Input
+                      type="number"
+                      step="0.001"
+                      name="physical_qty"
+                      defaultValue={Number(b.current_qty)}
+                    />
+                  </TableCell>
+                  <TableCell className="w-36">
+                    <select name="reason" className={selectClass} defaultValue="MISC">
+                      {opnameReasons.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <Button type="submit" className="mt-6">
           Save Draft
-        </button>
+        </Button>
       </form>
     </section>
   )
 }
-
-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)' }
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
-const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: '#fff' }

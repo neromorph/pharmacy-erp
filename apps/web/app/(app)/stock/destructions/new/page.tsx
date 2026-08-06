@@ -7,7 +7,7 @@ export default async function NewDestructionPage() {
   const supabase = await createClient()
   const role = await getUserRole(supabase)
   if (role !== 'OWNER' && role !== 'PHARMACIST') {
-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner or pharmacist (APJ) only.</p>
+    return <p className="text-sm text-destructive">Access denied. Owner or pharmacist (APJ) only.</p>
   }
 
   const [{ data: products }, { data: batches }] = await Promise.all([
@@ -20,18 +20,20 @@ export default async function NewDestructionPage() {
   ])
 
   return (
-    <section style={{ maxWidth: 860 }}>
-      <Link
-        href="/stock/destructions"
-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
-      >
-        Back to Pemusnahan
-      </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Destruction</h1>
-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-        A destruction is a formal legal event. The BAP fields are required, and
-        destroyed stock leaves the batch immediately.
-      </p>
+    <section className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <Link
+          href="/stock/destructions"
+          className="mb-4 inline-block text-sm text-primary hover:underline"
+        >
+          Back to Pemusnahan
+        </Link>
+        <h1 className="text-xl font-semibold text-slate-900">New Destruction</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          A destruction is a formal legal event. The BAP fields are required, and
+          destroyed stock leaves the batch immediately.
+        </p>
+      </div>
       <DestructionForm products={products || []} batches={batches || []} />
     </section>
   )
