@@ -101,7 +101,7 @@ export default async function NewSalePage({
     .order('name', { ascending: true })
   const [doctorRes, patientRes] = await Promise.all([
     supabase.from('doctors').select('id, name, sip_number').order('name', { ascending: true }),
-    supabase.from('patients').select('id, name, address').order('name', { ascending: true }),
+    supabase.from('patients').select('id, name, address, bpjs_number').order('name', { ascending: true }),
   ])
   const { data: batches } = await supabase
     .from('product_batches')

@@ -70,7 +70,7 @@ export function CartBuilder({
   patients: PatientLite[]
 }) {
   const [lines, setLines] = useState<Line[]>([emptyLine('item')])
-  const [saleType, setSaleType] = useState<'OTC' | 'RESEP' | 'SARANA'>('OTC')
+  const [saleType, setSaleType] = useState<'OTC' | 'RESEP' | 'BPJS' | 'SARANA'>('OTC')
   const [tuslah, setTuslah] = useState('')
   const [doctorId, setDoctorId] = useState('')
   const [doctorName, setDoctorName] = useState('')
@@ -371,13 +371,19 @@ export function CartBuilder({
           <select
             value={effectiveType}
             disabled={forcedResep}
-            onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'SARANA')}
+            onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'BPJS' | 'SARANA')}
             style={inputStyle}
           >
             <option value="OTC">OTC</option>
             <option value="RESEP">Resep</option>
+            <option value="BPJS">BPJS / JKN</option>
             <option value="SARANA">Sarana (facility)</option>
           </select>
+          {effectiveType === 'BPJS' && (
+            <span style={{ background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }}>
+              BPJS — Tuslah &amp; Embalase waived (SE 031/XI/2014)
+            </span>
+          )}
           {forcedResep && (
             <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
               Forced RESEP — cart contains KERAS/narcotic item.
