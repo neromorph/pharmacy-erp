@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../../utils/supabase/server'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 async function receiveGoods(formData: FormData) {
   'use server'
@@ -113,15 +116,12 @@ export default async function ReceiveGoodsPage({
 
   if (!po || po.status !== 'APPROVED') {
     return (
-      <section>
-        <Link
-          href="/procurement"
-          style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
-        >
+      <section className="space-y-2">
+        <Link href="/procurement" className="text-sm text-primary hover:underline">
           Back to Procurement
         </Link>
-        <p style={{ color: 'var(--danger)' }}>Only an approved purchase order can be received</p>
-        <Link href={`/procurement/${id}`} style={{ color: 'var(--primary)' }}>
+        <p className="text-sm text-destructive">Only an approved purchase order can be received</p>
+        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
           Back to purchase order
         </Link>
       </section>
@@ -129,118 +129,86 @@ export default async function ReceiveGoodsPage({
   }
 
   return (
-    <section style={{ maxWidth: 720 }}>
-      <Link
-        href={`/procurement/${id}`}
-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
-      >
-        Back to Purchase Order
-      </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Receive Goods</h1>
-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
-        {po.po_number} • Supplier: {po.suppliers?.name || '-'}
-      </p>
+    <section className="space-y-6">
+      <div>
+        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
+          Back to Purchase Order
+        </Link>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">Receive Goods</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          {po.po_number} • Supplier: {po.suppliers?.name || '-'}
+        </p>
+      </div>
 
-      <form
-        action={receiveGoods}
-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
-      >
+      <form action={receiveGoods} className="max-w-3xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <input type="hidden" name="purchase_order_id" value={po.id} />
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Receipt Number</label>
-            <input name="receipt_number" required placeholder="GR-2026-0001" style={inputStyle} />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label htmlFor="receipt_number">Receipt Number</Label>
+            <Input id="receipt_number" name="receipt_number" required placeholder="GR-2026-0001" />
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Invoice Number</label>
-            <input name="invoice_number" required placeholder="INV-2026-0001" style={inputStyle} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="invoice_number">Invoice Number</Label>
+            <Input id="invoice_number" name="invoice_number" required placeholder="INV-2026-0001" />
           </div>
         </div>
 
-        <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
-        <div style={{ display: 'grid', gap: 12 }}>
+        <h2 className="text-sm font-medium text-slate-900">Items</h2>
+        <div className="grid gap-3">
           {(items || []).map((it: any) => (
             <div
               key={it.id}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                padding: 12,
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
-                gap: 8,
-                alignItems: 'end',
-              }}
+              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-end gap-2 rounded-lg border border-border/60 p-3"
             >
               <input type="hidden" name="purchase_order_item_id" value={it.id} />
               <input type="hidden" name="product_id" value={it.product_id} />
-              <div>
-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
-                <span style={{ fontSize: 14 }}>
+              <div className="grid gap-1">
+                <Label className="text-xs">Product</Label>
+                <span className="text-sm">
                   {it.products?.name || '-'} ({it.products?.sku || '-'})
                 </span>
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
-                <input name="batch_number" required placeholder="Batch no" style={inputStyle} />
+              <div className="grid gap-1.5">
+                <Label htmlFor={`batch-${it.id}`} className="text-xs">Batch</Label>
+                <Input id={`batch-${it.id}`} name="batch_number" required placeholder="Batch no" />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Expiry</label>
-                <input name="expiry_date" type="date" required style={inputStyle} />
+              <div className="grid gap-1.5">
+                <Label htmlFor={`expiry-${it.id}`} className="text-xs">Expiry</Label>
+                <Input id={`expiry-${it.id}`} name="expiry_date" type="date" required />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
-                <input
+              <div className="grid gap-1.5">
+                <Label htmlFor={`qty-${it.id}`} className="text-xs">Qty</Label>
+                <Input
+                  id={`qty-${it.id}`}
                   name="qty_received"
                   type="number"
                   step="0.001"
                   min="0"
                   required
                   placeholder={String(it.qty_ordered)}
-                  style={inputStyle}
+                  className="w-24"
                 />
               </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
-                <input
+              <div className="grid gap-1.5">
+                <Label htmlFor={`cost-${it.id}`} className="text-xs">Unit Cost</Label>
+                <Input
+                  id={`cost-${it.id}`}
                   name="unit_cost"
                   type="number"
                   step="0.01"
                   min="0"
                   required
                   placeholder={String(Number(it.unit_price).toFixed(2))}
-                  style={inputStyle}
+                  className="w-24"
                 />
               </div>
             </div>
           ))}
         </div>
 
-        <button
-          type="submit"
-          style={{
-            marginTop: 16,
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-          }}
-        >
-          Receive Goods
-        </button>
+        <Button type="submit">Receive Goods</Button>
       </form>
     </section>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
 }

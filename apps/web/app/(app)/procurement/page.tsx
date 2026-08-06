@@ -1,6 +1,24 @@
 import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
-import { statusColors, parseDate } from './status'
+import { parseDate } from './status'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
+const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+  DRAFT: 'outline',
+  PENDING_APPROVAL: 'secondary',
+  APPROVED: 'default',
+  RECEIVED: 'secondary',
+  CANCELLED: 'destructive',
+}
 
 export default async function ProcurementPage() {
   const supabase = await createClient()
@@ -10,76 +28,43 @@ export default async function ProcurementPage() {
     .order('created_at', { ascending: false })
 
   return (
-    <section>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Procurement</h1>
-        <Link
-          href="/procurement/new"
-          style={{
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: 6,
-            textDecoration: 'none',
-            fontSize: 14,
-          }}
-        >
-          New PO
-        </Link>
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Procurement</h1>
+        <Button render={<Link href="/procurement/new" />}>New PO</Button>
       </div>
       {!pos || pos.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No purchase orders yet</p>
+        <p className="text-sm text-slate-500">No purchase orders yet</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>PO Number</th>
-              <th style={thStyle}>Supplier</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Ordered At</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pos.map((po: any) => (
-              <tr key={po.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>
-                  <Link href={`/procurement/${po.id}`} style={{ color: 'var(--primary)' }}>
-                    {po.po_number}
-                  </Link>
-                </td>
-                <td style={tdStyle}>{po.suppliers?.name || '-'}</td>
-                <td style={tdStyle}>
-                  <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
-                </td>
-                <td style={tdStyle}>{parseDate(po.ordered_at || po.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>PO Number</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Ordered At</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pos.map((po: any) => (
+                <TableRow key={po.id} className="h-10">
+                  <TableCell>
+                    <Link href={`/procurement/${po.id}`} className="text-primary hover:underline">
+                      {po.po_number}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{po.suppliers?.name || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
+                  </TableCell>
+                  <TableCell>{parseDate(po.ordered_at || po.created_at)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
-}
-
-function badgeStyle(color: string): React.CSSProperties {
-  return {
-    background: color,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 4,
-  }
 }

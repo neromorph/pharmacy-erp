@@ -1,5 +1,14 @@
 import { createClient } from '../../../utils/supabase/server'
 import Link from 'next/link'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export default async function SuppliersPage() {
   const supabase = await createClient()
@@ -9,67 +18,44 @@ export default async function SuppliersPage() {
     .order('name', { ascending: true })
 
   return (
-    <section>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Suppliers (PBF)</h1>
+    <section className="space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">Suppliers (PBF)</h1>
       {!suppliers || suppliers.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No suppliers yet</p>
+        <p className="text-sm text-slate-500">No suppliers yet</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>PBF</th>
-              <th style={thStyle}>License Number</th>
-              <th style={thStyle}>Phone</th>
-              <th style={thStyle}>Payment Terms (days)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {suppliers.map((s: any) => (
-              <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>
-                  <Link href={`/suppliers/${s.id}`} style={{ color: 'var(--primary)' }}>
-                    {s.name}
-                  </Link>
-                </td>
-                <td style={tdStyle}>
-                  {s.is_pbf ? (
-                    <span style={badgeStyle('#0d9488')}>PBF</span>
-                  ) : (
-                    <span style={badgeStyle('#64748b')}>Non-PBF</span>
-                  )}
-                </td>
-                <td style={tdStyle}>{s.pbf_license_number || '-'}</td>
-                <td style={tdStyle}>{s.phone || '-'}</td>
-                <td style={tdStyle}>{s.payment_terms_days}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>PBF</TableHead>
+                <TableHead>License Number</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead className="text-right">Payment Terms (days)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {suppliers.map((s: any) => (
+                <TableRow key={s.id} className="h-10">
+                  <TableCell>
+                    <Link href={`/suppliers/${s.id}`} className="text-primary hover:underline">
+                      {s.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={s.is_pbf ? 'default' : 'secondary'}>
+                      {s.is_pbf ? 'PBF' : 'Non-PBF'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{s.pbf_license_number || '-'}</TableCell>
+                  <TableCell>{s.phone || '-'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{s.payment_terms_days}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
-}
-
-function badgeStyle(color: string): React.CSSProperties {
-  return {
-    background: color,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 4,
-  }
 }

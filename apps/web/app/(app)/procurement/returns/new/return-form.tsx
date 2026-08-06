@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { createPurchaseReturn } from './actions'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export interface ReturnBatch {
   id: string
@@ -24,14 +27,8 @@ interface ItemRow {
   unitCost: string
 }
 
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
-}
+const selectClass =
+  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export function ReturnForm({
   suppliers,
@@ -64,14 +61,11 @@ export function ReturnForm({
   }
 
   return (
-    <form
-      action={createPurchaseReturn}
-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
-          <select name="supplier_id" required style={inputStyle} defaultValue="">
+    <form action={createPurchaseReturn} className="max-w-4xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid gap-1.5">
+          <Label htmlFor="supplier_id">Supplier</Label>
+          <select id="supplier_id" name="supplier_id" required className={selectClass} defaultValue="">
             <option value="" disabled>
               Select supplier
             </option>
@@ -82,13 +76,13 @@ export function ReturnForm({
             ))}
           </select>
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Return Number</label>
-          <input name="return_number" required placeholder="RTR-2608-001" style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="return_number">Return Number</Label>
+          <Input id="return_number" name="return_number" required placeholder="RTR-2608-001" />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Reason</label>
-          <select name="reason" required style={inputStyle} defaultValue="">
+        <div className="grid gap-1.5">
+          <Label htmlFor="reason">Reason</Label>
+          <select id="reason" name="reason" required className={selectClass} defaultValue="">
             <option value="" disabled>
               Select reason
             </option>
@@ -97,41 +91,33 @@ export function ReturnForm({
             <option value="RECALL">Recall</option>
           </select>
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PBF Credit Note Number</label>
-          <input name="pbf_credit_note_number" placeholder="Optional" style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="pbf_credit_note_number">PBF Credit Note Number</Label>
+          <Input id="pbf_credit_note_number" name="pbf_credit_note_number" placeholder="Optional" />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Returned At</label>
-          <input name="returned_at" type="date" required style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="returned_at">Returned At</Label>
+          <Input id="returned_at" name="returned_at" type="date" required />
         </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Notes</label>
-          <input name="notes" placeholder="Optional" style={inputStyle} />
+        <div className="grid gap-1.5">
+          <Label htmlFor="notes">Notes</Label>
+          <Input id="notes" name="notes" placeholder="Optional" />
         </div>
       </div>
 
-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
-      <div style={{ display: 'grid', gap: 12 }}>
+      <h2 className="text-sm font-medium text-slate-900">Items</h2>
+      <div className="grid gap-3">
         {rows.map((row, index) => (
           <div
             key={index}
-            style={{
-              border: '1px solid var(--border)',
-              borderRadius: 6,
-              padding: 12,
-              display: 'grid',
-              gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
-              gap: 8,
-              alignItems: 'end',
-            }}
+            className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-border/60 p-3"
           >
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Product</Label>
               <select
                 value={row.productId}
                 required
-                style={inputStyle}
+                className={selectClass}
                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
               >
                 <option value="" disabled>
@@ -144,13 +130,13 @@ export function ReturnForm({
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Batch</Label>
               <select
                 name="batch_id"
                 value={row.batchId}
                 required
-                style={inputStyle}
+                className={selectClass}
                 disabled={!row.productId}
                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
               >
@@ -164,84 +150,48 @@ export function ReturnForm({
                 ))}
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
-              <input
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Qty</Label>
+              <Input
                 name="qty_returned"
                 type="number"
                 step="0.001"
                 min="0.001"
                 required
                 value={row.qty}
-                style={inputStyle}
+                className="w-24"
                 onChange={(e) => updateRow(index, { qty: e.target.value })}
               />
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
-              <input
+            <div className="grid gap-1.5">
+              <Label className="text-xs">Unit Cost</Label>
+              <Input
                 name="unit_cost"
                 type="number"
                 step="0.01"
                 min="0"
                 required
                 value={row.unitCost}
-                style={inputStyle}
+                className="w-24"
                 onChange={(e) => updateRow(index, { unitCost: e.target.value })}
               />
             </div>
             <div>
-              <button
-                type="button"
-                onClick={() => removeRow(index)}
-                style={{
-                  background: 'transparent',
-                  color: 'var(--danger)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                  padding: '8px 10px',
-                  cursor: 'pointer',
-                }}
-              >
+              <Button type="button" variant="outline" onClick={() => removeRow(index)}>
                 Remove
-              </button>
+              </Button>
             </div>
             <input type="hidden" name="product_id" value={row.productId} />
           </div>
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={addRow}
-        style={{
-          marginTop: 12,
-          background: 'transparent',
-          color: 'var(--primary)',
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          padding: '8px 16px',
-          cursor: 'pointer',
-        }}
-      >
-        Add Item
-      </button>
-
-      <button
-        type="submit"
-        style={{
-          marginTop: 16,
-          marginLeft: 12,
-          background: 'var(--primary)',
-          color: '#fff',
-          padding: '8px 16px',
-          border: 'none',
-          borderRadius: 6,
-          cursor: 'pointer',
-        }}
-      >
-        Create Return
-      </button>
+      <div className="flex gap-2">
+        <Button type="button" variant="outline" onClick={addRow}>
+          Add Item
+        </Button>
+        <Button type="submit">Create Return</Button>
+      </div>
     </form>
   )
 }

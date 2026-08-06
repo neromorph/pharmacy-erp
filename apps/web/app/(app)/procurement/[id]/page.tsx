@@ -1,7 +1,25 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
-import { statusColors, parseDate } from '../status'
+import { parseDate } from '../status'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
+const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+  DRAFT: 'outline',
+  PENDING_APPROVAL: 'secondary',
+  APPROVED: 'default',
+  RECEIVED: 'secondary',
+  CANCELLED: 'destructive',
+}
 
 async function submitPurchaseOrder(formData: FormData) {
   'use server'
@@ -60,123 +78,68 @@ export default async function PurchaseOrderDetailPage({
     .eq('purchase_order_id', id)
 
   if (!po) {
-    return <p style={{ color: 'var(--danger)' }}>Purchase order not found</p>
+    return <p className="text-sm text-destructive">Purchase order not found</p>
   }
 
   return (
-    <section>
-      <Link
-        href="/procurement"
-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
-      >
-        Back to Procurement
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <h1 style={{ fontSize: 20, margin: '0' }}>{po.po_number}</h1>
-        <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
+    <section className="space-y-6">
+      <div>
+        <Link href="/procurement" className="text-sm text-primary hover:underline">
+          Back to Procurement
+        </Link>
+        <div className="mt-1 flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-slate-900">{po.po_number}</h1>
+          <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
+        </p>
       </div>
-      <p style={{ color: 'var(--text-secondary)' }}>
-        Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
-      </p>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-            <th style={thStyle}>Product</th>
-            <th style={thStyle}>SKU</th>
-            <th style={thStyle}>Qty</th>
-            <th style={thStyle}>Unit Price</th>
-            <th style={thStyle}>Line Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(items || []).map((it: any) => (
-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={tdStyle}>{it.products?.name || '-'}</td>
-              <td style={tdStyle}>{it.products?.sku || '-'}</td>
-              <td style={tdStyle}>{it.qty_ordered}</td>
-              <td style={tdStyle}>{Number(it.unit_price).toFixed(2)}</td>
-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader className="bg-slate-50">
+            <TableRow>
+              <TableHead>Product</TableHead>
+              <TableHead>SKU</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Unit Price</TableHead>
+              <TableHead className="text-right">Line Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(items || []).map((it: any) => (
+              <TableRow key={it.id} className="h-10">
+                <TableCell>{it.products?.name || '-'}</TableCell>
+                <TableCell>{it.products?.sku || '-'}</TableCell>
+                <TableCell className="text-right tabular-nums">{it.qty_ordered}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.unit_price).toFixed(2)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       {po.status === 'DRAFT' && (
-        <form style={{ marginTop: 16 }}>
+        <form>
           <input type="hidden" name="id" value={po.id} />
-          <button
-            formAction={submitPurchaseOrder}
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
+          <Button type="submit" formAction={submitPurchaseOrder}>
             Submit for Approval
-          </button>
+          </Button>
         </form>
       )}
       {po.status === 'PENDING_APPROVAL' && (
-        <form style={{ marginTop: 16 }}>
+        <form>
           <input type="hidden" name="id" value={po.id} />
-          <button
-            formAction={approvePurchaseOrder}
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
+          <Button type="submit" formAction={approvePurchaseOrder}>
             Approve
-          </button>
+          </Button>
         </form>
       )}
       {po.status === 'APPROVED' && (
-        <Link
-          href={`/procurement/${po.id}/receive`}
-          style={{
-            display: 'inline-block',
-            marginTop: 16,
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            borderRadius: 6,
-            textDecoration: 'none',
-          }}
-        >
-          Receive Goods
-        </Link>
+        <Button render={<Link href={`/procurement/${po.id}/receive`} />}>Receive Goods</Button>
       )}
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
-}
-
-function badgeStyle(color: string): React.CSSProperties {
-  return {
-    background: color,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 4,
-  }
 }

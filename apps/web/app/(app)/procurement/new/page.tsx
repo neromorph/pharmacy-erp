@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 async function createPurchaseOrder(formData: FormData) {
   'use server'
@@ -50,6 +53,9 @@ async function createPurchaseOrder(formData: FormData) {
   redirect(`/procurement/${po.id}`)
 }
 
+const selectClass =
+  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
 export default async function NewPurchaseOrderPage() {
   const supabase = await createClient()
   const { data: suppliers } = await supabase
@@ -62,29 +68,23 @@ export default async function NewPurchaseOrderPage() {
     .order('name', { ascending: true })
 
   return (
-    <section style={{ maxWidth: 720 }}>
-      <Link href="/procurement" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-        Back to Procurement
-      </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Purchase Order</h1>
+    <section className="space-y-6">
+      <div>
+        <Link href="/procurement" className="text-sm text-primary hover:underline">
+          Back to Procurement
+        </Link>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Order</h1>
+      </div>
 
-      <form
-        action={createPurchaseOrder}
-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
-      >
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PO Number</label>
-          <input
-            name="po_number"
-            required
-            style={inputStyle}
-            placeholder="PO-2026-0001"
-          />
+      <form action={createPurchaseOrder} className="max-w-2xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <div className="grid gap-1.5">
+          <Label htmlFor="po_number">PO Number</Label>
+          <Input id="po_number" name="po_number" required placeholder="PO-2026-0001" />
         </div>
 
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
-          <select name="supplier_id" required style={inputStyle}>
+        <div className="grid gap-1.5">
+          <Label htmlFor="supplier_id">Supplier</Label>
+          <select id="supplier_id" name="supplier_id" required className={selectClass}>
             <option value="">Select supplier</option>
             {(suppliers || []).map((s: any) => (
               <option key={s.id} value={s.id}>
@@ -94,10 +94,10 @@ export default async function NewPurchaseOrderPage() {
           </select>
         </div>
 
-        <h2 style={{ fontSize: 14, margin: '16px 0 8px' }}>Items</h2>
-        <div id="items" style={{ display: 'grid', gap: 8 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
-            <select name="product_id" required style={inputStyle}>
+        <h2 className="text-sm font-medium text-slate-900">Items</h2>
+        <div id="items" className="grid gap-2">
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
+            <select name="product_id" required className={selectClass}>
               <option value="">Product</option>
               {(products || []).map((p: any) => (
                 <option key={p.id} value={p.id}>
@@ -105,35 +105,13 @@ export default async function NewPurchaseOrderPage() {
                 </option>
               ))}
             </select>
-            <input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" style={inputStyle} />
-            <input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" style={inputStyle} />
+            <Input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" />
+            <Input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" />
           </div>
         </div>
 
-        <button
-          type="submit"
-          style={{
-            marginTop: 16,
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-          }}
-        >
-          Create PO (Draft)
-        </button>
+        <Button type="submit">Create PO (Draft)</Button>
       </form>
     </section>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
 }

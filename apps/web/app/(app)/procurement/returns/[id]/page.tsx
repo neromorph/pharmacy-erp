@@ -1,5 +1,13 @@
 import Link from 'next/link'
 import { createClient } from '../../../../../utils/supabase/server'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 function parseDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -18,7 +26,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
     .eq('id', id)
     .single()
 
-  if (!ret) return <p>Return not found</p>
+  if (!ret) return <p className="text-sm text-slate-500">Return not found</p>
 
   const { data: items } = await supabase
     .from('purchase_return_items')
@@ -30,27 +38,15 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
   const remaining = Math.max(total - applied, 0)
 
   return (
-    <section style={{ maxWidth: 720 }}>
-      <Link
-        href="/procurement/returns"
-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
-      >
-        Back to Returns
-      </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{ret.return_number}</h1>
-      <div
-        style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: 16,
-          marginBottom: 16,
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 8,
-          fontSize: 14,
-        }}
-      >
+    <section className="space-y-6">
+      <div>
+        <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
+          Back to Returns
+        </Link>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">{ret.return_number}</h1>
+      </div>
+
+      <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
         <div>
           Supplier: <strong>{ret.supplier?.name || '-'}</strong>
         </div>
@@ -64,56 +60,46 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
           PBF Credit Note: <strong>{ret.pbf_credit_note_number || '-'}</strong>
         </div>
         <div>
-          Total: <strong>{total.toFixed(2)}</strong>
+          Total: <strong className="tabular-nums">{total.toFixed(2)}</strong>
         </div>
         <div>
-          Remaining credit: <strong>{remaining.toFixed(2)}</strong>
+          Remaining credit: <strong className="tabular-nums">{remaining.toFixed(2)}</strong>
         </div>
         {ret.notes && (
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div className="sm:col-span-2">
             Notes: {ret.notes}
           </div>
         )}
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-            <th style={thStyle}>Product</th>
-            <th style={thStyle}>Batch</th>
-            <th style={thStyle}>Expiry</th>
-            <th style={thStyle}>Qty</th>
-            <th style={thStyle}>Unit Cost</th>
-            <th style={thStyle}>Line Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(items || []).map((it: any) => (
-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={tdStyle}>
-                {it.product?.name || '-'} ({it.product?.sku || '-'})
-              </td>
-              <td style={tdStyle}>{it.batch_number}</td>
-              <td style={tdStyle}>{parseDate(it.expiry_date)}</td>
-              <td style={tdStyle}>{Number(it.qty_returned)}</td>
-              <td style={tdStyle}>{Number(it.unit_cost).toFixed(2)}</td>
-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table>
+          <TableHeader className="bg-slate-50">
+            <TableRow>
+              <TableHead>Product</TableHead>
+              <TableHead>Batch</TableHead>
+              <TableHead>Expiry</TableHead>
+              <TableHead className="text-right">Qty</TableHead>
+              <TableHead className="text-right">Unit Cost</TableHead>
+              <TableHead className="text-right">Line Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(items || []).map((it: any) => (
+              <TableRow key={it.id} className="h-10">
+                <TableCell>
+                  {it.product?.name || '-'} ({it.product?.sku || '-'})
+                </TableCell>
+                <TableCell>{it.batch_number}</TableCell>
+                <TableCell>{parseDate(it.expiry_date)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.qty_returned)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.unit_cost).toFixed(2)}</TableCell>
+                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
 }
