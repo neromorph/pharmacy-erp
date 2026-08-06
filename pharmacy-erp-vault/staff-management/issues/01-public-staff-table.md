@@ -20,8 +20,8 @@ We will create a `public.staff` table in the database to allow easy, tenant-scop
 
 - **Trigger Synchronization**:
   - A database trigger on `auth.users` (specifically on INSERT and UPDATE) will automatically upsert the corresponding row in `public.staff`.
-  - The trigger extracts the `tenant_id` and `role` from `new.raw_app_metadata` (defaults if missing).
-  - The trigger extracts the `name` from `new.raw_user_metadata->>'name'` (defaults to email username if missing).
+  - The trigger extracts the `tenant_id` and `role` from `new.raw_app_meta_data` (defaults if missing).
+  - The trigger extracts the `name` from `new.raw_user_meta_data->>'name'` (defaults to email username if missing).
   - A backfill migration script will populate `public.staff` for all existing auth users.
 
 - **RLS and Indexing**:

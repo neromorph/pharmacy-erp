@@ -4,7 +4,7 @@
 
 **Goal:** Create the `public.staff` table, a sync trigger from `auth.users`, RLS policies, a self-modification guard, and a backfill so the web UI can list and manage tenant staff without querying `auth.users` directly.
 
-**Architecture:** A tenant-scoped `public.staff` table mirrors `auth.users` rows via a Postgres trigger. The trigger reads `raw_app_metadata` (tenant_id, role) and `raw_user_metadata` (name). RLS gives read access to all members of the tenant and write access to the OWNER only. A `BEFORE UPDATE` trigger blocks a user from deactivating or demoting themselves. A backfill CTE populates rows for existing `auth.users`.
+**Architecture:** A tenant-scoped `public.staff` table mirrors `auth.users` rows via a Postgres trigger. The trigger reads `raw_app_meta_data` (tenant_id, role) and `raw_user_meta_data` (name). RLS gives read access to all members of the tenant and write access to the OWNER only. A `BEFORE UPDATE` trigger blocks a user from deactivating or demoting themselves. A backfill CTE populates rows for existing `auth.users`.
 
 **Tech Stack:** Supabase/Postgres (plpgsql triggers), SQL migrations applied via `supabase_admin`.
 
@@ -93,10 +93,10 @@ DECLARE
     v_role TEXT;
     v_name TEXT;
 BEGIN
-    -- Extract tenant_id and role from raw_app_metadata (JSONB).
-    v_tenant_id := (NEW.raw_app_metadata ->> 'tenant_id')::uuid;
-    v_role := COALESCE(NEW.raw_app_metadata ->> 'role', 'CASHIER');
-    v_name := COALESCE(NEW.raw_user_metadata ->> 'name', split_part(NEW.email, '@', 1));
+    -- Extract tenant_id and role from raw_app_meta_data (JSONB).
+    v_tenant_id := (NEW.raw_app_meta_data ->> 'tenant_id')::uuid;
+    v_role := COALESCE(NEW.raw_app_meta_data ->> 'role', 'CASHIER');
+    v_name := COALESCE(NEW.raw_user_meta_data ->> 'name', split_part(NEW.email, '@', 1));
 
     IF TG_OP = 'INSERT' THEN
         INSERT INTO public.staff (id, tenant_id, email, name, role, is_active)
@@ -157,13 +157,13 @@ EXECUTE FUNCTION public.prevent_staff_self_modification();
 INSERT INTO public.staff (id, tenant_id, email, name, role, is_active)
 SELECT
     u.id,
-    (u.raw_app_metadata ->> 'tenant_id')::uuid AS tenant_id,
+    (u.raw_app_meta_data ->> 'tenant_id')::uuid AS tenant_id,
     u.email,
-    COALESCE(u.raw_user_metadata ->> 'name', split_part(u.email, '@', 1)) AS name,
-    COALESCE(u.raw_app_metadata ->> 'role', 'CASHIER') AS role,
+    COALESCE(u.raw_user_meta_data ->> 'name', split_part(u.email, '@', 1)) AS name,
+    COALESCE(u.raw_app_meta_data ->> 'role', 'CASHIER') AS role,
     TRUE AS is_active
 FROM auth.users u
-WHERE (u.raw_app_metadata ->> 'tenant_id')::uuid IS NOT NULL
+WHERE (u.raw_app_meta_data ->> 'tenant_id')::uuid IS NOT NULL
 ON CONFLICT (id) DO NOTHING;
 ```
 
