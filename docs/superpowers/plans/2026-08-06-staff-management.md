@@ -57,28 +57,24 @@ CREATE TABLE IF NOT EXISTS public.staff (
 
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
 
--- All authenticated members of the same tenant can read the staff list.
-CREATE POLICY "Tenant isolation for staff" ON public.staff
+-- Read: all authenticated members of the same tenant can read the staff list.
+-- Write: only the OWNER of the tenant can create or change staff rows.
+-- NOTE: Postgres ORs all policies for a command type. A FOR ALL policy with
+-- only a tenant check would let any member write. Split read from write so
+-- the OWNER gate actually binds.
+CREATE POLICY "Staff read" ON public.staff
+    FOR SELECT
+    USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
+
+CREATE POLICY "Staff owner write" ON public.staff
     FOR ALL
-    USING (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid)
-    WITH CHECK (tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid);
-
--- Only the OWNER of the tenant may create staff rows.
-CREATE POLICY "Owner writes staff" ON public.staff
-    FOR INSERT
-    TO authenticated
-    WITH CHECK (
-        (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role') = 'OWNER'
-    );
-
-CREATE POLICY "Owner updates staff" ON public.staff
-    FOR UPDATE
-    TO authenticated
     USING (
-        (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role') = 'OWNER'
+        tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid
+        AND (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role') = 'OWNER'
     )
     WITH CHECK (
-        (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role') = 'OWNER'
+        tenant_id = (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id')::uuid
+        AND (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'role') = 'OWNER'
     );
 
 CREATE INDEX IF NOT EXISTS idx_staff_tenant_id ON public.staff (tenant_id);
