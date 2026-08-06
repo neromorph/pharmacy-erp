@@ -83,7 +83,7 @@ async function createDraftSale(formData: FormData) {
   }
 
   const saleTypeRaw = String(formData.get('sale_type') || 'OTC')
-  const saleType = saleTypeRaw === 'RESEP' || saleTypeRaw === 'SARANA' ? saleTypeRaw : 'OTC'
+  const saleType = saleTypeRaw === 'RESEP' || saleTypeRaw === 'BPJS' || saleTypeRaw === 'SARANA' ? saleTypeRaw : 'OTC'
   const doctorId = String(formData.get('doctor_id') || '') || null
   const patientId = String(formData.get('patient_id') || '') || null
   const doctorName = String(formData.get('doctor_name') || '') || null
@@ -115,10 +115,10 @@ async function createDraftSale(formData: FormData) {
   const forcedResep = requiresResep(categories)
   const finalSaleType = forcedResep ? 'RESEP' : saleType
 
-  const resolvedDoctorId = finalSaleType === 'RESEP'
+  const resolvedDoctorId = finalSaleType === 'RESEP' || finalSaleType === 'BPJS'
     ? await resolveDoctor(supabase, tenantId, doctorId, doctorName, doctorSip)
     : null
-  const resolvedPatientId = finalSaleType === 'RESEP' || finalSaleType === 'SARANA'
+  const resolvedPatientId = finalSaleType === 'RESEP' || finalSaleType === 'BPJS' || finalSaleType === 'SARANA'
     ? await resolvePatient(supabase, tenantId, patientId, patientName, patientAddress, patientPhone)
     : null
 
