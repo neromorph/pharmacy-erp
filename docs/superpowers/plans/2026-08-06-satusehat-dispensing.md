@@ -312,6 +312,91 @@ git commit -m "feat(web): add satusehat queue worker and status ui"
 
 ---
 
+## Task 5.5: Real FHIR payload builder + POST (replaces stub)
+
+**Files:**
+- Create: `supabase/migrations/20260806000005_satusehat_submission_ext.sql`
+- Modify: `apps/web/lib/satusehat.ts`
+- Modify: `apps/web/app/api/satusehat/process-queue/route.ts`
+- Modify: `apps/web/lib/satusehat.test.ts`
+
+**Interfaces:**
+- Consumes: queue row, tenant creds (`satusehat_org_id`), sale + items + products (`kfa_code`, `base_unit`), patient `ihs_number`, doctor `ihs_number`, token cache.
+- Produces: full FHIR chain POSTs (Location → Encounter → MedicationRequest → MedicationDispense), status updates.
+
+**Verified payloads (all 201 on sandbox, 2026-08-06; see ticket 07):**
+
+```jsonc
+// 1. Location (once per org, idempotent by name — cache on submission row)
+{ "resourceType": "Location",
+  "meta": { "profile": ["https://fhir.kemkes.go.id/r4/StructureDefinition/Location"] },
+  "status": "active", "name": "<tenant name>",
+  "managingOrganization": { "reference": "Organization/<org_id>" } }
+
+// 2. Encounter (once per sale)
+{ "resourceType": "Encounter",
+  "meta": { "profile": ["https://fhir.kemkes.go.id/r4/StructureDefinition/Encounter"] },
+  "identifier": [{ "system": "http://sys-ids.kemkes.go.id/encounter/<org_id>", "use": "official", "value": "<sale_number>" }],
+  "status": "finished",
+  "statusHistory": [
+    { "status": "arrived", "period": { "start": <paid_at-5m>, "end": <paid_at-5m> } },
+    { "status": "in-progress", "period": { "start": <paid_at-5m>, "end": <paid_at> } },
+    { "status": "finished", "period": { "start": <paid_at>, "end": <paid_at+5m> } } ],
+  "class": { "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "AMB", "display": "ambulatory" },
+  "classHistory": [{ "class": <same class>, "period": { "start": <paid_at-5m>, "end": <paid_at+5m> } }],
+  "subject": { "reference": "Patient/<ihs_number>", "display": "<patient name>" },
+  "participant": [{ "type": [{ "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationType", "code": "ATND", "display": "attender" }] }],
+    "individual": { "reference": "Practitioner/<doctor ihs>" } }],
+  "period": { "start": <paid_at-5m>, "end": <paid_at+5m> },
+  "location": [{ "location": { "reference": "Location/<location_id>" } }],
+  "diagnosis": [{ "condition": { "reference": "Condition/<seeded-condition-id>" },
+    "use": { "coding": [{ "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role", "code": "AD", "display": "Admission diagnosis" }] }, "rank": 1 }],
+  "serviceProvider": { "reference": "Organization/<org_id>" } }
+
+// 3. MedicationRequest (per drug line)
+{ "resourceType": "MedicationRequest",
+  "meta": { "profile": ["https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationRequest"] },
+  "identifier": [{ "system": "http://sys-ids.kemkes.go.id/prescription/<org_id>", "use": "official", "value": "<sale_number>-<item_idx>" }],
+  "status": "completed", "intent": "order",
+  "medicationReference": { "reference": "#med-1" },
+  "contained": [<Medication — see below>],
+  "subject": { "reference": "Patient/<ihs_number>" },
+  "encounter": { "reference": "Encounter/<encounter_id>" },
+  "authoredOn": "<sale.paid_at>",
+  "requester": { "reference": "Practitioner/<doctor ihs>" } }
+
+// 4. MedicationDispense (per drug line)
+{ "resourceType": "MedicationDispense",
+  "meta": { "profile": ["https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationDispense"] },
+  "status": "completed",
+  "identifier": [{ "system": "http://sys-ids.kemkes.go.id/prescription/<org_id>", "use": "official", "value": "<sale_number>-<item_idx>-disp" }],
+  "authorizingPrescription": [{ "reference": "MedicationRequest/<mr_id>" }],
+  "contained": [<Medication — see below>],
+  "medicationReference": { "reference": "#med-1" },
+  "subject": { "reference": "Patient/<ihs_number>" },
+  "context": { "reference": "Encounter/<encounter_id>" },
+  "performer": [{ "actor": { "reference": "Organization/<org_id>" } }],
+  "quantity": { "value": <qty_sold>, "unit": "<ODF code>", "system": "http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm", "code": "<ODF code>" },
+  "whenHandedOver": "<sale.paid_at>" }
+
+// Contained Medication (both MR + MD share this shape; racikan differs)
+{ "resourceType": "Medication", "id": "med-1",
+  "meta": { "profile": ["https://fhir.kemkes.go.id/r4/StructureDefinition/Medication"] },
+  "identifier": [{ "system": "http://sys-ids.kemkes.go.id/medication/<org_id>", "use": "official", "value": "<sale_number>-<item_idx>-med" }],
+  "code": { "coding": [{ "system": "http://sys-ids.kemkes.go.id/kfa", "code": "<kfa_code>", "display": "<product name>" }] },  // omit for racikan parent
+  "status": "active",
+  "form": { "coding": [{ "system": "http://terminology.kemkes.go.id/CodeSystem/medication-form", "code": "BS066", "display": "Tablet" }] },  // best-effort map from base_unit
+  "extension": [{ "url": "https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationType",
+    "valueCodeableConcept": { "coding": [{ "system": "http://terminology.kemkes.go.id/CodeSystem/medication-type", "code": "NC", "display": "Non-compound" }] } }] }
+```
+
+- [ ] **Step 1: Migration** — add to `satusehat_submissions`: `location_id TEXT`, `encounter_id TEXT`, `condition_id TEXT`, `fhir_ids JSONB DEFAULT '{}'` (store MR/MD ids per item for idempotent retry). Apply to remote. `Condition/<seeded-condition-id>`: sandbox blocks Condition POST for pharmacy class; production needs a real Condition per encounter — store `condition_id` on submission so a later production run can fill it; for sandbox use a known seeded id.
+- [ ] **Step 2: Helpers in `lib/satusehat.ts`** — `buildContainedMedication({kfaCode?, name?, baseUnit, medicationType})`, `buildMedicationRequest(...)`, `buildMedicationDispense(...)`, `buildEncounter(...)`, `buildLocation(...)`, `mapBaseUnitToOdf(unit): string|null` (tablet→TAB, kapsul→CAP, botol→BOT, vial→VIAL, tube→TUBE, sachet→SACH, fallback null), `postFhirResource({token, baseUrl, resource})` wrapper that throws with OperationOutcome text. For racikan parent: `code` omitted + `ingredient[]` from children (KFA 910- level for d.t.d, 920- level for non-d.t.d) + medicationType SD/EP.
+- [ ] **Step 3: Rewire process-queue route** — remove stub. Per row: load tenant + sale (sale_number, paid_at, patient ihs, doctor ihs) + items (parent/child, kfa_code, qty_sold, name, base_unit). SKIPPED if no patient IHS or no item with KFA. Create Location if missing, Encounter if missing, then per item: MedicationRequest + MedicationDispense; store ids in `fhir_ids` for retry. Any POST failure → throw (existing backoff).
+- [ ] **Step 4: Tests** — unit-map, buildContainedMedication (NC vs SD), quantity ODF fallback, identifier system uses org_id.
+- [ ] **Step 5: Run tests and build** — `cd apps/web && npx vitest run && npx next build`.
+- [ ] **Step 6: Commit** — `git add ... && git commit -m "feat(web): real satusehat fhir payload chain"`.
+
 ## Task 6: Docs and vault sync
 
 **Files:**
