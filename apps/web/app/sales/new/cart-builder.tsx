@@ -7,6 +7,7 @@ import {
   requiresResep,
   computeSaleTotals,
   ingredientTotalQty,
+  isBpjsCheckoutBlocked,
   RegulatoryCategory,
 } from '../../../lib/cart'
 
@@ -20,7 +21,7 @@ interface ProductLite {
 }
 
 interface DoctorLite { id: string; name: string; sip_number: string | null }
-interface PatientLite { id: string; name: string; address: string | null }
+interface PatientLite { id: string; name: string; address: string | null; bpjs_number: string | null }
 
 interface IngredientRow {
   product_id: string
@@ -111,6 +112,17 @@ export function CartBuilder({
   const effectiveType = forcedResep ? 'RESEP' : saleType
   const hardGate = effectiveType === 'RESEP' && requiresAddress(categories)
 
+  // patientById must be defined before bpjsBlocked (used in submit).
+  const patientById = useMemo(() => {
+    const m = new Map<string, PatientLite>()
+    for (const p of patients) m.set(p.id, p)
+    return m
+  }, [patients])
+
+  // BPJS Number Guard: cannot pay if the selected patient has no bpjs_number.
+  const selectedPatient = patientId ? patientById.get(patientId) ?? null : null
+  const bpjsBlocked = isBpjsCheckoutBlocked(effectiveType, selectedPatient)
+
   const totals = useMemo(
     () => computeSaleTotals(lines as any[], Number(tuslah || 0)),
     [lines, tuslah]
@@ -153,25 +165,31 @@ export function CartBuilder({
         return
       }
     }
+    if (effectiveType === 'BPJS') {
+      const doctorOk = Boolean(doctorId || doctorName.trim())
+      const patientOk = Boolean(patientId || patientName.trim())
+      if (!doctorOk || !patientOk) {
+        setError('A BPJS sale needs a doctor and a patient.')
+        return
+      }
+      if (bpjsBlocked) {
+        setError(`Patient is missing No. Peserta BPJS — update the patient record before processing a BPJS sale.`)
+        return
+      }
+    }
     setError(null)
     formData.set('lines', JSON.stringify(lines))
     formData.set('sale_type', effectiveType)
-    formData.set('tuslah', String(tuslah || 0))
-    formData.set('doctor_id', effectiveType === 'RESEP' ? doctorId : '')
-    formData.set('patient_id', effectiveType === 'RESEP' || effectiveType === 'SARANA' ? patientId : '')
-    formData.set('doctor_name', effectiveType === 'RESEP' ? doctorName : '')
+    formData.set('tuslah', effectiveType === 'BPJS' ? '0' : String(tuslah || 0))
+    formData.set('doctor_id', effectiveType === 'RESEP' || effectiveType === 'BPJS' ? doctorId : '')
+    formData.set('patient_id', effectiveType === 'RESEP' || effectiveType === 'BPJS' || effectiveType === 'SARANA' ? patientId : '')
+    formData.set('doctor_name', effectiveType === 'RESEP' || effectiveType === 'BPJS' ? doctorName : '')
     formData.set('doctor_sip', doctorSip)
-    formData.set('patient_name', effectiveType === 'RESEP' || effectiveType === 'SARANA' ? patientName : '')
+    formData.set('patient_name', effectiveType === 'RESEP' || effectiveType === 'BPJS' || effectiveType === 'SARANA' ? patientName : '')
     formData.set('patient_address', patientAddress)
     formData.set('patient_phone', patientPhone)
     createDraftSale(formData)
   }
-
-  const patientById = useMemo(() => {
-    const m = new Map<string, PatientLite>()
-    for (const p of patients) m.set(p.id, p)
-    return m
-  }, [patients])
 
   return (
     <form
@@ -290,8 +308,9 @@ export function CartBuilder({
                     <label style={miniLabel}>Embalase</label>
                     <input
                       type="number"
-                      value={line.embalase}
-                      onChange={(e) => updateLine(idx, { embalase: e.target.value })}
+                      value={effectiveType === 'BPJS' ? '0' : (line.embalase ?? '')}
+                      onChange={(e) => { if (effectiveType !== 'BPJS') updateLine(idx, { embalase: e.target.value }) }}
+                      disabled={effectiveType === 'BPJS'}
                       min="0"
                       step="0.01"
                       placeholder="3000"
@@ -394,8 +413,9 @@ export function CartBuilder({
           <label style={miniLabel}>Tuslah</label>
           <input
             type="number"
-            value={tuslah}
-            onChange={(e) => setTuslah(e.target.value)}
+            value={effectiveType === 'BPJS' ? '0' : tuslah}
+            onChange={(e) => { if (effectiveType !== 'BPJS') setTuslah(e.target.value) }}
+            disabled={effectiveType === 'BPJS'}
             min="0"
             step="0.01"
             placeholder="0"
@@ -413,8 +433,8 @@ export function CartBuilder({
         </div>
       </div>
 
-      {/* Prescription metadata — only for RESEP sales */}
-      {effectiveType === 'RESEP' ? (
+      {/* Prescription metadata — only for RESEP and BPJS sales */}
+      {(effectiveType === 'RESEP' || effectiveType === 'BPJS') ? (
         <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginTop: 16 }}>
           <h3 style={{ fontSize: 13, margin: '0 0 10px' }}>Prescription ({hardGate ? 'hard gate — address required' : 'doctor + patient'})</h3>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -522,6 +542,7 @@ export function CartBuilder({
 
       <button
         type="submit"
+        disabled={bpjsBlocked}
         style={{
           marginTop: 16,
           background: 'var(--primary)',
@@ -529,13 +550,19 @@ export function CartBuilder({
           padding: '8px 16px',
           border: 'none',
           borderRadius: 6,
-          cursor: 'pointer',
+          cursor: bpjsBlocked ? 'not-allowed' : 'pointer',
           fontSize: 14,
           fontWeight: 500,
+          opacity: bpjsBlocked ? 0.5 : 1,
         }}
       >
         Create Draft Sale
       </button>
+      {bpjsBlocked && (
+        <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>
+          Patient is missing No. Peserta BPJS — update the patient record first.
+        </p>
+      )}
     </form>
   )
 }
