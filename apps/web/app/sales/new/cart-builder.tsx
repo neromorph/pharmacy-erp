@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { lookupIhsForPatient } from './ihs-actions'
 import { createDraftSale } from './actions'
 import {
   requiresAddress,
@@ -21,7 +22,7 @@ interface ProductLite {
 }
 
 interface DoctorLite { id: string; name: string; sip_number: string | null }
-interface PatientLite { id: string; name: string; address: string | null; bpjs_number: string | null }
+interface PatientLite { id: string; name: string; address: string | null; bpjs_number: string | null; nik: string | null; ihs_number: string | null }
 
 interface IngredientRow {
   product_id: string
@@ -122,6 +123,24 @@ export function CartBuilder({
   // BPJS Number Guard: cannot pay if the selected patient has no bpjs_number.
   const selectedPatient = patientId ? patientById.get(patientId) ?? null : null
   const bpjsBlocked = isBpjsCheckoutBlocked(effectiveType, selectedPatient)
+
+  // SATUSEHAT IHS lookup status for the selected patient.
+  const [ihsStatus, setIhsStatus] = useState<string | null>(null)
+
+  async function handlePatientSelect(value: string) {
+    setPatientId(value)
+    if (effectiveType !== 'RESEP' && effectiveType !== 'BPJS') return
+    const p = value ? patientById.get(value) : null
+    if (!p?.nik || p.ihs_number) return
+    setIhsStatus('SATUSEHAT: looking up IHS…')
+    try {
+      const res = await lookupIhsForPatient(value)
+      if (res.ok) setIhsStatus('IHS OK')
+      else setIhsStatus(res.message)
+    } catch {
+      setIhsStatus('SATUSEHAT lookup failed — sale can proceed.')
+    }
+  }
 
   const totals = useMemo(
     () => computeSaleTotals(lines as any[], Number(tuslah || 0)),
@@ -465,7 +484,7 @@ export function CartBuilder({
             </div>
             <div>
               <label style={miniLabel}>Patient</label>
-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={inputStyle}>
+              <select value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} style={inputStyle}>
                 <option value="">— pick existing —</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -494,6 +513,9 @@ export function CartBuilder({
                   placeholder="Patient address (required)"
                   style={{ ...inputStyle, marginTop: 6 }}
                 />
+              ) : null}
+              {ihsStatus ? (
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>{ihsStatus}</p>
               ) : null}
             </div>
           </div>

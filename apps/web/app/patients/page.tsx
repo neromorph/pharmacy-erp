@@ -37,6 +37,7 @@ function fmtDate(value: string | null) {
 export default async function PatientsPage() {
   const supabase = await createClient()
   const role = await getUserRole(supabase)
+  const canEdit = role === 'OWNER' || role === 'PHARMACIST'
   const isOwner = role === 'OWNER'
 
   const { data: patients } = await supabase
@@ -51,7 +52,7 @@ export default async function PatientsPage() {
         <Link href="/" style={{ color: 'var(--primary)', fontSize: 14 }}>Back</Link>
       </div>
 
-      {isOwner ? (
+      {canEdit ? (
         <div style={boxStyle}>
           <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Patient</h2>
           <form action={createPatient} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
@@ -75,6 +76,10 @@ export default async function PatientsPage() {
               <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
               <input name="bpjs_number" placeholder="e.g. 0001234567890" style={fieldStyle} />
             </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
+              <input name="nik" placeholder="16-digit national ID" style={fieldStyle} />
+            </div>
             <div style={{ display: 'flex', alignItems: 'flex-end' }}>
               <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>
                 Add Patient
@@ -95,7 +100,8 @@ export default async function PatientsPage() {
               <th style={thStyle}>Phone</th>
               <th style={thStyle}>Birth Date</th>
               <th style={thStyle}>No. Peserta BPJS</th>
-              {isOwner ? <th style={thStyle}></th> : null}
+              <th style={thStyle}>NIK</th>
+              {canEdit ? <th style={thStyle}></th> : null}
             </tr>
           </thead>
           <tbody>
@@ -106,7 +112,8 @@ export default async function PatientsPage() {
                 <td style={tdStyle}>{p.phone || '-'}</td>
                 <td style={tdStyle}>{fmtDate(p.birth_date)}</td>
                 <td style={tdStyle}>{p.bpjs_number || '-'}</td>
-                {isOwner ? (
+                <td style={tdStyle}>{p.nik || '-'}</td>
+                {canEdit ? (
                   <td style={tdStyle}>
                     <details>
                       <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
@@ -132,16 +139,27 @@ export default async function PatientsPage() {
                           <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
                           <input name="bpjs_number" defaultValue={p.bpjs_number ?? ''} style={fieldStyle} />
                         </div>
+                        <div>
+                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
+                          <input name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" style={fieldStyle} />
+                          {p.ihs_number ? (
+                            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+                              IHS: {p.ihs_number}
+                            </p>
+                          ) : null}
+                        </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end' }}>
                           <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>Save</button>
                         </div>
                       </form>
-                      <form action={deletePatient} style={{ marginTop: 8 }}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <button type="submit" style={{ background: 'transparent', color: '#ef4444', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>
-                          Remove
-                        </button>
-                      </form>
+                      {isOwner ? (
+                        <form action={deletePatient} style={{ marginTop: 8 }}>
+                          <input type="hidden" name="id" value={p.id} />
+                          <button type="submit" style={{ background: 'transparent', color: '#ef4444', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>
+                            Remove
+                          </button>
+                        </form>
+                      ) : null}
                     </details>
                   </td>
                 ) : null}

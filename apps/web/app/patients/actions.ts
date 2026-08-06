@@ -3,6 +3,11 @@
 import { createClient } from '../../utils/supabase/server'
 import { getUserRole } from '../../utils/auth'
 
+async function assertOwnerOrPharmacist(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const role = await getUserRole(supabase)
+  if (role !== 'OWNER' && role !== 'PHARMACIST') throw new Error('Owner or Pharmacist only')
+}
+
 async function assertOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
   const role = await getUserRole(supabase)
   if (role !== 'OWNER') throw new Error('Owner only')
@@ -16,12 +21,13 @@ function fields(formData: FormData) {
     phone: String(formData.get('phone') || '').trim() || null,
     birth_date: birth ? new Date(birth).toISOString().slice(0, 10) : null,
     bpjs_number: String(formData.get('bpjs_number') || '').trim() || null,
+    nik: String(formData.get('nik') || '').trim() || null,
   }
 }
 
 export async function createPatient(formData: FormData) {
   const supabase = await createClient()
-  await assertOwner(supabase)
+  await assertOwnerOrPharmacist(supabase)
   const { data: { user } } = await supabase.auth.getUser()
   const tenantId = user!.app_metadata?.tenant_id
   if (!tenantId) throw new Error('No tenant context')
@@ -35,7 +41,7 @@ export async function createPatient(formData: FormData) {
 
 export async function updatePatient(formData: FormData) {
   const supabase = await createClient()
-  await assertOwner(supabase)
+  await assertOwnerOrPharmacist(supabase)
   const { data: { user } } = await supabase.auth.getUser()
   const tenantId = user!.app_metadata?.tenant_id
   if (!tenantId) throw new Error('No tenant context')
