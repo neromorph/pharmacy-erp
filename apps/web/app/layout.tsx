@@ -18,6 +18,7 @@ const navLinks = [
   { href: '/finance/payables', label: 'Payables' },
   { href: '/kartu-stok', label: 'Kartu Stok' },
   { href: '/stock-opname', label: 'Stock Opname' },
+  { href: '/stock/destructions', label: 'Pemusnahan' },
   { href: '/reports/sipnap', label: 'SIPNAP' },
   { href: '/doctors', label: 'Doctors' },
   { href: '/patients', label: 'Patients' },
