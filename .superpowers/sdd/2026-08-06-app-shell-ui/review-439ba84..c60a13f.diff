@@ -1,0 +1,1371 @@
+# Review package: 439ba84..c60a13f
+
+## Commits
+c60a13f refactor(web): group routes into auth/app/print shells
+
+## Files changed
+ apps/web/app/{ => (app)}/doctors/actions.ts        |  4 +-
+ apps/web/app/{ => (app)}/doctors/page.tsx          |  4 +-
+ .../app/{ => (app)}/finance/payables/actions.ts    |  6 +--
+ .../{ => (app)}/finance/payables/aging-cards.tsx   |  2 +-
+ .../finance/payables/aging-csv-button.tsx          |  2 +-
+ apps/web/app/{ => (app)}/finance/payables/page.tsx |  6 +--
+ apps/web/app/{ => (app)}/kartu-stok/actions.ts     |  4 +-
+ apps/web/app/{ => (app)}/kartu-stok/page.tsx       |  4 +-
+ apps/web/app/(app)/layout.tsx                      | 12 +++++
+ apps/web/app/{ => (app)}/page.tsx                  |  2 +-
+ apps/web/app/{ => (app)}/patients/actions.ts       |  4 +-
+ apps/web/app/{ => (app)}/patients/page.tsx         |  4 +-
+ apps/web/app/{ => (app)}/procurement/[id]/page.tsx |  2 +-
+ .../{ => (app)}/procurement/[id]/receive/page.tsx  |  2 +-
+ apps/web/app/{ => (app)}/procurement/new/page.tsx  |  2 +-
+ apps/web/app/{ => (app)}/procurement/page.tsx      |  2 +-
+ .../{ => (app)}/procurement/returns/[id]/page.tsx  |  2 +-
+ .../{ => (app)}/procurement/returns/new/actions.ts |  2 +-
+ .../{ => (app)}/procurement/returns/new/page.tsx   |  4 +-
+ .../procurement/returns/new/return-form.tsx        |  0
+ .../app/{ => (app)}/procurement/returns/page.tsx   |  2 +-
+ apps/web/app/{ => (app)}/procurement/status.ts     |  0
+ apps/web/app/{ => (app)}/products/actions.ts       |  4 +-
+ apps/web/app/{ => (app)}/products/page.tsx         |  4 +-
+ apps/web/app/{ => (app)}/reports/sipnap/actions.ts |  4 +-
+ .../{ => (app)}/reports/sipnap/download-button.tsx |  2 +-
+ .../{ => (app)}/reports/sipnap/download-link.tsx   |  0
+ .../web/app/{ => (app)}/reports/sipnap/history.tsx |  0
+ apps/web/app/{ => (app)}/reports/sipnap/page.tsx   |  6 +--
+ apps/web/app/{ => (app)}/sales/[id]/actions.ts     |  4 +-
+ apps/web/app/{ => (app)}/sales/[id]/page.tsx       |  6 +--
+ .../{ => (app)}/sales/[id]/satusehat-actions.ts    |  4 +-
+ apps/web/app/{ => (app)}/sales/new/actions.ts      |  4 +-
+ .../web/app/{ => (app)}/sales/new/cart-builder.tsx |  2 +-
+ apps/web/app/{ => (app)}/sales/new/ihs-actions.ts  |  4 +-
+ apps/web/app/{ => (app)}/sales/new/page.tsx        |  2 +-
+ apps/web/app/{ => (app)}/sales/page.tsx            |  2 +-
+ apps/web/app/{ => (app)}/sales/status.ts           |  0
+ apps/web/app/{ => (app)}/settings/actions.ts       |  6 +--
+ apps/web/app/{ => (app)}/settings/page.tsx         |  6 +--
+ .../web/app/{ => (app)}/settings/settings-form.tsx |  2 +-
+ apps/web/app/{ => (app)}/shifts/[id]/page.tsx      |  6 +--
+ apps/web/app/{ => (app)}/shifts/actions.ts         |  6 +--
+ apps/web/app/{ => (app)}/shifts/new/page.tsx       |  0
+ apps/web/app/{ => (app)}/shifts/page.tsx           |  2 +-
+ .../web/app/{ => (app)}/stock-opname/[id]/page.tsx |  4 +-
+ apps/web/app/{ => (app)}/stock-opname/new/page.tsx |  2 +-
+ apps/web/app/{ => (app)}/stock-opname/page.tsx     |  2 +-
+ .../{ => (app)}/stock/destructions/[id]/page.tsx   |  4 +-
+ .../{ => (app)}/stock/destructions/new/actions.ts  |  2 +-
+ .../stock/destructions/new/destruction-form.tsx    |  0
+ .../{ => (app)}/stock/destructions/new/page.tsx    |  4 +-
+ .../app/{ => (app)}/stock/destructions/page.tsx    |  4 +-
+ apps/web/app/{ => (app)}/suppliers/[id]/page.tsx   |  6 +--
+ .../{ => (app)}/suppliers/[id]/print-button.tsx    |  0
+ apps/web/app/{ => (app)}/suppliers/page.tsx        |  2 +-
+ apps/web/app/(auth)/layout.tsx                     |  4 ++
+ apps/web/app/{ => (auth)}/login/actions.ts         |  2 +-
+ apps/web/app/{ => (auth)}/login/page.tsx           |  0
+ apps/web/app/(print)/layout.tsx                    |  4 ++
+ .../app/{ => (print)}/receipts/[saleId]/page.tsx   |  4 +-
+ .../receipts/[saleId]/print-button.tsx             |  0
+ apps/web/app/layout.tsx                            | 58 ++--------------------
+ 63 files changed, 109 insertions(+), 141 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/doctors/actions.ts b/apps/web/app/(app)/doctors/actions.ts
+similarity index 95%
+rename from apps/web/app/doctors/actions.ts
+rename to apps/web/app/(app)/doctors/actions.ts
+index 9714cac..fa98116 100644
+--- a/apps/web/app/doctors/actions.ts
++++ b/apps/web/app/(app)/doctors/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ 
+ // Only OWNER may manage prescriber/patient master data (clinical identity).
+ async function assertOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER') throw new Error('Owner only')
+ }
+ 
+ export async function createDoctor(formData: FormData) {
+   const supabase = await createClient()
+   await assertOwner(supabase)
+diff --git a/apps/web/app/doctors/page.tsx b/apps/web/app/(app)/doctors/page.tsx
+similarity index 98%
+rename from apps/web/app/doctors/page.tsx
+rename to apps/web/app/(app)/doctors/page.tsx
+index 46af5f8..66b38a4 100644
+--- a/apps/web/app/doctors/page.tsx
++++ b/apps/web/app/(app)/doctors/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ import { createDoctor, updateDoctor, deleteDoctor } from './actions'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+ const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+diff --git a/apps/web/app/finance/payables/actions.ts b/apps/web/app/(app)/finance/payables/actions.ts
+similarity index 94%
+rename from apps/web/app/finance/payables/actions.ts
+rename to apps/web/app/(app)/finance/payables/actions.ts
+index 2eda161..2ae22f6 100644
+--- a/apps/web/app/finance/payables/actions.ts
++++ b/apps/web/app/(app)/finance/payables/actions.ts
+@@ -1,16 +1,16 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getPayableStatus } from '../../../lib/accounts-payable'
+-import { splitPayout, applyCreditFifo } from '../../../lib/purchase-returns'
++import { createClient } from '../../../../utils/supabase/server'
++import { getPayableStatus } from '../../../../lib/accounts-payable'
++import { splitPayout, applyCreditFifo } from '../../../../lib/purchase-returns'
+ 
+ // Record one payout against a payable, then refresh its balance and status.
+ // Unapplied supplier credit is applied first; the payment row stores the
+ // credit portion in credit_applied_amount.
+ export async function postPayout(formData: FormData) {
+   const payableId = String(formData.get('accounts_payable_id') || '')
+   const amount = Number(formData.get('amount') || 0)
+   const method = String(formData.get('method') || '').trim()
+   const notes = String(formData.get('notes') || '').trim() || null
+ 
+diff --git a/apps/web/app/finance/payables/aging-cards.tsx b/apps/web/app/(app)/finance/payables/aging-cards.tsx
+similarity index 94%
+rename from apps/web/app/finance/payables/aging-cards.tsx
+rename to apps/web/app/(app)/finance/payables/aging-cards.tsx
+index 500293f..69e9457 100644
+--- a/apps/web/app/finance/payables/aging-cards.tsx
++++ b/apps/web/app/(app)/finance/payables/aging-cards.tsx
+@@ -1,11 +1,11 @@
+-import type { AgingBucket } from '../../../lib/purchase-returns'
++import type { AgingBucket } from '../../../../lib/purchase-returns'
+ 
+ export interface BucketSummary {
+   bucket: AgingBucket
+   count: number
+   total: number
+ }
+ 
+ const bucketLabels: Record<AgingBucket, string> = {
+   CURRENT: 'Belum Jatuh Tempo',
+   '1-30': '1-30 Hari',
+diff --git a/apps/web/app/finance/payables/aging-csv-button.tsx b/apps/web/app/(app)/finance/payables/aging-csv-button.tsx
+similarity index 90%
+rename from apps/web/app/finance/payables/aging-csv-button.tsx
+rename to apps/web/app/(app)/finance/payables/aging-csv-button.tsx
+index d568b72..f37cec1 100644
+--- a/apps/web/app/finance/payables/aging-csv-button.tsx
++++ b/apps/web/app/(app)/finance/payables/aging-csv-button.tsx
+@@ -1,13 +1,13 @@
+ 'use client'
+ 
+-import { buildAgingCsv, type PayableCsvRow } from '../../../lib/purchase-returns'
++import { buildAgingCsv, type PayableCsvRow } from '../../../../lib/purchase-returns'
+ 
+ export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
+   function download() {
+     const csv = buildAgingCsv(rows)
+     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+     const url = URL.createObjectURL(blob)
+     const a = document.createElement('a')
+     a.href = url
+     a.download = `aging-${new Date().toISOString().slice(0, 10)}.csv`
+     a.click()
+diff --git a/apps/web/app/finance/payables/page.tsx b/apps/web/app/(app)/finance/payables/page.tsx
+similarity index 97%
+rename from apps/web/app/finance/payables/page.tsx
+rename to apps/web/app/(app)/finance/payables/page.tsx
+index 883c469..9c9b7aa 100644
+--- a/apps/web/app/finance/payables/page.tsx
++++ b/apps/web/app/(app)/finance/payables/page.tsx
+@@ -1,13 +1,13 @@
+-import { createClient } from '../../../utils/supabase/server'
+-import { getPayableStatus } from '../../../lib/accounts-payable'
+-import { getAgingBucket, type AgingBucket } from '../../../lib/purchase-returns'
++import { createClient } from '../../../../utils/supabase/server'
++import { getPayableStatus } from '../../../../lib/accounts-payable'
++import { getAgingBucket, type AgingBucket } from '../../../../lib/purchase-returns'
+ import { postPayout } from './actions'
+ import { AgingCards, type BucketSummary } from './aging-cards'
+ import { AgingCsvButton } from './aging-csv-button'
+ 
+ const statusColors: Record<string, string> = {
+   UNPAID: '#f59e0b',
+   PARTIAL: '#3b82f6',
+   PAID: '#0d9488',
+   OVERDUE: '#ef4444',
+ }
+diff --git a/apps/web/app/kartu-stok/actions.ts b/apps/web/app/(app)/kartu-stok/actions.ts
+similarity index 98%
+rename from apps/web/app/kartu-stok/actions.ts
+rename to apps/web/app/(app)/kartu-stok/actions.ts
+index 8d43509..e08e2c7 100644
+--- a/apps/web/app/kartu-stok/actions.ts
++++ b/apps/web/app/(app)/kartu-stok/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { KartuStokRaw } from '../../lib/kartu-stok'
++import { createClient } from '../../../utils/supabase/server'
++import { KartuStokRaw } from '../../../lib/kartu-stok'
+ 
+ export interface KartuStokFilters {
+   q?: string
+   date_from?: string
+   date_to?: string
+   regulatory_category?: string
+ }
+ 
+ export async function getKartuStokFilters(): Promise<KartuStokFilters> {
+   return {}
+diff --git a/apps/web/app/kartu-stok/page.tsx b/apps/web/app/(app)/kartu-stok/page.tsx
+similarity index 99%
+rename from apps/web/app/kartu-stok/page.tsx
+rename to apps/web/app/(app)/kartu-stok/page.tsx
+index 858c0d2..4048f00 100644
+--- a/apps/web/app/kartu-stok/page.tsx
++++ b/apps/web/app/(app)/kartu-stok/page.tsx
+@@ -1,14 +1,14 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ import { getKartuStokRows } from './actions'
+-import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../lib/kartu-stok'
++import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../../lib/kartu-stok'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+ const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+ 
+diff --git a/apps/web/app/(app)/layout.tsx b/apps/web/app/(app)/layout.tsx
+new file mode 100644
+index 0000000..641ad70
+--- /dev/null
++++ b/apps/web/app/(app)/layout.tsx
+@@ -0,0 +1,12 @@
++// App shell: left sidebar + top header + main content.
++// The real sidebar content lands in Task 2; this establishes the grid.
++export default function AppLayout({ children }: { children: React.ReactNode }) {
++  return (
++    <div className="flex min-h-screen">
++      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:block" />
++      <div className="flex min-w-0 flex-1 flex-col">
++        <main className="flex-1 bg-slate-50 p-6">{children}</main>
++      </div>
++    </div>
++  )
++}
+diff --git a/apps/web/app/page.tsx b/apps/web/app/(app)/page.tsx
+similarity index 97%
+rename from apps/web/app/page.tsx
+rename to apps/web/app/(app)/page.tsx
+index 62c1868..d4ec285 100644
+--- a/apps/web/app/page.tsx
++++ b/apps/web/app/(app)/page.tsx
+@@ -1,11 +1,11 @@
+-import { createClient } from '../utils/supabase/server'
++import { createClient } from '../../utils/supabase/server'
+ 
+ const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' })
+ 
+ export default async function HomePage() {
+   const supabase = await createClient()
+   const { data, error } = await supabase.rpc('get_dashboard_kpis')
+ 
+   let dailySales: number | null = null
+   let lowStockCount: number | null = null
+   let nearExpiryCount: number | null = null
+diff --git a/apps/web/app/patients/actions.ts b/apps/web/app/(app)/patients/actions.ts
+similarity index 95%
+rename from apps/web/app/patients/actions.ts
+rename to apps/web/app/(app)/patients/actions.ts
+index 23fe0de..87872b3 100644
+--- a/apps/web/app/patients/actions.ts
++++ b/apps/web/app/(app)/patients/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ 
+ async function assertOwnerOrPharmacist(supabase: Awaited<ReturnType<typeof createClient>>) {
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') throw new Error('Owner or Pharmacist only')
+ }
+ 
+ async function assertOwner(supabase: Awaited<ReturnType<typeof createClient>>) {
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER') throw new Error('Owner only')
+ }
+diff --git a/apps/web/app/patients/page.tsx b/apps/web/app/(app)/patients/page.tsx
+similarity index 98%
+rename from apps/web/app/patients/page.tsx
+rename to apps/web/app/(app)/patients/page.tsx
+index 1a3a27f..9442ec6 100644
+--- a/apps/web/app/patients/page.tsx
++++ b/apps/web/app/(app)/patients/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ import { createPatient, updatePatient, deletePatient } from './actions'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+ const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+diff --git a/apps/web/app/procurement/[id]/page.tsx b/apps/web/app/(app)/procurement/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/procurement/[id]/page.tsx
+rename to apps/web/app/(app)/procurement/[id]/page.tsx
+index 5f6be28..7f0de0b 100644
+--- a/apps/web/app/procurement/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ import { statusColors, parseDate } from '../status'
+ 
+ async function submitPurchaseOrder(formData: FormData) {
+   'use server'
+   const id = formData.get('id') as string
+   const supabase = await createClient()
+   const { data: po } = await supabase
+     .from('purchase_orders')
+     .select('status')
+     .eq('id', id)
+diff --git a/apps/web/app/procurement/[id]/receive/page.tsx b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+similarity index 99%
+rename from apps/web/app/procurement/[id]/receive/page.tsx
+rename to apps/web/app/(app)/procurement/[id]/receive/page.tsx
+index 5d6a34d..489ff4b 100644
+--- a/apps/web/app/procurement/[id]/receive/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../../utils/supabase/server'
++import { createClient } from '../../../../../utils/supabase/server'
+ 
+ async function receiveGoods(formData: FormData) {
+   'use server'
+   const id = formData.get('purchase_order_id') as string
+   const receiptNumber = formData.get('receipt_number') as string
+   const invoiceNumber = formData.get('invoice_number') as string
+   const purchaseOrderItemIds = formData.getAll('purchase_order_item_id') as string[]
+   const productIds = formData.getAll('product_id') as string[]
+   const batchNumbers = formData.getAll('batch_number') as string[]
+   const expiryDates = formData.getAll('expiry_date') as string[]
+diff --git a/apps/web/app/procurement/new/page.tsx b/apps/web/app/(app)/procurement/new/page.tsx
+similarity index 98%
+rename from apps/web/app/procurement/new/page.tsx
+rename to apps/web/app/(app)/procurement/new/page.tsx
+index f68b98f..a52661d 100644
+--- a/apps/web/app/procurement/new/page.tsx
++++ b/apps/web/app/(app)/procurement/new/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ 
+ async function createPurchaseOrder(formData: FormData) {
+   'use server'
+   const supplierId = formData.get('supplier_id') as string
+   const poNumber = formData.get('po_number') as string
+   const productIds = formData.getAll('product_id') as string[]
+   const qtys = formData.getAll('qty_ordered') as string[]
+   const prices = formData.getAll('unit_price') as string[]
+ 
+   if (!supplierId || !poNumber || productIds.length === 0) {
+diff --git a/apps/web/app/procurement/page.tsx b/apps/web/app/(app)/procurement/page.tsx
+similarity index 97%
+rename from apps/web/app/procurement/page.tsx
+rename to apps/web/app/(app)/procurement/page.tsx
+index 6073382..d6f88fd 100644
+--- a/apps/web/app/procurement/page.tsx
++++ b/apps/web/app/(app)/procurement/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ import { statusColors, parseDate } from './status'
+ 
+ export default async function ProcurementPage() {
+   const supabase = await createClient()
+   const { data: pos } = await supabase
+     .from('purchase_orders')
+     .select('*, suppliers (name)')
+     .order('created_at', { ascending: false })
+ 
+   return (
+diff --git a/apps/web/app/procurement/returns/[id]/page.tsx b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/procurement/returns/[id]/page.tsx
+rename to apps/web/app/(app)/procurement/returns/[id]/page.tsx
+index 77cb026..90d3d71 100644
+--- a/apps/web/app/procurement/returns/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../../utils/supabase/server'
++import { createClient } from '../../../../../utils/supabase/server'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params
+diff --git a/apps/web/app/procurement/returns/new/actions.ts b/apps/web/app/(app)/procurement/returns/new/actions.ts
+similarity index 98%
+rename from apps/web/app/procurement/returns/new/actions.ts
+rename to apps/web/app/(app)/procurement/returns/new/actions.ts
+index 0221cd1..d58e7fb 100644
+--- a/apps/web/app/procurement/returns/new/actions.ts
++++ b/apps/web/app/(app)/procurement/returns/new/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../../utils/supabase/server'
++import { createClient } from '../../../../../utils/supabase/server'
+ 
+ // Create one purchase return and its items, then reduce batch stock.
+ // The return acts as a supplier credit note; it never changes the
+ // original accounts_payables row.
+ export async function createPurchaseReturn(formData: FormData) {
+   const supabase = await createClient()
+   const {
+     data: { user },
+   } = await supabase.auth.getUser()
+   if (!user) throw new Error('Not authenticated')
+diff --git a/apps/web/app/procurement/returns/new/page.tsx b/apps/web/app/(app)/procurement/returns/new/page.tsx
+similarity index 92%
+rename from apps/web/app/procurement/returns/new/page.tsx
+rename to apps/web/app/(app)/procurement/returns/new/page.tsx
+index 325da54..350c3dc 100644
+--- a/apps/web/app/procurement/returns/new/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/new/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../../utils/supabase/server'
+-import { getUserRole } from '../../../../utils/auth'
++import { createClient } from '../../../../../utils/supabase/server'
++import { getUserRole } from '../../../../../utils/auth'
+ import { ReturnForm } from './return-form'
+ 
+ export default async function NewReturnPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!role || role === 'CASHIER') {
+     return <p style={{ color: 'var(--danger)' }}>Access denied. Owner, pharmacist, or inventory only.</p>
+   }
+ 
+   const [{ data: suppliers }, { data: products }, { data: batches }] = await Promise.all([
+diff --git a/apps/web/app/procurement/returns/new/return-form.tsx b/apps/web/app/(app)/procurement/returns/new/return-form.tsx
+similarity index 100%
+rename from apps/web/app/procurement/returns/new/return-form.tsx
+rename to apps/web/app/(app)/procurement/returns/new/return-form.tsx
+diff --git a/apps/web/app/procurement/returns/page.tsx b/apps/web/app/(app)/procurement/returns/page.tsx
+similarity index 98%
+rename from apps/web/app/procurement/returns/page.tsx
+rename to apps/web/app/(app)/procurement/returns/page.tsx
+index eee65bc..04b9459 100644
+--- a/apps/web/app/procurement/returns/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnsListPage() {
+   const supabase = await createClient()
+diff --git a/apps/web/app/procurement/status.ts b/apps/web/app/(app)/procurement/status.ts
+similarity index 100%
+rename from apps/web/app/procurement/status.ts
+rename to apps/web/app/(app)/procurement/status.ts
+diff --git a/apps/web/app/products/actions.ts b/apps/web/app/(app)/products/actions.ts
+similarity index 95%
+rename from apps/web/app/products/actions.ts
+rename to apps/web/app/(app)/products/actions.ts
+index effd67c..62d06ed 100644
+--- a/apps/web/app/products/actions.ts
++++ b/apps/web/app/(app)/products/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ 
+ // Create or update a product. Only OWNER, PHARMACIST, and INVENTORY may manage
+ // master data. CASHIER can search products but not edit them.
+ async function assertCanEdit(supabase: Awaited<ReturnType<typeof createClient>>) {
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST' && role !== 'INVENTORY') {
+     throw new Error('Not authorized')
+   }
+ }
+ 
+diff --git a/apps/web/app/products/page.tsx b/apps/web/app/(app)/products/page.tsx
+similarity index 98%
+rename from apps/web/app/products/page.tsx
+rename to apps/web/app/(app)/products/page.tsx
+index 17e53a5..cdbed1b 100644
+--- a/apps/web/app/products/page.tsx
++++ b/apps/web/app/(app)/products/page.tsx
+@@ -1,12 +1,12 @@
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ import { createProduct, updateProduct } from './actions'
+ 
+ const CATEGORIES = ['BEBAS', 'BEBAS_TERBATAS', 'KERAS', 'PSIKOTROPIKA', 'NARKOTIKA']
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+diff --git a/apps/web/app/reports/sipnap/actions.ts b/apps/web/app/(app)/reports/sipnap/actions.ts
+similarity index 96%
+rename from apps/web/app/reports/sipnap/actions.ts
+rename to apps/web/app/(app)/reports/sipnap/actions.ts
+index b2c05a8..2df44b2 100644
+--- a/apps/web/app/reports/sipnap/actions.ts
++++ b/apps/web/app/(app)/reports/sipnap/actions.ts
+@@ -1,15 +1,15 @@
+ 'use server'
+ 
+ import { createHash } from 'crypto'
+-import { createClient } from '../../../utils/supabase/server'
+-import { buildSipnapV2Csv, type SipnapV2Report } from '../../../lib/sipnap-v2'
++import { createClient } from '../../../../utils/supabase/server'
++import { buildSipnapV2Csv, type SipnapV2Report } from '../../../../lib/sipnap-v2'
+ 
+ // Store the exact export CSV in the private sipnap-archives bucket and record
+ // the audit row. Re-download always serves the stored file, never a recompute.
+ // The DB payload (csv) is kept as a fallback for rows recorded while the bucket
+ // was broken (GLOBAL_S3_BUCKET unset on the VPS made every key absolute).
+ export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: boolean }> {
+   const supabase = await createClient()
+   const {
+     data: { user },
+   } = await supabase.auth.getUser()
+diff --git a/apps/web/app/reports/sipnap/download-button.tsx b/apps/web/app/(app)/reports/sipnap/download-button.tsx
+similarity index 98%
+rename from apps/web/app/reports/sipnap/download-button.tsx
+rename to apps/web/app/(app)/reports/sipnap/download-button.tsx
+index dc71267..88f6b93 100644
+--- a/apps/web/app/reports/sipnap/download-button.tsx
++++ b/apps/web/app/(app)/reports/sipnap/download-button.tsx
+@@ -1,14 +1,14 @@
+ 'use client'
+ 
+ import { useState } from 'react'
+-import { buildSipnapV2Csv, type SipnapV2Report } from '../../../lib/sipnap-v2'
++import { buildSipnapV2Csv, type SipnapV2Report } from '../../../../lib/sipnap-v2'
+ import { recordSipnapExport } from './actions'
+ 
+ // Store the exact CSV in the archive bucket, then download the same file
+ // in the browser. The stored file is the audit artifact.
+ export function DownloadButton({ report }: { report: SipnapV2Report }) {
+   const [busy, setBusy] = useState(false)
+   const [error, setError] = useState<string | null>(null)
+ 
+   async function download() {
+     setBusy(true)
+diff --git a/apps/web/app/reports/sipnap/download-link.tsx b/apps/web/app/(app)/reports/sipnap/download-link.tsx
+similarity index 100%
+rename from apps/web/app/reports/sipnap/download-link.tsx
+rename to apps/web/app/(app)/reports/sipnap/download-link.tsx
+diff --git a/apps/web/app/reports/sipnap/history.tsx b/apps/web/app/(app)/reports/sipnap/history.tsx
+similarity index 100%
+rename from apps/web/app/reports/sipnap/history.tsx
+rename to apps/web/app/(app)/reports/sipnap/history.tsx
+diff --git a/apps/web/app/reports/sipnap/page.tsx b/apps/web/app/(app)/reports/sipnap/page.tsx
+similarity index 98%
+rename from apps/web/app/reports/sipnap/page.tsx
+rename to apps/web/app/(app)/reports/sipnap/page.tsx
+index f69ea9c..78377ab 100644
+--- a/apps/web/app/reports/sipnap/page.tsx
++++ b/apps/web/app/(app)/reports/sipnap/page.tsx
+@@ -1,14 +1,14 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole } from '../../../utils/auth'
+-import { parseSipnapV2Report, isSipnapV2Ready, checksToLines } from '../../../lib/sipnap-v2'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole } from '../../../../utils/auth'
++import { parseSipnapV2Report, isSipnapV2Ready, checksToLines } from '../../../../lib/sipnap-v2'
+ import { DownloadButton } from './download-button'
+ import { HistoryTab, type ExportRow } from './history'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+diff --git a/apps/web/app/sales/[id]/actions.ts b/apps/web/app/(app)/sales/[id]/actions.ts
+similarity index 89%
+rename from apps/web/app/sales/[id]/actions.ts
+rename to apps/web/app/(app)/sales/[id]/actions.ts
+index 2cb6f15..8d4aee7 100644
+--- a/apps/web/app/sales/[id]/actions.ts
++++ b/apps/web/app/(app)/sales/[id]/actions.ts
+@@ -1,15 +1,15 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole } from '../../../utils/auth'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole } from '../../../../utils/auth'
+ 
+ // Update doctor and patient on a paid RESEP sale. OWNER or PHARMACIST only.
+ export async function updateSaleClinicalInfo(formData: FormData) {
+   const saleId = String(formData.get('sale_id') || '')
+   const doctorId = String(formData.get('doctor_id') || '') || null
+   const patientId = String(formData.get('patient_id') || '') || null
+ 
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') redirect(`/sales/${saleId}`)
+diff --git a/apps/web/app/sales/[id]/page.tsx b/apps/web/app/(app)/sales/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/sales/[id]/page.tsx
+rename to apps/web/app/(app)/sales/[id]/page.tsx
+index 64650b4..c15b97e 100644
+--- a/apps/web/app/sales/[id]/page.tsx
++++ b/apps/web/app/(app)/sales/[id]/page.tsx
+@@ -1,17 +1,17 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ import { statusColors, parseDate } from '../status'
+-import { getUserRole, canVoidSale } from '../../../utils/auth'
++import { getUserRole, canVoidSale } from '../../../../utils/auth'
+ import { listOpenShift } from '../../shifts/actions'
+-import { perProductQuantities, sumEmbalase } from '../../../lib/compound'
++import { perProductQuantities, sumEmbalase } from '../../../../lib/compound'
+ import { updateSaleClinicalInfo } from './actions'
+ import { retrySatusehatSubmission } from './satusehat-actions'
+ 
+ const satusehatStatusColor: Record<string, string> = {
+   PENDING: '#d97706',
+   SENT: '#16a34a',
+   FAILED: '#dc2626',
+   SKIPPED: '#64748b',
+ }
+ 
+diff --git a/apps/web/app/sales/[id]/satusehat-actions.ts b/apps/web/app/(app)/sales/[id]/satusehat-actions.ts
+similarity index 84%
+rename from apps/web/app/sales/[id]/satusehat-actions.ts
+rename to apps/web/app/(app)/sales/[id]/satusehat-actions.ts
+index 144edad..e2a11fc 100644
+--- a/apps/web/app/sales/[id]/satusehat-actions.ts
++++ b/apps/web/app/(app)/sales/[id]/satusehat-actions.ts
+@@ -1,15 +1,15 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole } from '../../../utils/auth'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole } from '../../../../utils/auth'
+ 
+ // Re-queue a FAILED submission. OWNER and PHARMACIST only.
+ export async function retrySatusehatSubmission(saleId: string) {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+     redirect(`/sales/${saleId}`)
+     return
+   }
+ 
+diff --git a/apps/web/app/sales/new/actions.ts b/apps/web/app/(app)/sales/new/actions.ts
+similarity index 98%
+rename from apps/web/app/sales/new/actions.ts
+rename to apps/web/app/(app)/sales/new/actions.ts
+index 1ef816d..66e1639 100644
+--- a/apps/web/app/sales/new/actions.ts
++++ b/apps/web/app/(app)/sales/new/actions.ts
+@@ -1,16 +1,16 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ import { requireOpenShift } from '../../shifts/actions'
+-import { computeSaleTotals, requiresAddress, requiresResep, RegulatoryCategory } from '../../../lib/cart'
++import { computeSaleTotals, requiresAddress, requiresResep, RegulatoryCategory } from '../../../../lib/cart'
+ 
+ // Upsert a doctor/patient. When a new record name is provided and no existing
+ // id, create it and return the new id. When given an existing id, return it.
+ async function resolveDoctor(
+   supabase: Awaited<ReturnType<typeof createClient>>,
+   tenantId: string,
+   id: string | null,
+   name: string | null,
+   sipNumber: string | null
+ ): Promise<string | null> {
+diff --git a/apps/web/app/sales/new/cart-builder.tsx b/apps/web/app/(app)/sales/new/cart-builder.tsx
+similarity index 99%
+rename from apps/web/app/sales/new/cart-builder.tsx
+rename to apps/web/app/(app)/sales/new/cart-builder.tsx
+index a1667c9..b4bb05a 100644
+--- a/apps/web/app/sales/new/cart-builder.tsx
++++ b/apps/web/app/(app)/sales/new/cart-builder.tsx
+@@ -3,21 +3,21 @@
+ import { useMemo, useState } from 'react'
+ import { lookupIhsForPatient } from './ihs-actions'
+ import { createDraftSale } from './actions'
+ import {
+   requiresAddress,
+   requiresResep,
+   computeSaleTotals,
+   ingredientTotalQty,
+   isBpjsCheckoutBlocked,
+   RegulatoryCategory,
+-} from '../../../lib/cart'
++} from '../../../../lib/cart'
+ 
+ interface ProductLite {
+   id: string
+   name: string
+   sku: string
+   base_unit: string
+   allow_fractional: boolean
+   regulatory_category: RegulatoryCategory
+ }
+ 
+diff --git a/apps/web/app/sales/new/ihs-actions.ts b/apps/web/app/(app)/sales/new/ihs-actions.ts
+similarity index 93%
+rename from apps/web/app/sales/new/ihs-actions.ts
+rename to apps/web/app/(app)/sales/new/ihs-actions.ts
+index 17dba8c..9653f19 100644
+--- a/apps/web/app/sales/new/ihs-actions.ts
++++ b/apps/web/app/(app)/sales/new/ihs-actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+-import { createClient } from '../../../utils/supabase/server'
+-import { getSatusehatToken, lookupPatientIhs } from '../../../lib/satusehat'
++import { createClient } from '../../../../utils/supabase/server'
++import { getSatusehatToken, lookupPatientIhs } from '../../../../lib/satusehat'
+ 
+ // Look up the IHS number for a patient by NIK and cache it on the patient.
+ // Skips when the patient has no NIK or the IHS number is already cached.
+ // Never throws to the client: returns { ok, message }.
+ export async function lookupIhsForPatient(
+   patientId: string
+ ): Promise<{ ok: boolean; message: string }> {
+   if (!patientId) return { ok: false, message: 'No patient selected.' }
+   const supabase = await createClient()
+   const {
+diff --git a/apps/web/app/sales/new/page.tsx b/apps/web/app/(app)/sales/new/page.tsx
+similarity index 98%
+rename from apps/web/app/sales/new/page.tsx
+rename to apps/web/app/(app)/sales/new/page.tsx
+index 100ff74..d1abb51 100644
+--- a/apps/web/app/sales/new/page.tsx
++++ b/apps/web/app/(app)/sales/new/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ import { requireOpenShift } from '../../shifts/actions'
+ import { ShiftRow } from '@pharmacy/domain'
+ import { CartBuilder } from './cart-builder'
+ 
+ // POS blocked when no shift is open.
+ async function PosBlock() {
+   return (
+     <div
+       style={{
+         display: 'flex',
+diff --git a/apps/web/app/sales/page.tsx b/apps/web/app/(app)/sales/page.tsx
+similarity index 97%
+rename from apps/web/app/sales/page.tsx
+rename to apps/web/app/(app)/sales/page.tsx
+index cfba385..29b3107 100644
+--- a/apps/web/app/sales/page.tsx
++++ b/apps/web/app/(app)/sales/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ import { statusColors, parseDate } from './status'
+ 
+ export default async function SalesPage() {
+   const supabase = await createClient()
+   const { data: sales } = await supabase
+     .from('sales')
+     .select('*, sale_items (*)')
+     .order('created_at', { ascending: false })
+ 
+   return (
+diff --git a/apps/web/app/sales/status.ts b/apps/web/app/(app)/sales/status.ts
+similarity index 100%
+rename from apps/web/app/sales/status.ts
+rename to apps/web/app/(app)/sales/status.ts
+diff --git a/apps/web/app/settings/actions.ts b/apps/web/app/(app)/settings/actions.ts
+similarity index 95%
+rename from apps/web/app/settings/actions.ts
+rename to apps/web/app/(app)/settings/actions.ts
+index e85b0c5..eab57f2 100644
+--- a/apps/web/app/settings/actions.ts
++++ b/apps/web/app/(app)/settings/actions.ts
+@@ -1,15 +1,15 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
+-import { buildSatusehatPatch, buildTenantPatch, logoPath } from '../../lib/settings'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
++import { buildSatusehatPatch, buildTenantPatch, logoPath } from '../../../lib/settings'
+ 
+ // Save tenant profile — OWNER only.
+ export async function saveTenantProfile(formData: FormData) {
+   const supabase = await createClient()
+   const { data: { user } } = await supabase.auth.getUser()
+   if (!user) throw new Error('Not authenticated')
+ 
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER') throw new Error('Owner only')
+ 
+diff --git a/apps/web/app/settings/page.tsx b/apps/web/app/(app)/settings/page.tsx
+similarity index 86%
+rename from apps/web/app/settings/page.tsx
+rename to apps/web/app/(app)/settings/page.tsx
+index b8c0de7..d6c0d7a 100644
+--- a/apps/web/app/settings/page.tsx
++++ b/apps/web/app/(app)/settings/page.tsx
+@@ -1,14 +1,14 @@
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
+ import { SettingsForm } from './settings-form'
+-import type { TenantProfile } from '../../lib/settings'
++import type { TenantProfile } from '../../../lib/settings'
+ 
+ export default async function SettingsPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+ 
+   if (role !== 'OWNER') {
+     return (
+       <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
+         <p style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Settings: Owner only</p>
+       </div>
+diff --git a/apps/web/app/settings/settings-form.tsx b/apps/web/app/(app)/settings/settings-form.tsx
+similarity index 99%
+rename from apps/web/app/settings/settings-form.tsx
+rename to apps/web/app/(app)/settings/settings-form.tsx
+index 83e5c4d..5f04fd0 100644
+--- a/apps/web/app/settings/settings-form.tsx
++++ b/apps/web/app/(app)/settings/settings-form.tsx
+@@ -1,15 +1,15 @@
+ 'use client'
+ 
+ import { useState, useRef } from 'react'
+ import { saveTenantProfile, uploadLogo, removeLogo } from './actions'
+-import type { TenantProfile } from '../../lib/settings'
++import type { TenantProfile } from '../../../lib/settings'
+ 
+ const fieldStyle: React.CSSProperties = {
+   display: 'flex',
+   flexDirection: 'column',
+   gap: 4,
+ }
+ 
+ const labelStyle: React.CSSProperties = {
+   fontSize: 13,
+   fontWeight: 500,
+diff --git a/apps/web/app/shifts/[id]/page.tsx b/apps/web/app/(app)/shifts/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/shifts/[id]/page.tsx
+rename to apps/web/app/(app)/shifts/[id]/page.tsx
+index 76435f2..e602f5a 100644
+--- a/apps/web/app/shifts/[id]/page.tsx
++++ b/apps/web/app/(app)/shifts/[id]/page.tsx
+@@ -1,16 +1,16 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ import { closeShift, forceCloseShift } from '../actions'
+-import { getUserRole } from '../../../utils/auth'
+-import { canForceCloseShift } from '../../../lib/shifts'
++import { getUserRole } from '../../../../utils/auth'
++import { canForceCloseShift } from '../../../../lib/shifts'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+ }
+ 
+ const statusColors: Record<string, string> = {
+   OPEN: '#10b981',
+diff --git a/apps/web/app/shifts/actions.ts b/apps/web/app/(app)/shifts/actions.ts
+similarity index 95%
+rename from apps/web/app/shifts/actions.ts
+rename to apps/web/app/(app)/shifts/actions.ts
+index 38766f9..e4e8794 100644
+--- a/apps/web/app/shifts/actions.ts
++++ b/apps/web/app/(app)/shifts/actions.ts
+@@ -1,15 +1,15 @@
+ 'use server'
+ 
+-import { createClient } from '../../utils/supabase/server'
+-import { getUserRole } from '../../utils/auth'
+-import { parseOpeningCash } from '../../lib/shifts'
++import { createClient } from '../../../utils/supabase/server'
++import { getUserRole } from '../../../utils/auth'
++import { parseOpeningCash } from '../../../lib/shifts'
+ 
+ export async function openShift(formData: FormData) {
+   const supabase = await createClient()
+   const { data: { user } } = await supabase.auth.getUser()
+   if (!user) throw new Error('Not authenticated')
+ 
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST' && role !== 'CASHIER') {
+     throw new Error('Not authorized')
+   }
+diff --git a/apps/web/app/shifts/new/page.tsx b/apps/web/app/(app)/shifts/new/page.tsx
+similarity index 100%
+rename from apps/web/app/shifts/new/page.tsx
+rename to apps/web/app/(app)/shifts/new/page.tsx
+diff --git a/apps/web/app/shifts/page.tsx b/apps/web/app/(app)/shifts/page.tsx
+similarity index 98%
+rename from apps/web/app/shifts/page.tsx
+rename to apps/web/app/(app)/shifts/page.tsx
+index a8151d8..7bac3a2 100644
+--- a/apps/web/app/shifts/page.tsx
++++ b/apps/web/app/(app)/shifts/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ import { listOpenShift } from './actions'
+ 
+ // ASD-STE100: shared utility for date display
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
+ }
+ 
+diff --git a/apps/web/app/stock-opname/[id]/page.tsx b/apps/web/app/(app)/stock-opname/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/stock-opname/[id]/page.tsx
+rename to apps/web/app/(app)/stock-opname/[id]/page.tsx
+index c29c331..13dfd37 100644
+--- a/apps/web/app/stock-opname/[id]/page.tsx
++++ b/apps/web/app/(app)/stock-opname/[id]/page.tsx
+@@ -1,14 +1,14 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole, canApproveOpname } from '../../../utils/auth'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole, canApproveOpname } from '../../../../utils/auth'
+ 
+ const statusColors: Record<string, string> = {
+   DRAFT: '#64748b',
+   PENDING_APPROVAL: '#f59e0b',
+   APPROVED: '#0d9488',
+   CANCELLED: '#ef4444',
+ }
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+diff --git a/apps/web/app/stock-opname/new/page.tsx b/apps/web/app/(app)/stock-opname/new/page.tsx
+similarity index 98%
+rename from apps/web/app/stock-opname/new/page.tsx
+rename to apps/web/app/(app)/stock-opname/new/page.tsx
+index bfb1465..f79069e 100644
+--- a/apps/web/app/stock-opname/new/page.tsx
++++ b/apps/web/app/(app)/stock-opname/new/page.tsx
+@@ -1,12 +1,12 @@
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../utils/supabase/server'
++import { createClient } from '../../../../utils/supabase/server'
+ 
+ const opnameReasons = ['DAMAGE', 'EXPIRED', 'LOST', 'COUNT_ERROR', 'MISC']
+ 
+ async function createStockOpname(formData: FormData) {
+   'use server'
+   const type = (formData.get('type') as string) || 'FULL_STORE'
+   const opnameNumber = `SON-${Date.now()}`
+   const batchIds = formData.getAll('batch_id') as string[]
+   const physicalQtys = formData.getAll('physical_qty') as string[]
+   const reasons = formData.getAll('reason') as string[]
+diff --git a/apps/web/app/stock-opname/page.tsx b/apps/web/app/(app)/stock-opname/page.tsx
+similarity index 97%
+rename from apps/web/app/stock-opname/page.tsx
+rename to apps/web/app/(app)/stock-opname/page.tsx
+index 6295563..e2e7f91 100644
+--- a/apps/web/app/stock-opname/page.tsx
++++ b/apps/web/app/(app)/stock-opname/page.tsx
+@@ -1,12 +1,12 @@
+ import Link from 'next/link'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ 
+ const statusColors: Record<string, string> = {
+   DRAFT: '#64748b',
+   PENDING_APPROVAL: '#f59e0b',
+   APPROVED: '#0d9488',
+   CANCELLED: '#ef4444',
+ }
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+diff --git a/apps/web/app/stock/destructions/[id]/page.tsx b/apps/web/app/(app)/stock/destructions/[id]/page.tsx
+similarity index 96%
+rename from apps/web/app/stock/destructions/[id]/page.tsx
+rename to apps/web/app/(app)/stock/destructions/[id]/page.tsx
+index b0f2c1d..b0813ea 100644
+--- a/apps/web/app/stock/destructions/[id]/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/[id]/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../../utils/supabase/server'
+-import { getUserRole } from '../../../../utils/auth'
++import { createClient } from '../../../../../utils/supabase/server'
++import { getUserRole } from '../../../../../utils/auth'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+ 
+ const tdStyle: React.CSSProperties = {
+diff --git a/apps/web/app/stock/destructions/new/actions.ts b/apps/web/app/(app)/stock/destructions/new/actions.ts
+similarity index 98%
+rename from apps/web/app/stock/destructions/new/actions.ts
+rename to apps/web/app/(app)/stock/destructions/new/actions.ts
+index 9c80f3b..361fcf9 100644
+--- a/apps/web/app/stock/destructions/new/actions.ts
++++ b/apps/web/app/(app)/stock/destructions/new/actions.ts
+@@ -1,14 +1,14 @@
+ 'use server'
+ 
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../../../utils/supabase/server'
++import { createClient } from '../../../../../utils/supabase/server'
+ 
+ // Create one destruction record and its items, then reduce batch stock.
+ // A destruction is a formal legal event with BAP. Only OWNER and
+ // PHARMACIST (APJ) can record it.
+ export async function createDestruction(formData: FormData) {
+   const supabase = await createClient()
+   const {
+     data: { user },
+   } = await supabase.auth.getUser()
+   if (!user) throw new Error('Not authenticated')
+diff --git a/apps/web/app/stock/destructions/new/destruction-form.tsx b/apps/web/app/(app)/stock/destructions/new/destruction-form.tsx
+similarity index 100%
+rename from apps/web/app/stock/destructions/new/destruction-form.tsx
+rename to apps/web/app/(app)/stock/destructions/new/destruction-form.tsx
+diff --git a/apps/web/app/stock/destructions/new/page.tsx b/apps/web/app/(app)/stock/destructions/new/page.tsx
+similarity index 91%
+rename from apps/web/app/stock/destructions/new/page.tsx
+rename to apps/web/app/(app)/stock/destructions/new/page.tsx
+index 3141ef0..b713c90 100644
+--- a/apps/web/app/stock/destructions/new/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/new/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../../utils/supabase/server'
+-import { getUserRole } from '../../../../utils/auth'
++import { createClient } from '../../../../../utils/supabase/server'
++import { getUserRole } from '../../../../../utils/auth'
+ import { DestructionForm } from './destruction-form'
+ 
+ export default async function NewDestructionPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+     return <p style={{ color: 'var(--danger)' }}>Access denied. Owner or pharmacist (APJ) only.</p>
+   }
+ 
+   const [{ data: products }, { data: batches }] = await Promise.all([
+diff --git a/apps/web/app/stock/destructions/page.tsx b/apps/web/app/(app)/stock/destructions/page.tsx
+similarity index 96%
+rename from apps/web/app/stock/destructions/page.tsx
+rename to apps/web/app/(app)/stock/destructions/page.tsx
+index eccbecd..1c755cf 100644
+--- a/apps/web/app/stock/destructions/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/page.tsx
+@@ -1,13 +1,13 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole } from '../../../utils/auth'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole } from '../../../../utils/auth'
+ 
+ const thStyle: React.CSSProperties = {
+   padding: '8px 12px',
+   fontSize: 12,
+   fontWeight: 600,
+   borderBottom: '1px solid var(--border)',
+   textAlign: 'left',
+ }
+ 
+ const tdStyle: React.CSSProperties = {
+diff --git a/apps/web/app/suppliers/[id]/page.tsx b/apps/web/app/(app)/suppliers/[id]/page.tsx
+similarity index 98%
+rename from apps/web/app/suppliers/[id]/page.tsx
+rename to apps/web/app/(app)/suppliers/[id]/page.tsx
+index b14a900..2993066 100644
+--- a/apps/web/app/suppliers/[id]/page.tsx
++++ b/apps/web/app/(app)/suppliers/[id]/page.tsx
+@@ -1,14 +1,14 @@
+ import Link from 'next/link'
+-import { createClient } from '../../../utils/supabase/server'
+-import { getUserRole } from '../../../utils/auth'
+-import { buildStatementLedger, computeSupplierBalance } from '../../../lib/purchase-returns'
++import { createClient } from '../../../../utils/supabase/server'
++import { getUserRole } from '../../../../utils/auth'
++import { buildStatementLedger, computeSupplierBalance } from '../../../../lib/purchase-returns'
+ import { PrintButton } from './print-button'
+ 
+ // A4 print CSS scoped to .statement-print.
+ function printCss(): string {
+   return `
+   @media print {
+     @page { size: A4; margin: 14mm; }
+     body * { visibility: hidden; }
+     .statement-print, .statement-print * { visibility: visible; }
+     .statement-print { position: absolute; top: 0; left: 0; width: 100%; }
+diff --git a/apps/web/app/suppliers/[id]/print-button.tsx b/apps/web/app/(app)/suppliers/[id]/print-button.tsx
+similarity index 100%
+rename from apps/web/app/suppliers/[id]/print-button.tsx
+rename to apps/web/app/(app)/suppliers/[id]/print-button.tsx
+diff --git a/apps/web/app/suppliers/page.tsx b/apps/web/app/(app)/suppliers/page.tsx
+similarity index 97%
+rename from apps/web/app/suppliers/page.tsx
+rename to apps/web/app/(app)/suppliers/page.tsx
+index 49a6b1d..d5a4cd6 100644
+--- a/apps/web/app/suppliers/page.tsx
++++ b/apps/web/app/(app)/suppliers/page.tsx
+@@ -1,11 +1,11 @@
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ import Link from 'next/link'
+ 
+ export default async function SuppliersPage() {
+   const supabase = await createClient()
+   const { data: suppliers } = await supabase
+     .from('suppliers')
+     .select('*')
+     .order('name', { ascending: true })
+ 
+   return (
+diff --git a/apps/web/app/(auth)/layout.tsx b/apps/web/app/(auth)/layout.tsx
+new file mode 100644
+index 0000000..02b3788
+--- /dev/null
++++ b/apps/web/app/(auth)/layout.tsx
+@@ -0,0 +1,4 @@
++// Auth shell: blank canvas, no app chrome, centered content area.
++export default function AuthLayout({ children }: { children: React.ReactNode }) {
++  return <div className="min-h-screen bg-slate-50">{children}</div>
++}
+diff --git a/apps/web/app/login/actions.ts b/apps/web/app/(auth)/login/actions.ts
+similarity index 86%
+rename from apps/web/app/login/actions.ts
+rename to apps/web/app/(auth)/login/actions.ts
+index aedba2d..eea6c81 100644
+--- a/apps/web/app/login/actions.ts
++++ b/apps/web/app/(auth)/login/actions.ts
+@@ -1,13 +1,13 @@
+ 'use server'
+ import { redirect } from 'next/navigation'
+-import { createClient } from '../../utils/supabase/server'
++import { createClient } from '../../../utils/supabase/server'
+ 
+ export async function login(formData: FormData) {
+   const email = formData.get('email') as string
+   const password = formData.get('password') as string
+   const supabase = await createClient()
+ 
+   const { error } = await supabase.auth.signInWithPassword({ email, password })
+   if (error) redirect('/login?error=Invalid credentials')
+   redirect('/')
+ }
+diff --git a/apps/web/app/login/page.tsx b/apps/web/app/(auth)/login/page.tsx
+similarity index 100%
+rename from apps/web/app/login/page.tsx
+rename to apps/web/app/(auth)/login/page.tsx
+diff --git a/apps/web/app/(print)/layout.tsx b/apps/web/app/(print)/layout.tsx
+new file mode 100644
+index 0000000..6b0b284
+--- /dev/null
++++ b/apps/web/app/(print)/layout.tsx
+@@ -0,0 +1,4 @@
++// Print shell: no chrome at all — receipts render bare for thermal output.
++export default function PrintLayout({ children }: { children: React.ReactNode }) {
++  return <>{children}</>
++}
+diff --git a/apps/web/app/receipts/[saleId]/page.tsx b/apps/web/app/(print)/receipts/[saleId]/page.tsx
+similarity index 98%
+rename from apps/web/app/receipts/[saleId]/page.tsx
+rename to apps/web/app/(print)/receipts/[saleId]/page.tsx
+index 61d23db..f3f59d4 100644
+--- a/apps/web/app/receipts/[saleId]/page.tsx
++++ b/apps/web/app/(print)/receipts/[saleId]/page.tsx
+@@ -1,12 +1,12 @@
+-import { createClient } from '../../../utils/supabase/server'
+-import { formatReceiptTender, formatRupiah } from '../../../lib/receipt'
++import { createClient } from '../../../../utils/supabase/server'
++import { formatReceiptTender, formatRupiah } from '../../../../lib/receipt'
+ import { PrintButton } from './print-button'
+ 
+ // Thermal CSS injected only under @media print, scoped to .receipt-print.
+ // Width: 80mm default, 58mm via ?w=58.
+ function receiptCss(width: string): string {
+   const mm = width === '58' ? '58mm' : '80mm'
+   return `
+   @media print {
+     body * { visibility: hidden; }
+     .receipt-print, .receipt-print * { visibility: visible; }
+diff --git a/apps/web/app/receipts/[saleId]/print-button.tsx b/apps/web/app/(print)/receipts/[saleId]/print-button.tsx
+similarity index 100%
+rename from apps/web/app/receipts/[saleId]/print-button.tsx
+rename to apps/web/app/(print)/receipts/[saleId]/print-button.tsx
+diff --git a/apps/web/app/layout.tsx b/apps/web/app/layout.tsx
+index d358c1d..8583d20 100644
+--- a/apps/web/app/layout.tsx
++++ b/apps/web/app/layout.tsx
+@@ -1,67 +1,15 @@
+ import type { Metadata } from 'next'
+-import Link from 'next/link'
+ import './globals.css'
+ 
+ export const metadata: Metadata = {
+   title: 'Pharmacy ERP',
+   description: 'POS, procurement, and stock for one branch tenant.',
+ }
+ 
+-const navLinks = [
+-  { href: '/', label: 'Dashboard' },
+-  { href: '/shifts', label: 'Shifts' },
+-  { href: '/sales', label: 'Sales' },
+-  { href: '/products', label: 'Products' },
+-  { href: '/suppliers', label: 'Suppliers' },
+-  { href: '/procurement', label: 'Procurement' },
+-  { href: '/procurement/returns', label: 'Returns' },
+-  { href: '/finance/payables', label: 'Payables' },
+-  { href: '/kartu-stok', label: 'Kartu Stok' },
+-  { href: '/stock-opname', label: 'Stock Opname' },
+-  { href: '/stock/destructions', label: 'Pemusnahan' },
+-  { href: '/reports/sipnap', label: 'SIPNAP' },
+-  { href: '/doctors', label: 'Doctors' },
+-  { href: '/patients', label: 'Patients' },
+-  { href: '/settings', label: 'Settings' },
+-]
+-
+-export default function RootLayout({
+-  children,
+-}: {
+-  children: React.ReactNode
+-}) {
++export default function RootLayout({ children }: { children: React.ReactNode }) {
+   return (
+     <html lang="en">
+-      <body>
+-        <header
+-          style={{
+-            display: 'flex',
+-            alignItems: 'center',
+-            gap: 16,
+-            padding: '12px 24px',
+-            borderBottom: '1px solid var(--border)',
+-            background: 'var(--card)',
+-          }}
+-        >
+-          <Link href="/" style={{ fontWeight: 600, color: 'var(--primary)' }}>
+-            Pharmacy ERP
+-          </Link>
+-          <nav style={{ display: 'flex', gap: 16 }}>
+-            {navLinks.map((link) => (
+-              <Link
+-                key={link.href}
+-                href={link.href}
+-                style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}
+-              >
+-                {link.label}
+-              </Link>
+-            ))}
+-          </nav>
+-        </header>
+-        <main style={{ padding: '24px', background: 'var(--surface)', minHeight: '100vh' }}>
+-          {children}
+-        </main>
+-      </body>
++      <body>{children}</body>
+     </html>
+   )
+-}
+\ No newline at end of file
++}

@@ -1,0 +1,1769 @@
+diff --git a/apps/web/app/(app)/doctors/page.tsx b/apps/web/app/(app)/doctors/page.tsx
+index 66b38a4..68ae276 100644
+--- a/apps/web/app/(app)/doctors/page.tsx
++++ b/apps/web/app/(app)/doctors/page.tsx
+@@ -2,31 +2,18 @@ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+ import { getUserRole } from '../../../utils/auth'
+ import { createDoctor, updateDoctor, deleteDoctor } from './actions'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-const boxStyle: React.CSSProperties = {
+-  background: 'var(--card)',
+-  padding: 16,
+-  border: '1px solid var(--border)',
+-  borderRadius: 8,
+-  marginBottom: 20,
+-}
+-const fieldStyle: React.CSSProperties = {
+-  padding: '6px 12px',
+-  borderRadius: 6,
+-  border: '1px solid var(--border)',
+-  fontSize: 14,
+-  background: 'var(--surface)',
+-  width: '100%',
+-  boxSizing: 'border-box',
+-}
++import { Button } from '@/components/ui/button'
++import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ export default async function DoctorsPage() {
+   const supabase = await createClient()
+@@ -39,91 +26,93 @@ export default async function DoctorsPage() {
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Doctors</h1>
+-        <Link href="/" style={{ color: 'var(--primary)', fontSize: 14 }}>Back</Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Doctors</h1>
++        <Button render={<Link href="/" />} variant="outline" size="sm">Back</Button>
+       </div>
+ 
+       {isOwner ? (
+-        <div style={boxStyle}>
+-          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Doctor</h2>
+-          <form action={createDoctor} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-              <input name="name" required style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SIP Number</label>
+-              <input name="sip_number" placeholder="SIP.02.xxxx" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
+-              <input name="phone" style={fieldStyle} />
+-            </div>
+-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+-              <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>
+-                Add Doctor
+-              </button>
+-            </div>
+-          </form>
+-        </div>
++        <Card>
++          <CardHeader>
++            <CardTitle className="text-sm font-semibold">New Doctor</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <form action={createDoctor} className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
++              <div className="grid gap-1.5">
++                <Label htmlFor="name">Name</Label>
++                <Input id="name" name="name" required />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="sip_number">SIP Number</Label>
++                <Input id="sip_number" name="sip_number" placeholder="SIP.02.xxxx" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="phone">Phone</Label>
++                <Input id="phone" name="phone" />
++              </div>
++              <div className="flex items-end">
++                <Button type="submit">Add Doctor</Button>
++              </div>
++            </form>
++          </CardContent>
++        </Card>
+       ) : null}
+ 
+       {!doctors || doctors.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No doctors yet</p>
++        <p className="text-sm text-slate-500">No doctors yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Name</th>
+-              <th style={thStyle}>SIP Number</th>
+-              <th style={thStyle}>Phone</th>
+-              {isOwner ? <th style={thStyle}></th> : null}
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {doctors.map((d: any) => (
+-              <tr key={d.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>{d.name}</td>
+-                <td style={tdStyle}>{d.sip_number || '-'}</td>
+-                <td style={tdStyle}>{d.phone || '-'}</td>
+-                {isOwner ? (
+-                  <td style={tdStyle}>
+-                    <details>
+-                      <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
+-                      <form action={updateDoctor} style={{ display: 'grid', gap: 10, padding: '12px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+-                        <input type="hidden" name="id" value={d.id} />
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-                          <input name="name" required defaultValue={d.name} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SIP Number</label>
+-                          <input name="sip_number" defaultValue={d.sip_number ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
+-                          <input name="phone" defaultValue={d.phone ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+-                          <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>Save</button>
+-                        </div>
+-                      </form>
+-                      <form action={deleteDoctor} style={{ marginTop: 8 }}>
+-                        <input type="hidden" name="id" value={d.id} />
+-                        <button type="submit" style={{ background: 'transparent', color: '#ef4444', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>
+-                          Remove
+-                        </button>
+-                      </form>
+-                    </details>
+-                  </td>
+-                ) : null}
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Name</TableHead>
++                <TableHead>SIP Number</TableHead>
++                <TableHead>Phone</TableHead>
++                {isOwner ? <TableHead></TableHead> : null}
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {doctors.map((d: any) => (
++                <TableRow key={d.id} className="h-10">
++                  <TableCell>{d.name}</TableCell>
++                  <TableCell>{d.sip_number || '-'}</TableCell>
++                  <TableCell>{d.phone || '-'}</TableCell>
++                  {isOwner ? (
++                    <TableCell>
++                      <details>
++                        <summary className="cursor-pointer text-sm font-medium text-primary">Edit</summary>
++                        <form action={updateDoctor} className="grid gap-3 py-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
++                          <input type="hidden" name="id" value={d.id} />
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-name-${d.id}`}>Name</Label>
++                            <Input id={`edit-name-${d.id}`} name="name" required defaultValue={d.name} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-sip-${d.id}`}>SIP Number</Label>
++                            <Input id={`edit-sip-${d.id}`} name="sip_number" defaultValue={d.sip_number ?? ''} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-phone-${d.id}`}>Phone</Label>
++                            <Input id={`edit-phone-${d.id}`} name="phone" defaultValue={d.phone ?? ''} />
++                          </div>
++                          <div className="flex items-end gap-2">
++                            <Button type="submit" size="sm">Save</Button>
++                          </div>
++                        </form>
++                        <form action={deleteDoctor} className="pb-2">
++                          <input type="hidden" name="id" value={d.id} />
++                          <Button type="submit" variant="destructive" size="sm">Remove</Button>
++                        </form>
++                      </details>
++                    </TableCell>
++                  ) : null}
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/apps/web/app/(app)/finance/payables/aging-cards.tsx b/apps/web/app/(app)/finance/payables/aging-cards.tsx
+index 69e9457..570d8cc 100644
+--- a/apps/web/app/(app)/finance/payables/aging-cards.tsx
++++ b/apps/web/app/(app)/finance/payables/aging-cards.tsx
+@@ -1,4 +1,5 @@
+ import type { AgingBucket } from '../../../../lib/purchase-returns'
++import { Card, CardContent } from '@/components/ui/card'
+ 
+ export interface BucketSummary {
+   bucket: AgingBucket
+@@ -24,22 +25,15 @@ const bucketColors: Record<AgingBucket, string> = {
+ 
+ export function AgingCards({ summaries }: { summaries: BucketSummary[] }) {
+   return (
+-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
++    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+       {summaries.map((s) => (
+-        <div
+-          key={s.bucket}
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 12,
+-            borderTop: `3px solid ${bucketColors[s.bucket]}`,
+-          }}
+-        >
+-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{bucketLabels[s.bucket]}</div>
+-          <div style={{ fontSize: 18, fontWeight: 600, margin: '4px 0' }}>{s.total.toFixed(2)}</div>
+-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.count} invoice(s)</div>
+-        </div>
++        <Card key={s.bucket} style={{ borderTop: `3px solid ${bucketColors[s.bucket]}` }}>
++          <CardContent className="pt-1">
++            <p className="text-xs text-slate-500">{bucketLabels[s.bucket]}</p>
++            <p className="my-1 text-lg font-semibold tabular-nums text-slate-900">{s.total.toFixed(2)}</p>
++            <p className="text-xs text-slate-500">{s.count} invoice(s)</p>
++          </CardContent>
++        </Card>
+       ))}
+     </div>
+   )
+diff --git a/apps/web/app/(app)/finance/payables/aging-csv-button.tsx b/apps/web/app/(app)/finance/payables/aging-csv-button.tsx
+index f37cec1..269a5ff 100644
+--- a/apps/web/app/(app)/finance/payables/aging-csv-button.tsx
++++ b/apps/web/app/(app)/finance/payables/aging-csv-button.tsx
+@@ -1,6 +1,7 @@
+ 'use client'
+ 
+ import { buildAgingCsv, type PayableCsvRow } from '../../../../lib/purchase-returns'
++import { Button } from '@/components/ui/button'
+ 
+ export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
+   function download() {
+@@ -15,19 +16,8 @@ export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
+   }
+ 
+   return (
+-    <button
+-      onClick={download}
+-      style={{
+-        background: 'transparent',
+-        color: 'var(--primary)',
+-        border: '1px solid var(--border)',
+-        borderRadius: 6,
+-        padding: '6px 14px',
+-        fontSize: 13,
+-        cursor: 'pointer',
+-      }}
+-    >
++    <Button variant="outline" size="sm" onClick={download}>
+       Download CSV
+-    </button>
++    </Button>
+   )
+ }
+diff --git a/apps/web/app/(app)/finance/payables/page.tsx b/apps/web/app/(app)/finance/payables/page.tsx
+index 9c9b7aa..af0599f 100644
+--- a/apps/web/app/(app)/finance/payables/page.tsx
++++ b/apps/web/app/(app)/finance/payables/page.tsx
+@@ -1,19 +1,26 @@
+ import { createClient } from '../../../../utils/supabase/server'
+ import { getPayableStatus } from '../../../../lib/accounts-payable'
+ import { getAgingBucket, type AgingBucket } from '../../../../lib/purchase-returns'
+-import { postPayout } from './actions'
+ import { AgingCards, type BucketSummary } from './aging-cards'
+ import { AgingCsvButton } from './aging-csv-button'
+-
+-const statusColors: Record<string, string> = {
+-  UNPAID: '#f59e0b',
+-  PARTIAL: '#3b82f6',
+-  PAID: '#0d9488',
+-  OVERDUE: '#ef4444',
++import { PayoutDialog } from './payout-dialog'
++import { Badge } from '@/components/ui/badge'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  UNPAID: 'outline',
++  PARTIAL: 'secondary',
++  PAID: 'default',
++  OVERDUE: 'destructive',
+ }
+ 
+-const paymentMethods = ['CASH', 'TRANSFER', 'CARD', 'QRIS']
+-
+ const buckets: AgingBucket[] = ['CURRENT', '1-30', '31-60', '61-90', '90+']
+ 
+ function parseDate(value: string | null | undefined): string {
+@@ -35,7 +42,7 @@ export default async function PayablesPage() {
+     supabase.from('purchase_returns').select('supplier_id, total_amount, applied_amount'),
+   ])
+ 
+-  if (payablesRes.error) return <p style={{ color: 'var(--danger)' }}>Payables unavailable</p>
++  if (payablesRes.error) return <p className="text-sm text-destructive">Payables unavailable</p>
+ 
+   const rows = payablesRes.data || []
+   const now = new Date().toISOString()
+@@ -79,144 +86,67 @@ export default async function PayablesPage() {
+     })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Accounts Payable</h1>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Accounts Payable</h1>
+         {csvRows.length > 0 && <AgingCsvButton rows={csvRows} />}
+       </div>
+       <AgingCards summaries={summaries} />
+       {rows.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No payables yet</p>
++        <p className="text-sm text-slate-500">No payables yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Invoice</th>
+-              <th style={thStyle}>Supplier</th>
+-              <th style={thStyle}>Due Date</th>
+-              <th style={thStyle}>Total</th>
+-              <th style={thStyle}>Paid</th>
+-              <th style={thStyle}>Remaining</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Payout</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {rows.map((row: any) => {
+-              const status = getPayableStatus({
+-                paidAmount: Number(row.paid_amount),
+-                remainingAmount: Number(row.remaining_amount),
+-                dueDate: row.due_date,
+-                now,
+-              })
+-              const paidOut = status === 'PAID' || Number(row.remaining_amount) <= 0
+-              const unappliedCredit = unappliedBySupplier.get(row.supplier_id) || 0
+-              return (
+-                <tr key={row.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                  <td style={tdStyle}>{row.invoice_number}</td>
+-                  <td style={tdStyle}>
+-                    {row.supplier?.name || '-'}
+-                    {unappliedCredit > 0 && (
+-                      <span
+-                        style={{
+-                          display: 'inline-block',
+-                          marginLeft: 8,
+-                          background: '#0d9488',
+-                          color: '#fff',
+-                          fontSize: 11,
+-                          fontWeight: 600,
+-                          padding: '2px 8px',
+-                          borderRadius: 4,
+-                        }}
+-                      >
+-                        Credit Rp {unappliedCredit.toFixed(2)}
+-                      </span>
+-                    )}
+-                  </td>
+-                  <td style={tdStyle}>{parseDate(row.due_date)}</td>
+-                  <td style={tdStyle}>{Number(row.receipt_total_amount).toFixed(2)}</td>
+-                  <td style={tdStyle}>{Number(row.paid_amount).toFixed(2)}</td>
+-                  <td style={tdStyle}>{Number(row.remaining_amount).toFixed(2)}</td>
+-                  <td style={tdStyle}>
+-                    <span style={badgeStyle(statusColors[status] || '#64748b')}>{status}</span>
+-                  </td>
+-                  <td style={tdStyle}>
+-                    {!paidOut && (
+-                      <form action={postPayout} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+-                        <input type="hidden" name="accounts_payable_id" value={row.id} />
+-                        <input
+-                          name="amount"
+-                          type="number"
+-                          step="0.01"
+-                          min="0.01"
+-                          max={Number(row.remaining_amount)}
+-                          required
+-                          placeholder="Amount"
+-                          style={miniInputStyle}
+-                        />
+-                        <select name="method" style={miniInputStyle}>
+-                          {paymentMethods.map((m) => (
+-                            <option key={m} value={m}>
+-                              {m}
+-                            </option>
+-                          ))}
+-                        </select>
+-                        <input name="notes" placeholder="Notes" style={miniInputStyle} />
+-                        <button type="submit" style={payoutButtonStyle}>
+-                          Pay
+-                        </button>
+-                      </form>
+-                    )}
+-                  </td>
+-                </tr>
+-              )
+-            })}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Invoice</TableHead>
++                <TableHead>Supplier</TableHead>
++                <TableHead>Due Date</TableHead>
++                <TableHead className="text-right">Total</TableHead>
++                <TableHead className="text-right">Paid</TableHead>
++                <TableHead className="text-right">Remaining</TableHead>
++                <TableHead>Status</TableHead>
++                <TableHead>Payout</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {rows.map((row: any) => {
++                const status = getPayableStatus({
++                  paidAmount: Number(row.paid_amount),
++                  remainingAmount: Number(row.remaining_amount),
++                  dueDate: row.due_date,
++                  now,
++                })
++                const paidOut = status === 'PAID' || Number(row.remaining_amount) <= 0
++                const unappliedCredit = unappliedBySupplier.get(row.supplier_id) || 0
++                return (
++                  <TableRow key={row.id} className="h-10">
++                    <TableCell>{row.invoice_number}</TableCell>
++                    <TableCell>
++                      {row.supplier?.name || '-'}
++                      {unappliedCredit > 0 && (
++                        <span className="ml-2 inline-block rounded bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
++                          Credit Rp {unappliedCredit.toFixed(2)}
++                        </span>
++                      )}
++                    </TableCell>
++                    <TableCell>{parseDate(row.due_date)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{Number(row.receipt_total_amount).toFixed(2)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{Number(row.paid_amount).toFixed(2)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{Number(row.remaining_amount).toFixed(2)}</TableCell>
++                    <TableCell>
++                      <Badge variant={statusBadge[status] || 'secondary'}>{status}</Badge>
++                    </TableCell>
++                    <TableCell>
++                      {!paidOut && <PayoutDialog payableId={row.id} remainingAmount={Number(row.remaining_amount)} />}
++                    </TableCell>
++                  </TableRow>
++                )
++              })}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-const miniInputStyle: React.CSSProperties = {
+-  width: 72,
+-  padding: '4px 8px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 13,
+-  background: '#fff',
+-}
+-
+-const payoutButtonStyle: React.CSSProperties = {
+-  background: 'var(--primary)',
+-  color: '#fff',
+-  padding: '4px 10px',
+-  border: 'none',
+-  borderRadius: 6,
+-  fontSize: 13,
+-  cursor: 'pointer',
+-  whiteSpace: 'nowrap',
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+diff --git a/apps/web/app/(app)/finance/payables/payout-dialog.tsx b/apps/web/app/(app)/finance/payables/payout-dialog.tsx
+new file mode 100644
+index 0000000..72740c1
+--- /dev/null
++++ b/apps/web/app/(app)/finance/payables/payout-dialog.tsx
+@@ -0,0 +1,74 @@
++'use client'
++
++import { postPayout } from './actions'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Dialog,
++  DialogContent,
++  DialogDescription,
++  DialogHeader,
++  DialogTitle,
++  DialogTrigger,
++} from '@/components/ui/dialog'
++
++const paymentMethods = ['CASH', 'TRANSFER', 'CARD', 'QRIS']
++
++interface PayoutDialogProps {
++  payableId: string
++  remainingAmount: number
++}
++
++// One payout form per payable row. Keeps the postPayout server action
++// contract: accounts_payable_id, amount, method, notes.
++export function PayoutDialog({ payableId, remainingAmount }: PayoutDialogProps) {
++  return (
++    <Dialog>
++      <DialogTrigger render={<Button variant="outline" size="sm" />}>Pay</DialogTrigger>
++      <DialogContent>
++        <DialogHeader>
++          <DialogTitle>Record payout</DialogTitle>
++          <DialogDescription>
++            Remaining balance: Rp {remainingAmount.toFixed(2)}. Unapplied supplier credit is applied first.
++          </DialogDescription>
++        </DialogHeader>
++        <form action={postPayout} className="grid gap-3">
++          <input type="hidden" name="accounts_payable_id" value={payableId} />
++          <div className="grid gap-1.5">
++            <Label htmlFor={`amount-${payableId}`}>Amount</Label>
++            <Input
++              id={`amount-${payableId}`}
++              name="amount"
++              type="number"
++              step="0.01"
++              min="0.01"
++              max={remainingAmount}
++              required
++              placeholder="Amount"
++            />
++          </div>
++          <div className="grid gap-1.5">
++            <Label htmlFor={`method-${payableId}`}>Method</Label>
++            <select
++              id={`method-${payableId}`}
++              name="method"
++              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
++            >
++              {paymentMethods.map((m) => (
++                <option key={m} value={m}>
++                  {m}
++                </option>
++              ))}
++            </select>
++          </div>
++          <div className="grid gap-1.5">
++            <Label htmlFor={`notes-${payableId}`}>Notes</Label>
++            <Input id={`notes-${payableId}`} name="notes" placeholder="Notes" />
++          </div>
++          <Button type="submit" className="mt-1 justify-self-end">Pay</Button>
++        </form>
++      </DialogContent>
++    </Dialog>
++  )
++}
+diff --git a/apps/web/app/(app)/patients/page.tsx b/apps/web/app/(app)/patients/page.tsx
+index 9442ec6..8793528 100644
+--- a/apps/web/app/(app)/patients/page.tsx
++++ b/apps/web/app/(app)/patients/page.tsx
+@@ -2,31 +2,18 @@ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+ import { getUserRole } from '../../../utils/auth'
+ import { createPatient, updatePatient, deletePatient } from './actions'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-const boxStyle: React.CSSProperties = {
+-  background: 'var(--card)',
+-  padding: 16,
+-  border: '1px solid var(--border)',
+-  borderRadius: 8,
+-  marginBottom: 20,
+-}
+-const fieldStyle: React.CSSProperties = {
+-  padding: '6px 12px',
+-  borderRadius: 6,
+-  border: '1px solid var(--border)',
+-  fontSize: 14,
+-  background: 'var(--surface)',
+-  width: '100%',
+-  boxSizing: 'border-box',
+-}
++import { Button } from '@/components/ui/button'
++import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function fmtDate(value: string | null) {
+   if (!value) return '-'
+@@ -46,127 +33,127 @@ export default async function PatientsPage() {
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Patients</h1>
+-        <Link href="/" style={{ color: 'var(--primary)', fontSize: 14 }}>Back</Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Patients</h1>
++        <Button render={<Link href="/" />} variant="outline" size="sm">Back</Button>
+       </div>
+ 
+       {canEdit ? (
+-        <div style={boxStyle}>
+-          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Patient</h2>
+-          <form action={createPatient} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-              <input name="name" required style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Address</label>
+-              <input name="address" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
+-              <input name="phone" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
+-              <input name="birth_date" type="date" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
+-              <input name="bpjs_number" placeholder="e.g. 0001234567890" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
+-              <input name="nik" placeholder="16-digit national ID" style={fieldStyle} />
+-            </div>
+-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+-              <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>
+-                Add Patient
+-              </button>
+-            </div>
+-          </form>
+-        </div>
++        <Card>
++          <CardHeader>
++            <CardTitle className="text-sm font-semibold">New Patient</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <form action={createPatient} className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
++              <div className="grid gap-1.5">
++                <Label htmlFor="name">Name</Label>
++                <Input id="name" name="name" required />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="address">Address</Label>
++                <Input id="address" name="address" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="phone">Phone</Label>
++                <Input id="phone" name="phone" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="birth_date">Birth Date</Label>
++                <Input id="birth_date" name="birth_date" type="date" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="bpjs_number">No. Peserta BPJS</Label>
++                <Input id="bpjs_number" name="bpjs_number" placeholder="e.g. 0001234567890" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="nik">NIK</Label>
++                <Input id="nik" name="nik" placeholder="16-digit national ID" />
++              </div>
++              <div className="flex items-end">
++                <Button type="submit">Add Patient</Button>
++              </div>
++            </form>
++          </CardContent>
++        </Card>
+       ) : null}
+ 
+       {!patients || patients.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No patients yet</p>
++        <p className="text-sm text-slate-500">No patients yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Name</th>
+-              <th style={thStyle}>Address</th>
+-              <th style={thStyle}>Phone</th>
+-              <th style={thStyle}>Birth Date</th>
+-              <th style={thStyle}>No. Peserta BPJS</th>
+-              <th style={thStyle}>NIK</th>
+-              {canEdit ? <th style={thStyle}></th> : null}
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {patients.map((p: any) => (
+-              <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>{p.name}</td>
+-                <td style={tdStyle}>{p.address || '-'}</td>
+-                <td style={tdStyle}>{p.phone || '-'}</td>
+-                <td style={tdStyle}>{fmtDate(p.birth_date)}</td>
+-                <td style={tdStyle}>{p.bpjs_number || '-'}</td>
+-                <td style={tdStyle}>{p.nik || '-'}</td>
+-                {canEdit ? (
+-                  <td style={tdStyle}>
+-                    <details>
+-                      <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
+-                      <form action={updatePatient} style={{ display: 'grid', gap: 10, padding: '12px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+-                        <input type="hidden" name="id" value={p.id} />
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-                          <input name="name" required defaultValue={p.name} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Address</label>
+-                          <input name="address" defaultValue={p.address ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
+-                          <input name="phone" defaultValue={p.phone ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
+-                          <input name="birth_date" type="date" defaultValue={p.birth_date ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
+-                          <input name="bpjs_number" defaultValue={p.bpjs_number ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
+-                          <input name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" style={fieldStyle} />
+-                          {p.ihs_number ? (
+-                            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+-                              IHS: {p.ihs_number}
+-                            </p>
+-                          ) : null}
+-                        </div>
+-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+-                          <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>Save</button>
+-                        </div>
+-                      </form>
+-                      {isOwner ? (
+-                        <form action={deletePatient} style={{ marginTop: 8 }}>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Name</TableHead>
++                <TableHead>Address</TableHead>
++                <TableHead>Phone</TableHead>
++                <TableHead>Birth Date</TableHead>
++                <TableHead>No. Peserta BPJS</TableHead>
++                <TableHead>NIK</TableHead>
++                {canEdit ? <TableHead></TableHead> : null}
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {patients.map((p: any) => (
++                <TableRow key={p.id} className="h-10">
++                  <TableCell>{p.name}</TableCell>
++                  <TableCell>{p.address || '-'}</TableCell>
++                  <TableCell>{p.phone || '-'}</TableCell>
++                  <TableCell>{fmtDate(p.birth_date)}</TableCell>
++                  <TableCell>{p.bpjs_number || '-'}</TableCell>
++                  <TableCell>{p.nik || '-'}</TableCell>
++                  {canEdit ? (
++                    <TableCell>
++                      <details>
++                        <summary className="cursor-pointer text-sm font-medium text-primary">Edit</summary>
++                        <form action={updatePatient} className="grid gap-3 py-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
+                           <input type="hidden" name="id" value={p.id} />
+-                          <button type="submit" style={{ background: 'transparent', color: '#ef4444', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>
+-                            Remove
+-                          </button>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-name-${p.id}`}>Name</Label>
++                            <Input id={`edit-name-${p.id}`} name="name" required defaultValue={p.name} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-address-${p.id}`}>Address</Label>
++                            <Input id={`edit-address-${p.id}`} name="address" defaultValue={p.address ?? ''} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-phone-${p.id}`}>Phone</Label>
++                            <Input id={`edit-phone-${p.id}`} name="phone" defaultValue={p.phone ?? ''} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-dob-${p.id}`}>Birth Date</Label>
++                            <Input id={`edit-dob-${p.id}`} name="birth_date" type="date" defaultValue={p.birth_date ?? ''} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-bpjs-${p.id}`}>No. Peserta BPJS</Label>
++                            <Input id={`edit-bpjs-${p.id}`} name="bpjs_number" defaultValue={p.bpjs_number ?? ''} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`edit-nik-${p.id}`}>NIK</Label>
++                            <Input id={`edit-nik-${p.id}`} name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" />
++                            {p.ihs_number ? (
++                              <p className="text-xs text-slate-500">IHS: {p.ihs_number}</p>
++                            ) : null}
++                          </div>
++                          <div className="flex items-end">
++                            <Button type="submit" size="sm">Save</Button>
++                          </div>
+                         </form>
+-                      ) : null}
+-                    </details>
+-                  </td>
+-                ) : null}
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++                        {isOwner ? (
++                          <form action={deletePatient} className="pb-2">
++                            <input type="hidden" name="id" value={p.id} />
++                            <Button type="submit" variant="destructive" size="sm">Remove</Button>
++                          </form>
++                        ) : null}
++                      </details>
++                    </TableCell>
++                  ) : null}
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+diff --git a/apps/web/app/(app)/reports/sipnap/download-button.tsx b/apps/web/app/(app)/reports/sipnap/download-button.tsx
+index 88f6b93..70708fb 100644
+--- a/apps/web/app/(app)/reports/sipnap/download-button.tsx
++++ b/apps/web/app/(app)/reports/sipnap/download-button.tsx
+@@ -3,6 +3,7 @@
+ import { useState } from 'react'
+ import { buildSipnapV2Csv, type SipnapV2Report } from '../../../../lib/sipnap-v2'
+ import { recordSipnapExport } from './actions'
++import { Button } from '@/components/ui/button'
+ 
+ // Store the exact CSV in the archive bucket, then download the same file
+ // in the browser. The stored file is the audit artifact.
+@@ -30,25 +31,11 @@ export function DownloadButton({ report }: { report: SipnapV2Report }) {
+   }
+ 
+   return (
+-    <div>
+-      <button
+-        onClick={download}
+-        disabled={busy}
+-        style={{
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '8px 16px',
+-          border: 'none',
+-          borderRadius: 6,
+-          cursor: busy ? 'default' : 'pointer',
+-          opacity: busy ? 0.6 : 1,
+-        }}
+-      >
++    <div className="space-y-2">
++      <Button onClick={download} disabled={busy}>
+         {busy ? 'Storing export…' : 'Download Export'}
+-      </button>
+-      {error && (
+-        <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{error}</p>
+-      )}
++      </Button>
++      {error && <p className="text-sm text-destructive">{error}</p>}
+     </div>
+   )
+ }
+diff --git a/apps/web/app/(app)/reports/sipnap/download-link.tsx b/apps/web/app/(app)/reports/sipnap/download-link.tsx
+index ee5ec99..7e77798 100644
+--- a/apps/web/app/(app)/reports/sipnap/download-link.tsx
++++ b/apps/web/app/(app)/reports/sipnap/download-link.tsx
+@@ -2,6 +2,7 @@
+ 
+ import { useState } from 'react'
+ import { getStoredExport } from './actions'
++import { Button } from '@/components/ui/button'
+ 
+ // One download link per history row. Fetches the stored snapshot (bucket file
+ // via signed URL, or DB payload csv for pre-fix rows) and downloads it. The
+@@ -32,21 +33,8 @@ export function ExportDownloadLink({ exportId }: { exportId: string }) {
+   }
+ 
+   return (
+-    <button
+-      onClick={download}
+-      disabled={busy}
+-      style={{
+-        background: 'transparent',
+-        color: 'var(--primary)',
+-        border: '1px solid var(--primary)',
+-        borderRadius: 6,
+-        padding: '4px 10px',
+-        fontSize: 12,
+-        cursor: busy ? 'default' : 'pointer',
+-        opacity: busy ? 0.6 : 1,
+-      }}
+-    >
++    <Button variant="outline" size="sm" onClick={download} disabled={busy}>
+       {busy ? '…' : 'Download'}
+-    </button>
++    </Button>
+   )
+ }
+diff --git a/apps/web/app/(app)/reports/sipnap/history.tsx b/apps/web/app/(app)/reports/sipnap/history.tsx
+index 899a330..90ccafe 100644
+--- a/apps/web/app/(app)/reports/sipnap/history.tsx
++++ b/apps/web/app/(app)/reports/sipnap/history.tsx
+@@ -1,17 +1,12 @@
+ import { ExportDownloadLink } from './download-link'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ export interface ExportRow {
+   id: string
+@@ -33,39 +28,41 @@ function formatTime(value: string): string {
+ // History tab: newest-first list of stored export snapshots.
+ export function HistoryTab({ exports }: { exports: ExportRow[] }) {
+   if (exports.length === 0) {
+-    return <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No exports yet.</p>
++    return <p className="text-sm text-slate-500">No exports yet.</p>
+   }
+ 
+   return (
+-    <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-      <thead>
+-        <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-          <th style={thStyle}>Month</th>
+-          <th style={thStyle}>Year</th>
+-          <th style={thStyle}>Generated At</th>
+-          <th style={thStyle}>Generated By</th>
+-          <th style={thStyle}>Rows</th>
+-          <th style={thStyle}>Hash</th>
+-          <th style={thStyle}></th>
+-        </tr>
+-      </thead>
+-      <tbody>
+-        {exports.map((e) => (
+-          <tr key={e.id} style={{ borderTop: '1px solid var(--border)' }}>
+-            <td style={tdStyle}>{e.report_month}</td>
+-            <td style={tdStyle}>{e.report_year}</td>
+-            <td style={tdStyle}>{formatTime(e.generated_at)}</td>
+-            <td style={tdStyle}>{e.generated_by || '-'}</td>
+-            <td style={tdStyle}>{e.product_count}</td>
+-            <td style={{ ...tdStyle, fontSize: 12, color: 'var(--text-secondary)' }}>
+-              {e.file_hash ? e.file_hash.slice(0, 8) : '-'}
+-            </td>
+-            <td style={tdStyle}>
+-              <ExportDownloadLink exportId={e.id} />
+-            </td>
+-          </tr>
+-        ))}
+-      </tbody>
+-    </table>
++    <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++      <Table>
++        <TableHeader className="bg-slate-50">
++          <TableRow>
++            <TableHead>Month</TableHead>
++            <TableHead>Year</TableHead>
++            <TableHead>Generated At</TableHead>
++            <TableHead>Generated By</TableHead>
++            <TableHead>Rows</TableHead>
++            <TableHead>Hash</TableHead>
++            <TableHead></TableHead>
++          </TableRow>
++        </TableHeader>
++        <TableBody>
++          {exports.map((e) => (
++            <TableRow key={e.id} className="h-10">
++              <TableCell>{e.report_month}</TableCell>
++              <TableCell>{e.report_year}</TableCell>
++              <TableCell>{formatTime(e.generated_at)}</TableCell>
++              <TableCell>{e.generated_by || '-'}</TableCell>
++              <TableCell>{e.product_count}</TableCell>
++              <TableCell className="text-xs text-slate-500">
++                {e.file_hash ? e.file_hash.slice(0, 8) : '-'}
++              </TableCell>
++              <TableCell>
++                <ExportDownloadLink exportId={e.id} />
++              </TableCell>
++            </TableRow>
++          ))}
++        </TableBody>
++      </Table>
++    </div>
+   )
+ }
+diff --git a/apps/web/app/(app)/reports/sipnap/page.tsx b/apps/web/app/(app)/reports/sipnap/page.tsx
+index 78377ab..1266d31 100644
+--- a/apps/web/app/(app)/reports/sipnap/page.tsx
++++ b/apps/web/app/(app)/reports/sipnap/page.tsx
+@@ -4,39 +4,16 @@ import { getUserRole } from '../../../../utils/auth'
+ import { parseSipnapV2Report, isSipnapV2Ready, checksToLines } from '../../../../lib/sipnap-v2'
+ import { DownloadButton } from './download-button'
+ import { HistoryTab, type ExportRow } from './history'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-const inputStyle: React.CSSProperties = {
+-  width: 90,
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+-
+-const tabStyle = (active: boolean): React.CSSProperties => ({
+-  padding: '6px 14px',
+-  borderRadius: 6,
+-  fontSize: 13,
+-  textDecoration: 'none',
+-  fontWeight: active ? 600 : 400,
+-  color: active ? '#fff' : 'var(--text-secondary)',
+-  background: active ? 'var(--primary)' : 'transparent',
+-  border: active ? 'none' : '1px solid var(--border)',
+-})
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ export default async function SipnapReportPage({
+   searchParams,
+@@ -46,7 +23,7 @@ export default async function SipnapReportPage({
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. OWNER or PHARMACIST only.</p>
++    return <p className="text-sm text-destructive">Access denied. OWNER or PHARMACIST only.</p>
+   }
+ 
+   const params = await searchParams
+@@ -56,13 +33,21 @@ export default async function SipnapReportPage({
+   const tab = params.tab === 'history' ? 'history' : 'generate'
+ 
+   const tabBar = (
+-    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+-      <Link href={`/reports/sipnap?tab=generate&month=${month}&year=${year}`} style={tabStyle(tab === 'generate')}>
++    <div className="flex gap-2">
++      <Button
++        render={<Link href={`/reports/sipnap?tab=generate&month=${month}&year=${year}`} />}
++        variant={tab === 'generate' ? 'default' : 'outline'}
++        size="sm"
++      >
+         Generate Report
+-      </Link>
+-      <Link href={`/reports/sipnap?tab=history`} style={tabStyle(tab === 'history')}>
++      </Button>
++      <Button
++        render={<Link href={`/reports/sipnap?tab=history`} />}
++        variant={tab === 'history' ? 'default' : 'outline'}
++        size="sm"
++      >
+         History
+-      </Link>
++      </Button>
+     </div>
+   )
+ 
+@@ -77,20 +62,22 @@ export default async function SipnapReportPage({
+       .range(from, from + 24)
+ 
+     return (
+-      <section style={{ maxWidth: 980 }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>SIPNAP Report</h1>
++      <section className="max-w-[980px] space-y-6">
++        <h1 className="text-xl font-semibold text-slate-900">SIPNAP Report</h1>
+         {tabBar}
+         <HistoryTab exports={(exports || []) as ExportRow[]} />
+-        {page > 1 ? (
+-          <Link href={`/reports/sipnap?tab=history&page=${page - 1}`} style={{ color: 'var(--primary)', fontSize: 13 }}>
+-            ← Previous
+-          </Link>
+-        ) : null}
+-        {(exports || []).length === 25 ? (
+-          <Link href={`/reports/sipnap?tab=history&page=${page + 1}`} style={{ color: 'var(--primary)', fontSize: 13, marginLeft: 12 }}>
+-            Next →
+-          </Link>
+-        ) : null}
++        <div className="flex gap-3 text-sm text-primary">
++          {page > 1 ? (
++            <Link href={`/reports/sipnap?tab=history&page=${page - 1}`} className="hover:underline">
++              ← Previous
++            </Link>
++          ) : null}
++          {(exports || []).length === 25 ? (
++            <Link href={`/reports/sipnap?tab=history&page=${page + 1}`} className="hover:underline">
++              Next →
++            </Link>
++          ) : null}
++        </div>
+       </section>
+     )
+   }
+@@ -99,10 +86,10 @@ export default async function SipnapReportPage({
+   const { data, error } = await supabase.rpc('get_sipnap_report', { p_month: month, p_year: year })
+   if (error || !data) {
+     return (
+-      <section style={{ maxWidth: 860 }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>SIPNAP Report</h1>
++      <section className="max-w-[860px] space-y-6">
++        <h1 className="text-xl font-semibold text-slate-900">SIPNAP Report</h1>
+         {tabBar}
+-        <p style={{ color: 'var(--danger)' }}>Report failed: {String(error?.message || 'no data')}</p>
++        <p className="text-sm text-destructive">Report failed: {String(error?.message || 'no data')}</p>
+       </section>
+     )
+   }
+@@ -122,95 +109,89 @@ export default async function SipnapReportPage({
+   )
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>SIPNAP Report</h1>
++    <section className="max-w-[860px] space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">SIPNAP Report</h1>
+       {tabBar}
+ 
+-      <form method="GET" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
++      <form method="GET" className="flex items-end gap-2">
+         <input type="hidden" name="tab" value="generate" />
+-        <input type="number" name="month" min={1} max={12} defaultValue={month} style={inputStyle} />
+-        <input type="number" name="year" min={2020} max={2100} defaultValue={year} style={inputStyle} />
+-        <button
+-          type="submit"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-          }}
+-        >
+-          Load
+-        </button>
++        <div className="grid gap-1.5">
++          <span className="text-sm font-medium text-slate-500">Month</span>
++          <Input type="number" name="month" min={1} max={12} defaultValue={month} className="w-24" />
++        </div>
++        <div className="grid gap-1.5">
++          <span className="text-sm font-medium text-slate-500">Year</span>
++          <Input type="number" name="year" min={2020} max={2100} defaultValue={year} className="w-24" />
++        </div>
++        <Button type="submit">Load</Button>
+       </form>
+ 
+       {report.missing.length > 0 ? (
+-        <div>
+-          <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Missing Data</h2>
+-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 12 }}>
+-            Fix these transactions before export is enabled.
+-          </p>
+-          <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-            <thead>
+-              <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-                <th style={thStyle}>Invoice</th>
+-                <th style={thStyle}>Missing fields</th>
+-              </tr>
+-            </thead>
+-            <tbody>
+-              {report.missing.map((m) => (
+-                <tr key={m.sale_id} style={{ borderTop: '1px solid var(--border)' }}>
+-                  <td style={tdStyle}>
+-                    <Link href={`/sales/${m.sale_id}`} style={{ color: 'var(--primary)' }}>
+-                      {m.sale_number}
+-                    </Link>
+-                  </td>
+-                  <td style={tdStyle}>{m.missing_fields.join(', ')}</td>
+-                </tr>
+-              ))}
+-            </tbody>
+-          </table>
++        <div className="space-y-2">
++          <h2 className="text-sm font-semibold text-slate-900">Missing Data</h2>
++          <p className="text-sm text-slate-500">Fix these transactions before export is enabled.</p>
++          <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++            <Table>
++              <TableHeader className="bg-slate-50">
++                <TableRow>
++                  <TableHead>Invoice</TableHead>
++                  <TableHead>Missing fields</TableHead>
++                </TableRow>
++              </TableHeader>
++              <TableBody>
++                {report.missing.map((m) => (
++                  <TableRow key={m.sale_id} className="h-10">
++                    <TableCell>
++                      <Link href={`/sales/${m.sale_id}`} className="text-primary hover:underline">
++                        {m.sale_number}
++                      </Link>
++                    </TableCell>
++                    <TableCell>{m.missing_fields.join(', ')}</TableCell>
++                  </TableRow>
++                ))}
++              </TableBody>
++            </Table>
++          </div>
+         </div>
+       ) : null}
+ 
+       {report.checks.length > 0 ? (
+-        <div style={{ marginTop: report.missing.length > 0 ? 16 : 0 }}>
+-          <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Hard-Block Checks</h2>
+-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13 }}>
++        <div className="space-y-2">
++          <h2 className="text-sm font-semibold text-slate-900">Hard-Block Checks</h2>
++          <ul className="list-disc space-y-1 pl-5 text-sm text-destructive">
+             {checkLines.map((line, i) => (
+-              <li key={i} style={{ color: '#ef4444', marginBottom: 4 }}>
+-                {line}
+-              </li>
++              <li key={i}>{line}</li>
+             ))}
+           </ul>
+         </div>
+       ) : null}
+ 
+       {report.missing.length === 0 && report.checks.length === 0 ? (
+-        <div>
+-          <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Summary</h2>
+-          <p style={{ margin: 0, fontSize: 14 }}>
+-            Pemasukan Dari PBF: <strong>{totals.pbf.toFixed(2)}</strong>
++        <div className="space-y-1">
++          <h2 className="text-sm font-semibold text-slate-900">Summary</h2>
++          <p className="text-sm">
++            Pemasukan Dari PBF: <strong className="tabular-nums">{totals.pbf.toFixed(2)}</strong>
+           </p>
+-          <p style={{ margin: 0, fontSize: 14 }}>
+-            Pemasukan Dari Sarana: <strong>{totals.saranaIn.toFixed(2)}</strong>
++          <p className="text-sm">
++            Pemasukan Dari Sarana: <strong className="tabular-nums">{totals.saranaIn.toFixed(2)}</strong>
+           </p>
+-          <p style={{ margin: 0, fontSize: 14 }}>
+-            Pengeluaran Untuk Resep: <strong>{totals.resep.toFixed(2)}</strong>
++          <p className="text-sm">
++            Pengeluaran Untuk Resep: <strong className="tabular-nums">{totals.resep.toFixed(2)}</strong>
+           </p>
+-          <p style={{ margin: 0, fontSize: 14 }}>
+-            Pengeluaran Untuk Sarana: <strong>{totals.saranaOut.toFixed(2)}</strong>
++          <p className="text-sm">
++            Pengeluaran Untuk Sarana: <strong className="tabular-nums">{totals.saranaOut.toFixed(2)}</strong>
+           </p>
+-          <p style={{ margin: '0 0 16px', fontSize: 14 }}>
+-            Dimusnahkan: <strong>{totals.destroyed.toFixed(2)}</strong>
++          <p className="pt-1 text-sm">
++            Dimusnahkan: <strong className="tabular-nums">{totals.destroyed.toFixed(2)}</strong>
+           </p>
+-          <DownloadButton report={report} />
++          <div className="pt-2">
++            <DownloadButton report={report} />
++          </div>
+         </div>
+       ) : null}
+ 
+       {!ready && (
+-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 16 }}>
++        <p className="text-sm text-slate-500">
+           Export is disabled until all missing data and hard-block checks are resolved.
+         </p>
+       )}
+diff --git a/apps/web/app/(app)/settings/page.tsx b/apps/web/app/(app)/settings/page.tsx
+index d6c0d7a..4fb7266 100644
+--- a/apps/web/app/(app)/settings/page.tsx
++++ b/apps/web/app/(app)/settings/page.tsx
+@@ -9,8 +9,8 @@ export default async function SettingsPage() {
+ 
+   if (role !== 'OWNER') {
+     return (
+-      <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
+-        <p style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Settings: Owner only</p>
++      <div className="mx-auto mt-10 max-w-[480px] text-center">
++        <p className="text-sm text-slate-500">Settings: Owner only</p>
+       </div>
+     )
+   }
+@@ -32,9 +32,9 @@ export default async function SettingsPage() {
+   }
+ 
+   return (
+-    <div style={{ maxWidth: 560 }}>
+-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 24 }}>Store Settings</h1>
++    <section className="max-w-[560px] space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">Store Settings</h1>
+       <SettingsForm tenant={tenant as TenantProfile} />
+-    </div>
++    </section>
+   )
+ }
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/settings/settings-form.tsx b/apps/web/app/(app)/settings/settings-form.tsx
+index 5f04fd0..3097c1d 100644
+--- a/apps/web/app/(app)/settings/settings-form.tsx
++++ b/apps/web/app/(app)/settings/settings-form.tsx
+@@ -3,33 +3,11 @@
+ import { useState, useRef } from 'react'
+ import { saveTenantProfile, uploadLogo, removeLogo } from './actions'
+ import type { TenantProfile } from '../../../lib/settings'
+-
+-const fieldStyle: React.CSSProperties = {
+-  display: 'flex',
+-  flexDirection: 'column',
+-  gap: 4,
+-}
+-
+-const labelStyle: React.CSSProperties = {
+-  fontSize: 13,
+-  fontWeight: 500,
+-  color: 'var(--text-secondary)',
+-}
+-
+-const inputStyle: React.CSSProperties = {
+-  padding: '8px 10px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: 'var(--card)',
+-  color: 'var(--text-primary)',
+-  width: '100%',
+-  boxSizing: 'border-box',
+-}
+-
+-const sectionStyle: React.CSSProperties = {
+-  marginBottom: 24,
+-}
++import { Button } from '@/components/ui/button'
++import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import { Textarea } from '@/components/ui/textarea'
+ 
+ interface SettingsFormProps {
+   tenant: TenantProfile
+@@ -127,204 +105,166 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
+   }
+ 
+   return (
+-    <form action={handleSave} style={{ maxWidth: 560 }}>
++    <form action={handleSave} className="max-w-[560px] space-y-6">
+       {/* Store Identity */}
+-      <div style={sectionStyle}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Store Identity</h2>
+-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="name">Store Name</label>
+-            <input
+-              id="name"
+-              name="name"
+-              type="text"
+-              defaultValue={tenant.name}
+-              required
+-              style={inputStyle}
+-            />
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">Store Identity</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-4">
++          <div className="grid gap-1.5">
++            <Label htmlFor="name">Store Name</Label>
++            <Input id="name" name="name" type="text" defaultValue={tenant.name} required />
+           </div>
+-        </div>
+-      </div>
++        </CardContent>
++      </Card>
+ 
+       {/* Logo */}
+-      <div style={sectionStyle}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Logo</h2>
+-        {tenant.logo_url && (
+-          <div style={{ marginBottom: 12 }}>
+-            <img
+-              src={tenant.logo_url}
+-              alt="Store logo"
+-              style={{ width: 80, height: 80, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 6 }}
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">Logo</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-3">
++          {tenant.logo_url && (
++            <div className="flex items-center gap-3">
++              <img
++                src={tenant.logo_url}
++                alt="Store logo"
++                className="h-20 w-20 rounded-md border border-border object-contain"
++              />
++              <Button type="button" variant="destructive" size="sm" onClick={handleRemoveLogo}>
++                Remove
++              </Button>
++            </div>
++          )}
++          <div className="flex items-center gap-2">
++            <input
++              ref={fileRef}
++              type="file"
++              accept="image/*"
++              onChange={handleFileChange}
++              disabled={uploadingLogo}
++              className="text-[13px]"
+             />
+-            <button
+-              type="button"
+-              onClick={handleRemoveLogo}
+-              style={{ marginLeft: 12, fontSize: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+-            >
+-              Remove
+-            </button>
++            {uploadingLogo && <span className="text-xs text-slate-500">Uploading…</span>}
+           </div>
+-        )}
+-        <input
+-          ref={fileRef}
+-          type="file"
+-          accept="image/*"
+-          onChange={handleFileChange}
+-          disabled={uploadingLogo}
+-          style={{ fontSize: 13 }}
+-        />
+-        {uploadingLogo && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>Uploading…</span>}
+-      </div>
++        </CardContent>
++      </Card>
+ 
+       {/* Contact */}
+-      <div style={sectionStyle}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Contact</h2>
+-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="address">Address</label>
+-            <input id="address" name="address" type="text" defaultValue={tenant.address ?? ''} style={inputStyle} />
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">Contact</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-4">
++          <div className="grid gap-1.5">
++            <Label htmlFor="address">Address</Label>
++            <Input id="address" name="address" type="text" defaultValue={tenant.address ?? ''} />
+           </div>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="phone">Phone</label>
+-            <input id="phone" name="phone" type="text" defaultValue={tenant.phone ?? ''} style={inputStyle} />
++          <div className="grid gap-1.5">
++            <Label htmlFor="phone">Phone</Label>
++            <Input id="phone" name="phone" type="text" defaultValue={tenant.phone ?? ''} />
+           </div>
+-        </div>
+-      </div>
++        </CardContent>
++      </Card>
+ 
+       {/* License Numbers */}
+-      <div style={sectionStyle}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>License Numbers</h2>
+-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="sia_number">SIA Number</label>
+-            <input id="sia_number" name="sia_number" type="text" defaultValue={tenant.sia_number ?? ''} style={inputStyle} />
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">License Numbers</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-4">
++          <div className="grid gap-1.5">
++            <Label htmlFor="sia_number">SIA Number</Label>
++            <Input id="sia_number" name="sia_number" type="text" defaultValue={tenant.sia_number ?? ''} />
+           </div>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="sipa_number">SIPA Number</label>
+-            <input id="sipa_number" name="sipa_number" type="text" defaultValue={tenant.sipa_number ?? ''} style={inputStyle} />
++          <div className="grid gap-1.5">
++            <Label htmlFor="sipa_number">SIPA Number</Label>
++            <Input id="sipa_number" name="sipa_number" type="text" defaultValue={tenant.sipa_number ?? ''} />
+           </div>
+-        </div>
+-      </div>
++        </CardContent>
++      </Card>
+ 
+       {/* Receipt */}
+-      <div style={{ marginBottom: 24 }}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Receipt Footer</h2>
+-        <textarea
+-          name="receipt_footer"
+-          rows={3}
+-          defaultValue={tenant.receipt_footer ?? ''}
+-          placeholder="Text shown at the bottom of every receipt (optional)"
+-          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+-        />
+-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+-          Leave empty to hide the footer on receipts.
+-        </p>
+-      </div>
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">Receipt Footer</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-1.5">
++          <Textarea
++            name="receipt_footer"
++            rows={3}
++            defaultValue={tenant.receipt_footer ?? ''}
++            placeholder="Text shown at the bottom of every receipt (optional)"
++          />
++          <p className="text-xs text-slate-500">Leave empty to hide the footer on receipts.</p>
++        </CardContent>
++      </Card>
+ 
+       {/* SATUSEHAT */}
+-      <div style={sectionStyle}>
+-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>SATUSEHAT</h2>
+-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="satusehat_client_id">Client ID</label>
+-            <input
++      <Card>
++        <CardHeader>
++          <CardTitle className="text-sm font-semibold">SATUSEHAT</CardTitle>
++        </CardHeader>
++        <CardContent className="grid gap-4">
++          <div className="grid gap-1.5">
++            <Label htmlFor="satusehat_client_id">Client ID</Label>
++            <Input
+               ref={clientIdRef}
+               id="satusehat_client_id"
+               name="satusehat_client_id"
+               type="text"
+               defaultValue={tenant.satusehat_client_id ?? ''}
+-              style={inputStyle}
+             />
+           </div>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="satusehat_client_secret">Client Secret</label>
+-            <input
++          <div className="grid gap-1.5">
++            <Label htmlFor="satusehat_client_secret">Client Secret</Label>
++            <Input
+               ref={secretRef}
+               id="satusehat_client_secret"
+               name="satusehat_client_secret"
+               type="password"
+               placeholder="Leave blank to keep the current value"
+               autoComplete="off"
+-              style={inputStyle}
+             />
+-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+-              The stored secret is never shown. Leave blank to keep it.
+-            </p>
++            <p className="text-xs text-muted-foreground">The stored secret is never shown. Leave blank to keep it.</p>
+           </div>
+-          <div style={fieldStyle}>
+-            <label style={labelStyle} htmlFor="satusehat_org_id">Org ID</label>
+-            <input
++          <div className="grid gap-1.5">
++            <Label htmlFor="satusehat_org_id">Org ID</Label>
++            <Input
+               ref={orgIdRef}
+               id="satusehat_org_id"
+               name="satusehat_org_id"
+               type="text"
+               defaultValue={tenant.satusehat_org_id ?? ''}
+-              style={inputStyle}
+             />
+           </div>
+-          <div style={fieldStyle}>
+-            <button
+-              type="button"
+-              onClick={handleTestConnection}
+-              disabled={testing}
+-              style={{
+-                padding: '6px 14px',
+-                background: 'none',
+-                border: '1px solid var(--border)',
+-                borderRadius: 6,
+-                fontSize: 13,
+-                cursor: testing ? 'not-allowed' : 'pointer',
+-                opacity: testing ? 0.6 : 1,
+-              }}
+-            >
++          <div className="grid gap-1.5">
++            <Button type="button" variant="outline" size="sm" onClick={handleTestConnection} disabled={testing}>
+               {testing ? 'Testing…' : 'Test connection'}
+-            </button>
++            </Button>
+             {testResult && (
+-              <p
+-                style={{
+-                  fontSize: 12,
+-                  marginTop: 4,
+-                  color: testResult.type === 'success' ? '#166534' : '#991b1b',
+-                }}
+-              >
++              <p className={`text-xs ${testResult.type === 'success' ? 'text-green-700' : 'text-red-800'}`}>
+                 {testResult.text}
+               </p>
+             )}
+           </div>
+-        </div>
+-      </div>
++        </CardContent>
++      </Card>
+ 
+       {message && (
+         <div
+-          style={{
+-            padding: '10px 12px',
+-            borderRadius: 6,
+-            marginBottom: 16,
+-            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
+-            color: message.type === 'success' ? '#166534' : '#991b1b',
+-            fontSize: 13,
+-          }}
++          className={`rounded-md px-3 py-2 text-[13px] ${
++            message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
++          }`}
+         >
+           {message.text}
+         </div>
+       )}
+ 
+-      <button
+-        type="submit"
+-        disabled={saving}
+-        style={{
+-          padding: '8px 20px',
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          border: 'none',
+-          borderRadius: 6,
+-          fontSize: 14,
+-          cursor: saving ? 'not-allowed' : 'pointer',
+-          opacity: saving ? 0.6 : 1,
+-        }}
+-      >
++      <Button type="submit" disabled={saving}>
+         {saving ? 'Saving…' : 'Save'}
+-      </button>
++      </Button>
+     </form>
+   )
+ }
+\ No newline at end of file

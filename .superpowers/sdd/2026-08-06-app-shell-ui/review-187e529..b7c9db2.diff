@@ -1,0 +1,4564 @@
+# Review package: 187e529..b7c9db2
+
+## Commits
+b7c9db2 style(web): Tailwind+shadcn restyle for procurement pages
+8955992 feat(web): add Sentry error monitoring, logs, and metrics
+fb0329b feat(api): add Sentry error monitoring with tracing and profiling
+
+## Files changed
+ apps/api/package.json                              |    2 +
+ apps/api/src/app.module.ts                         |    3 +-
+ apps/api/src/health.controller.ts                  |   12 +
+ apps/api/src/instrument.ts                         |   13 +
+ apps/api/src/main.ts                               |    2 +
+ apps/web/app/(app)/procurement/[id]/page.tsx       |  163 ++-
+ .../app/(app)/procurement/[id]/receive/page.tsx    |  130 +--
+ apps/web/app/(app)/procurement/new/page.tsx        |   76 +-
+ apps/web/app/(app)/procurement/page.tsx            |  119 +--
+ .../app/(app)/procurement/returns/[id]/page.tsx    |  112 +--
+ .../web/app/(app)/procurement/returns/new/page.tsx |   23 +-
+ .../(app)/procurement/returns/new/return-form.tsx  |  150 +--
+ apps/web/app/(app)/procurement/returns/page.tsx    |  133 ++-
+ apps/web/app/(app)/suppliers/[id]/page.tsx         |  163 ++-
+ apps/web/app/(app)/suppliers/[id]/print-button.tsx |   17 +-
+ apps/web/app/(app)/suppliers/page.tsx              |  102 +-
+ apps/web/app/global-error.tsx                      |   23 +
+ apps/web/instrumentation-client.ts                 |   18 +
+ apps/web/instrumentation.ts                        |   14 +
+ apps/web/middleware.ts                             |    2 +-
+ apps/web/next.config.js                            |   11 +-
+ apps/web/package.json                              |    1 +
+ apps/web/sentry.edge.config.ts                     |   15 +
+ apps/web/sentry.server.config.ts                   |   17 +
+ pnpm-lock.yaml                                     | 1040 +++++++++++++++++++-
+ pnpm-workspace.yaml                                |    2 +
+ 26 files changed, 1640 insertions(+), 723 deletions(-)
+
+## Diff
+diff --git a/apps/api/package.json b/apps/api/package.json
+index c1f22aa..d50db03 100644
+--- a/apps/api/package.json
++++ b/apps/api/package.json
+@@ -18,20 +18,22 @@
+     "moduleFileExtensions": [
+       "ts",
+       "js"
+     ]
+   },
+   "dependencies": {
+     "@nestjs/common": "^11.1.28",
+     "@nestjs/core": "^11.1.28",
+     "@nestjs/passport": "^11.0.5",
+     "@nestjs/platform-express": "^11.1.28",
++    "@sentry/nestjs": "^10.69.0",
++    "@sentry/profiling-node": "^10.69.0",
+     "@supabase/supabase-js": "^2.111.0",
+     "passport": "^0.7.0",
+     "passport-jwt": "^4.0.1",
+     "reflect-metadata": "^0.2.2",
+     "rxjs": "^7.8.2"
+   },
+   "devDependencies": {
+     "@nestjs/cli": "^11.0.24",
+     "@nestjs/testing": "^11.1.28",
+     "@types/express": "^5.0.6",
+diff --git a/apps/api/src/app.module.ts b/apps/api/src/app.module.ts
+index f8f34e9..805d092 100644
+--- a/apps/api/src/app.module.ts
++++ b/apps/api/src/app.module.ts
+@@ -1,13 +1,14 @@
+ import { Module } from '@nestjs/common'
++import { SentryModule } from '@sentry/nestjs/setup'
+ import { HealthController } from './health.controller'
+ import { AuthModule } from './auth/auth.module'
+ import { SupabaseModule } from './supabase/supabase.module'
+ import { ProductsModule } from './products/products.module'
+ import { ProcurementModule } from './procurement/procurement.module'
+ import { SalesModule } from './sales/sales.module'
+ 
+ @Module({
+   controllers: [HealthController],
+-  imports: [AuthModule, SupabaseModule, ProductsModule, ProcurementModule, SalesModule],
++  imports: [SentryModule.forRoot(), AuthModule, SupabaseModule, ProductsModule, ProcurementModule, SalesModule],
+ })
+ export class AppModule {}
+\ No newline at end of file
+diff --git a/apps/api/src/health.controller.ts b/apps/api/src/health.controller.ts
+index 41d5217..3bfc6c0 100644
+--- a/apps/api/src/health.controller.ts
++++ b/apps/api/src/health.controller.ts
+@@ -1,17 +1,29 @@
+ import { Controller, Get, UseGuards } from '@nestjs/common'
+ import { AuthGuard } from '@nestjs/passport'
++import * as Sentry from '@sentry/nestjs'
+ import { CurrentUser } from './auth/current-user.decorator'
+ 
+ @Controller('health')
+ export class HealthController {
+   @Get()
+   health() {
+     return { status: 'ok' }
+   }
+ 
+   @UseGuards(AuthGuard('jwt'))
+   @Get('auth')
+   authCheck(@CurrentUser() user: any) {
+     return { status: 'authenticated', tenantId: user.tenantId }
+   }
++
++  @Get('debug-sentry')
++  debugSentry() {
++    // Send a log before throwing the error
++    Sentry.logger.info('User triggered test error', {
++      action: 'test_error_endpoint',
++    })
++    // Send a test metric before throwing the error
++    Sentry.metrics.count('test_counter', 1)
++    throw new Error('My first Sentry error!')
++  }
+ }
+diff --git a/apps/api/src/instrument.ts b/apps/api/src/instrument.ts
+new file mode 100644
+index 0000000..da1da2e
+--- /dev/null
++++ b/apps/api/src/instrument.ts
+@@ -0,0 +1,13 @@
++import * as Sentry from '@sentry/nestjs'
++import { nodeProfilingIntegration } from '@sentry/profiling-node'
++
++Sentry.init({
++  dsn: process.env.SENTRY_DSN ?? 'https://61d19fb413c27629d4ec1ae2ad36df1b@o4511864804343808.ingest.us.sentry.io/4511864808275968',
++  integrations: [nodeProfilingIntegration()],
++  // Send structured logs to Sentry
++  enableLogs: true,
++  // Tracing
++  tracesSampleRate: 0.1,
++  profileSessionSampleRate: 0.1,
++  profileLifecycle: 'trace',
++})
+diff --git a/apps/api/src/main.ts b/apps/api/src/main.ts
+index 6eba400..8aa47c5 100644
+--- a/apps/api/src/main.ts
++++ b/apps/api/src/main.ts
+@@ -1,8 +1,10 @@
++import './instrument'
++
+ import { NestFactory } from '@nestjs/core'
+ import { AppModule } from './app.module'
+ 
+ async function bootstrap() {
+   const app = await NestFactory.create(AppModule)
+   await app.listen(process.env.PORT ?? 3001)
+ }
+ bootstrap()
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/[id]/page.tsx b/apps/web/app/(app)/procurement/[id]/page.tsx
+index 7f0de0b..2108910 100644
+--- a/apps/web/app/(app)/procurement/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/page.tsx
+@@ -1,14 +1,32 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
+-import { statusColors, parseDate } from '../status'
++import { parseDate } from '../status'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  DRAFT: 'outline',
++  PENDING_APPROVAL: 'secondary',
++  APPROVED: 'default',
++  RECEIVED: 'secondary',
++  CANCELLED: 'destructive',
++}
+ 
+ async function submitPurchaseOrder(formData: FormData) {
+   'use server'
+   const id = formData.get('id') as string
+   const supabase = await createClient()
+   const { data: po } = await supabase
+     .from('purchase_orders')
+     .select('status')
+     .eq('id', id)
+     .single()
+@@ -53,130 +71,75 @@ export default async function PurchaseOrderDetailPage({
+     .from('purchase_orders')
+     .select('*, suppliers (name)')
+     .eq('id', id)
+     .single()
+   const { data: items } = await supabase
+     .from('purchase_order_items')
+     .select('*, products (name, sku)')
+     .eq('purchase_order_id', id)
+ 
+   if (!po) {
+-    return <p style={{ color: 'var(--danger)' }}>Purchase order not found</p>
++    return <p className="text-sm text-destructive">Purchase order not found</p>
+   }
+ 
+   return (
+-    <section>
+-      <Link
+-        href="/procurement"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Procurement
+-      </Link>
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: '0' }}>{po.po_number}</h1>
+-        <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
++          Back to Procurement
++        </Link>
++        <div className="mt-1 flex items-center gap-3">
++          <h1 className="text-xl font-semibold text-slate-900">{po.po_number}</h1>
++          <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
++        </div>
++        <p className="mt-1 text-sm text-slate-500">
++          Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
++        </p>
+       </div>
+-      <p style={{ color: 'var(--text-secondary)' }}>
+-        Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
+-      </p>
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>SKU</th>
+-            <th style={thStyle}>Qty</th>
+-            <th style={thStyle}>Unit Price</th>
+-            <th style={thStyle}>Line Total</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>{it.products?.name || '-'}</td>
+-              <td style={tdStyle}>{it.products?.sku || '-'}</td>
+-              <td style={tdStyle}>{it.qty_ordered}</td>
+-              <td style={tdStyle}>{Number(it.unit_price).toFixed(2)}</td>
+-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++        <Table>
++          <TableHeader className="bg-slate-50">
++            <TableRow>
++              <TableHead>Product</TableHead>
++              <TableHead>SKU</TableHead>
++              <TableHead className="text-right">Qty</TableHead>
++              <TableHead className="text-right">Unit Price</TableHead>
++              <TableHead className="text-right">Line Total</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {(items || []).map((it: any) => (
++              <TableRow key={it.id} className="h-10">
++                <TableCell>{it.products?.name || '-'}</TableCell>
++                <TableCell>{it.products?.sku || '-'}</TableCell>
++                <TableCell className="text-right tabular-nums">{it.qty_ordered}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.unit_price).toFixed(2)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
++              </TableRow>
++            ))}
++          </TableBody>
++        </Table>
++      </div>
+ 
+       {po.status === 'DRAFT' && (
+-        <form style={{ marginTop: 16 }}>
++        <form>
+           <input type="hidden" name="id" value={po.id} />
+-          <button
+-            formAction={submitPurchaseOrder}
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
++          <Button type="submit" formAction={submitPurchaseOrder}>
+             Submit for Approval
+-          </button>
++          </Button>
+         </form>
+       )}
+       {po.status === 'PENDING_APPROVAL' && (
+-        <form style={{ marginTop: 16 }}>
++        <form>
+           <input type="hidden" name="id" value={po.id} />
+-          <button
+-            formAction={approvePurchaseOrder}
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
++          <Button type="submit" formAction={approvePurchaseOrder}>
+             Approve
+-          </button>
++          </Button>
+         </form>
+       )}
+       {po.status === 'APPROVED' && (
+-        <Link
+-          href={`/procurement/${po.id}/receive`}
+-          style={{
+-            display: 'inline-block',
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-          }}
+-        >
+-          Receive Goods
+-        </Link>
++        <Button render={<Link href={`/procurement/${po.id}/receive`} />}>Receive Goods</Button>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/[id]/receive/page.tsx b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+index 489ff4b..4727dd8 100644
+--- a/apps/web/app/(app)/procurement/[id]/receive/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+@@ -1,13 +1,16 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../../utils/supabase/server'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ async function receiveGoods(formData: FormData) {
+   'use server'
+   const id = formData.get('purchase_order_id') as string
+   const receiptNumber = formData.get('receipt_number') as string
+   const invoiceNumber = formData.get('invoice_number') as string
+   const purchaseOrderItemIds = formData.getAll('purchase_order_item_id') as string[]
+   const productIds = formData.getAll('product_id') as string[]
+   const batchNumbers = formData.getAll('batch_number') as string[]
+   const expiryDates = formData.getAll('expiry_date') as string[]
+@@ -106,141 +109,106 @@ export default async function ReceiveGoodsPage({
+     .select('*, suppliers (name)')
+     .eq('id', id)
+     .single()
+   const { data: items } = await supabase
+     .from('purchase_order_items')
+     .select('*, products (name, sku)')
+     .eq('purchase_order_id', id)
+ 
+   if (!po || po.status !== 'APPROVED') {
+     return (
+-      <section>
+-        <Link
+-          href="/procurement"
+-          style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-        >
++      <section className="space-y-2">
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
+           Back to Procurement
+         </Link>
+-        <p style={{ color: 'var(--danger)' }}>Only an approved purchase order can be received</p>
+-        <Link href={`/procurement/${id}`} style={{ color: 'var(--primary)' }}>
++        <p className="text-sm text-destructive">Only an approved purchase order can be received</p>
++        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
+           Back to purchase order
+         </Link>
+       </section>
+     )
+   }
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link
+-        href={`/procurement/${id}`}
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Purchase Order
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Receive Goods</h1>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+-        {po.po_number} • Supplier: {po.suppliers?.name || '-'}
+-      </p>
+-
+-      <form
+-        action={receiveGoods}
+-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-      >
++    <section className="space-y-6">
++      <div>
++        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
++          Back to Purchase Order
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">Receive Goods</h1>
++        <p className="mt-1 text-sm text-slate-500">
++          {po.po_number} • Supplier: {po.suppliers?.name || '-'}
++        </p>
++      </div>
++
++      <form action={receiveGoods} className="max-w-3xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+         <input type="hidden" name="purchase_order_id" value={po.id} />
+ 
+-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+-          <div>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Receipt Number</label>
+-            <input name="receipt_number" required placeholder="GR-2026-0001" style={inputStyle} />
++        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++          <div className="grid gap-1.5">
++            <Label htmlFor="receipt_number">Receipt Number</Label>
++            <Input id="receipt_number" name="receipt_number" required placeholder="GR-2026-0001" />
+           </div>
+-          <div>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Invoice Number</label>
+-            <input name="invoice_number" required placeholder="INV-2026-0001" style={inputStyle} />
++          <div className="grid gap-1.5">
++            <Label htmlFor="invoice_number">Invoice Number</Label>
++            <Input id="invoice_number" name="invoice_number" required placeholder="INV-2026-0001" />
+           </div>
+         </div>
+ 
+-        <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-        <div style={{ display: 'grid', gap: 12 }}>
++        <h2 className="text-sm font-medium text-slate-900">Items</h2>
++        <div className="grid gap-3">
+           {(items || []).map((it: any) => (
+             <div
+               key={it.id}
+-              style={{
+-                border: '1px solid var(--border)',
+-                borderRadius: 6,
+-                padding: 12,
+-                display: 'grid',
+-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+-                gap: 8,
+-                alignItems: 'end',
+-              }}
++              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-end gap-2 rounded-lg border border-border/60 p-3"
+             >
+               <input type="hidden" name="purchase_order_item_id" value={it.id} />
+               <input type="hidden" name="product_id" value={it.product_id} />
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
+-                <span style={{ fontSize: 14 }}>
++              <div className="grid gap-1">
++                <Label className="text-xs">Product</Label>
++                <span className="text-sm">
+                   {it.products?.name || '-'} ({it.products?.sku || '-'})
+                 </span>
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
+-                <input name="batch_number" required placeholder="Batch no" style={inputStyle} />
++              <div className="grid gap-1.5">
++                <Label htmlFor={`batch-${it.id}`} className="text-xs">Batch</Label>
++                <Input id={`batch-${it.id}`} name="batch_number" required placeholder="Batch no" />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Expiry</label>
+-                <input name="expiry_date" type="date" required style={inputStyle} />
++              <div className="grid gap-1.5">
++                <Label htmlFor={`expiry-${it.id}`} className="text-xs">Expiry</Label>
++                <Input id={`expiry-${it.id}`} name="expiry_date" type="date" required />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
+-                <input
++              <div className="grid gap-1.5">
++                <Label htmlFor={`qty-${it.id}`} className="text-xs">Qty</Label>
++                <Input
++                  id={`qty-${it.id}`}
+                   name="qty_received"
+                   type="number"
+                   step="0.001"
+                   min="0"
+                   required
+                   placeholder={String(it.qty_ordered)}
+-                  style={inputStyle}
++                  className="w-24"
+                 />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
+-                <input
++              <div className="grid gap-1.5">
++                <Label htmlFor={`cost-${it.id}`} className="text-xs">Unit Cost</Label>
++                <Input
++                  id={`cost-${it.id}`}
+                   name="unit_cost"
+                   type="number"
+                   step="0.01"
+                   min="0"
+                   required
+                   placeholder={String(Number(it.unit_price).toFixed(2))}
+-                  style={inputStyle}
++                  className="w-24"
+                 />
+               </div>
+             </div>
+           ))}
+         </div>
+ 
+-        <button
+-          type="submit"
+-          style={{
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-          }}
+-        >
+-          Receive Goods
+-        </button>
++        <Button type="submit">Receive Goods</Button>
+       </form>
+     </section>
+   )
+ }
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+diff --git a/apps/web/app/(app)/procurement/new/page.tsx b/apps/web/app/(app)/procurement/new/page.tsx
+index a52661d..d057bbc 100644
+--- a/apps/web/app/(app)/procurement/new/page.tsx
++++ b/apps/web/app/(app)/procurement/new/page.tsx
+@@ -1,13 +1,16 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ async function createPurchaseOrder(formData: FormData) {
+   'use server'
+   const supplierId = formData.get('supplier_id') as string
+   const poNumber = formData.get('po_number') as string
+   const productIds = formData.getAll('product_id') as string[]
+   const qtys = formData.getAll('qty_ordered') as string[]
+   const prices = formData.getAll('unit_price') as string[]
+ 
+   if (!supplierId || !poNumber || productIds.length === 0) {
+@@ -43,97 +46,72 @@ async function createPurchaseOrder(formData: FormData) {
+ 
+   const { error: iErr } = await supabase.from('purchase_order_items').insert(rows)
+   if (iErr) {
+     redirect(`/procurement/new?error=Failed to add items`)
+     return
+   }
+ 
+   redirect(`/procurement/${po.id}`)
+ }
+ 
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
++
+ export default async function NewPurchaseOrderPage() {
+   const supabase = await createClient()
+   const { data: suppliers } = await supabase
+     .from('suppliers')
+     .select('id, name')
+     .order('name', { ascending: true })
+   const { data: products } = await supabase
+     .from('products')
+     .select('id, name, sku')
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link href="/procurement" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Procurement
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Purchase Order</h1>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
++          Back to Procurement
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Order</h1>
++      </div>
+ 
+-      <form
+-        action={createPurchaseOrder}
+-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-      >
+-        <div style={{ marginBottom: 12 }}>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PO Number</label>
+-          <input
+-            name="po_number"
+-            required
+-            style={inputStyle}
+-            placeholder="PO-2026-0001"
+-          />
++      <form action={createPurchaseOrder} className="max-w-2xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
++        <div className="grid gap-1.5">
++          <Label htmlFor="po_number">PO Number</Label>
++          <Input id="po_number" name="po_number" required placeholder="PO-2026-0001" />
+         </div>
+ 
+-        <div style={{ marginBottom: 12 }}>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
+-          <select name="supplier_id" required style={inputStyle}>
++        <div className="grid gap-1.5">
++          <Label htmlFor="supplier_id">Supplier</Label>
++          <select id="supplier_id" name="supplier_id" required className={selectClass}>
+             <option value="">Select supplier</option>
+             {(suppliers || []).map((s: any) => (
+               <option key={s.id} value={s.id}>
+                 {s.name}
+               </option>
+             ))}
+           </select>
+         </div>
+ 
+-        <h2 style={{ fontSize: 14, margin: '16px 0 8px' }}>Items</h2>
+-        <div id="items" style={{ display: 'grid', gap: 8 }}>
+-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
+-            <select name="product_id" required style={inputStyle}>
++        <h2 className="text-sm font-medium text-slate-900">Items</h2>
++        <div id="items" className="grid gap-2">
++          <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
++            <select name="product_id" required className={selectClass}>
+               <option value="">Product</option>
+               {(products || []).map((p: any) => (
+                 <option key={p.id} value={p.id}>
+                   {p.name} ({p.sku})
+                 </option>
+               ))}
+             </select>
+-            <input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" style={inputStyle} />
+-            <input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" style={inputStyle} />
++            <Input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" />
++            <Input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" />
+           </div>
+         </div>
+ 
+-        <button
+-          type="submit"
+-          style={{
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-          }}
+-        >
+-          Create PO (Draft)
+-        </button>
++        <Button type="submit">Create PO (Draft)</Button>
+       </form>
+     </section>
+   )
+ }
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/page.tsx b/apps/web/app/(app)/procurement/page.tsx
+index d6f88fd..9fff476 100644
+--- a/apps/web/app/(app)/procurement/page.tsx
++++ b/apps/web/app/(app)/procurement/page.tsx
+@@ -1,85 +1,70 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+-import { statusColors, parseDate } from './status'
++import { parseDate } from './status'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  DRAFT: 'outline',
++  PENDING_APPROVAL: 'secondary',
++  APPROVED: 'default',
++  RECEIVED: 'secondary',
++  CANCELLED: 'destructive',
++}
+ 
+ export default async function ProcurementPage() {
+   const supabase = await createClient()
+   const { data: pos } = await supabase
+     .from('purchase_orders')
+     .select('*, suppliers (name)')
+     .order('created_at', { ascending: false })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Procurement</h1>
+-        <Link
+-          href="/procurement/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-          }}
+-        >
+-          New PO
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Procurement</h1>
++        <Button render={<Link href="/procurement/new" />}>New PO</Button>
+       </div>
+       {!pos || pos.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No purchase orders yet</p>
++        <p className="text-sm text-slate-500">No purchase orders yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>PO Number</th>
+-              <th style={thStyle}>Supplier</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Ordered At</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {pos.map((po: any) => (
+-              <tr key={po.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/procurement/${po.id}`} style={{ color: 'var(--primary)' }}>
+-                    {po.po_number}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>{po.suppliers?.name || '-'}</td>
+-                <td style={tdStyle}>
+-                  <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
+-                </td>
+-                <td style={tdStyle}>{parseDate(po.ordered_at || po.created_at)}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>PO Number</TableHead>
++                <TableHead>Supplier</TableHead>
++                <TableHead>Status</TableHead>
++                <TableHead>Ordered At</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {pos.map((po: any) => (
++                <TableRow key={po.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/procurement/${po.id}`} className="text-primary hover:underline">
++                      {po.po_number}
++                    </Link>
++                  </TableCell>
++                  <TableCell>{po.suppliers?.name || '-'}</TableCell>
++                  <TableCell>
++                    <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
++                  </TableCell>
++                  <TableCell>{parseDate(po.ordered_at || po.created_at)}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/returns/[id]/page.tsx b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+index 90d3d71..51d7add 100644
+--- a/apps/web/app/(app)/procurement/returns/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+@@ -1,119 +1,105 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params
+   const supabase = await createClient()
+ 
+   const { data: ret } = await supabase
+     .from('purchase_returns')
+     .select('*, supplier:suppliers(name)')
+     .eq('id', id)
+     .single()
+ 
+-  if (!ret) return <p>Return not found</p>
++  if (!ret) return <p className="text-sm text-slate-500">Return not found</p>
+ 
+   const { data: items } = await supabase
+     .from('purchase_return_items')
+     .select('*, product:products(name, sku)')
+     .eq('purchase_return_id', id)
+ 
+   const total = Number(ret.total_amount || 0)
+   const applied = Number(ret.applied_amount || 0)
+   const remaining = Math.max(total - applied, 0)
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link
+-        href="/procurement/returns"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Returns
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{ret.return_number}</h1>
+-      <div
+-        style={{
+-          background: 'var(--card)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-          padding: 16,
+-          marginBottom: 16,
+-          display: 'grid',
+-          gridTemplateColumns: '1fr 1fr',
+-          gap: 8,
+-          fontSize: 14,
+-        }}
+-      >
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
++          Back to Returns
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">{ret.return_number}</h1>
++      </div>
++
++      <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
+         <div>
+           Supplier: <strong>{ret.supplier?.name || '-'}</strong>
+         </div>
+         <div>
+           Reason: <strong>{ret.reason}</strong>
+         </div>
+         <div>
+           Date: <strong>{parseDate(ret.returned_at)}</strong>
+         </div>
+         <div>
+           PBF Credit Note: <strong>{ret.pbf_credit_note_number || '-'}</strong>
+         </div>
+         <div>
+-          Total: <strong>{total.toFixed(2)}</strong>
++          Total: <strong className="tabular-nums">{total.toFixed(2)}</strong>
+         </div>
+         <div>
+-          Remaining credit: <strong>{remaining.toFixed(2)}</strong>
++          Remaining credit: <strong className="tabular-nums">{remaining.toFixed(2)}</strong>
+         </div>
+         {ret.notes && (
+-          <div style={{ gridColumn: '1 / -1' }}>
++          <div className="sm:col-span-2">
+             Notes: {ret.notes}
+           </div>
+         )}
+       </div>
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>Batch</th>
+-            <th style={thStyle}>Expiry</th>
+-            <th style={thStyle}>Qty</th>
+-            <th style={thStyle}>Unit Cost</th>
+-            <th style={thStyle}>Line Total</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>
+-                {it.product?.name || '-'} ({it.product?.sku || '-'})
+-              </td>
+-              <td style={tdStyle}>{it.batch_number}</td>
+-              <td style={tdStyle}>{parseDate(it.expiry_date)}</td>
+-              <td style={tdStyle}>{Number(it.qty_returned)}</td>
+-              <td style={tdStyle}>{Number(it.unit_cost).toFixed(2)}</td>
+-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++        <Table>
++          <TableHeader className="bg-slate-50">
++            <TableRow>
++              <TableHead>Product</TableHead>
++              <TableHead>Batch</TableHead>
++              <TableHead>Expiry</TableHead>
++              <TableHead className="text-right">Qty</TableHead>
++              <TableHead className="text-right">Unit Cost</TableHead>
++              <TableHead className="text-right">Line Total</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {(items || []).map((it: any) => (
++              <TableRow key={it.id} className="h-10">
++                <TableCell>
++                  {it.product?.name || '-'} ({it.product?.sku || '-'})
++                </TableCell>
++                <TableCell>{it.batch_number}</TableCell>
++                <TableCell>{parseDate(it.expiry_date)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.qty_returned)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.unit_cost).toFixed(2)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
++              </TableRow>
++            ))}
++          </TableBody>
++        </Table>
++      </div>
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+diff --git a/apps/web/app/(app)/procurement/returns/new/page.tsx b/apps/web/app/(app)/procurement/returns/new/page.tsx
+index 350c3dc..269ec95 100644
+--- a/apps/web/app/(app)/procurement/returns/new/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/new/page.tsx
+@@ -1,38 +1,37 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../../utils/auth'
+ import { ReturnForm } from './return-form'
+ 
+ export default async function NewReturnPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!role || role === 'CASHIER') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner, pharmacist, or inventory only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+   }
+ 
+   const [{ data: suppliers }, { data: products }, { data: batches }] = await Promise.all([
+     supabase.from('suppliers').select('id, name').order('name', { ascending: true }),
+     supabase.from('products').select('id, name, sku').order('name', { ascending: true }),
+     supabase
+       .from('product_batches')
+       .select('id, product_id, batch_number, expiry_date, current_qty')
+       .gt('current_qty', 0)
+       .order('batch_number', { ascending: true }),
+   ])
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <Link
+-        href="/procurement/returns"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Returns
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Purchase Return</h1>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+-        A return creates a supplier credit note. It does not change the original invoice.
+-      </p>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
++          Back to Returns
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Return</h1>
++        <p className="mt-1 text-sm text-slate-500">
++          A return creates a supplier credit note. It does not change the original invoice.
++        </p>
++      </div>
+       <ReturnForm suppliers={suppliers || []} products={products || []} batches={batches || []} />
+     </section>
+   )
+ }
+diff --git a/apps/web/app/(app)/procurement/returns/new/return-form.tsx b/apps/web/app/(app)/procurement/returns/new/return-form.tsx
+index 46fae8a..c51c3c0 100644
+--- a/apps/web/app/(app)/procurement/returns/new/return-form.tsx
++++ b/apps/web/app/(app)/procurement/returns/new/return-form.tsx
+@@ -1,14 +1,17 @@
+ 'use client'
+ 
+ import { useState } from 'react'
+ import { createPurchaseReturn } from './actions'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ export interface ReturnBatch {
+   id: string
+   product_id: string
+   batch_number: string
+   expiry_date: string | null
+   current_qty: number
+ }
+ 
+ export interface ReturnProduct {
+@@ -17,28 +20,22 @@ export interface ReturnProduct {
+   sku: string
+ }
+ 
+ interface ItemRow {
+   productId: string
+   batchId: string
+   qty: string
+   unitCost: string
+ }
+ 
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+ 
+ export function ReturnForm({
+   suppliers,
+   products,
+   batches,
+ }: {
+   suppliers: { id: string; name: string }[]
+   products: ReturnProduct[]
+   batches: ReturnBatch[]
+ }) {
+@@ -57,191 +54,144 @@ export function ReturnForm({
+ 
+   function removeRow(index: number) {
+     setRows((prev) => prev.filter((_, i) => i !== index))
+   }
+ 
+   function batchesFor(productId: string): ReturnBatch[] {
+     return batches.filter((b) => b.product_id === productId)
+   }
+ 
+   return (
+-    <form
+-      action={createPurchaseReturn}
+-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-    >
+-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
+-          <select name="supplier_id" required style={inputStyle} defaultValue="">
++    <form action={createPurchaseReturn} className="max-w-4xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
++      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++        <div className="grid gap-1.5">
++          <Label htmlFor="supplier_id">Supplier</Label>
++          <select id="supplier_id" name="supplier_id" required className={selectClass} defaultValue="">
+             <option value="" disabled>
+               Select supplier
+             </option>
+             {suppliers.map((s) => (
+               <option key={s.id} value={s.id}>
+                 {s.name}
+               </option>
+             ))}
+           </select>
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Return Number</label>
+-          <input name="return_number" required placeholder="RTR-2608-001" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="return_number">Return Number</Label>
++          <Input id="return_number" name="return_number" required placeholder="RTR-2608-001" />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Reason</label>
+-          <select name="reason" required style={inputStyle} defaultValue="">
++        <div className="grid gap-1.5">
++          <Label htmlFor="reason">Reason</Label>
++          <select id="reason" name="reason" required className={selectClass} defaultValue="">
+             <option value="" disabled>
+               Select reason
+             </option>
+             <option value="EXPIRED">Expired</option>
+             <option value="DAMAGED">Damaged</option>
+             <option value="RECALL">Recall</option>
+           </select>
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PBF Credit Note Number</label>
+-          <input name="pbf_credit_note_number" placeholder="Optional" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="pbf_credit_note_number">PBF Credit Note Number</Label>
++          <Input id="pbf_credit_note_number" name="pbf_credit_note_number" placeholder="Optional" />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Returned At</label>
+-          <input name="returned_at" type="date" required style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="returned_at">Returned At</Label>
++          <Input id="returned_at" name="returned_at" type="date" required />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Notes</label>
+-          <input name="notes" placeholder="Optional" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="notes">Notes</Label>
++          <Input id="notes" name="notes" placeholder="Optional" />
+         </div>
+       </div>
+ 
+-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-      <div style={{ display: 'grid', gap: 12 }}>
++      <h2 className="text-sm font-medium text-slate-900">Items</h2>
++      <div className="grid gap-3">
+         {rows.map((row, index) => (
+           <div
+             key={index}
+-            style={{
+-              border: '1px solid var(--border)',
+-              borderRadius: 6,
+-              padding: 12,
+-              display: 'grid',
+-              gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
+-              gap: 8,
+-              alignItems: 'end',
+-            }}
++            className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-border/60 p-3"
+           >
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Product</Label>
+               <select
+                 value={row.productId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
+               >
+                 <option value="" disabled>
+                   Select product
+                 </option>
+                 {products.map((p) => (
+                   <option key={p.id} value={p.id}>
+                     {p.name} ({p.sku})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Batch</Label>
+               <select
+                 name="batch_id"
+                 value={row.batchId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 disabled={!row.productId}
+                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
+               >
+                 <option value="" disabled>
+                   Select batch
+                 </option>
+                 {batchesFor(row.productId).map((b) => (
+                   <option key={b.id} value={b.id}>
+                     {b.batch_number} (ED {b.expiry_date ? String(b.expiry_date).slice(0, 10) : '-'}, qty {Number(b.current_qty)})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
+-              <input
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Qty</Label>
++              <Input
+                 name="qty_returned"
+                 type="number"
+                 step="0.001"
+                 min="0.001"
+                 required
+                 value={row.qty}
+-                style={inputStyle}
++                className="w-24"
+                 onChange={(e) => updateRow(index, { qty: e.target.value })}
+               />
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
+-              <input
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Unit Cost</Label>
++              <Input
+                 name="unit_cost"
+                 type="number"
+                 step="0.01"
+                 min="0"
+                 required
+                 value={row.unitCost}
+-                style={inputStyle}
++                className="w-24"
+                 onChange={(e) => updateRow(index, { unitCost: e.target.value })}
+               />
+             </div>
+             <div>
+-              <button
+-                type="button"
+-                onClick={() => removeRow(index)}
+-                style={{
+-                  background: 'transparent',
+-                  color: 'var(--danger)',
+-                  border: '1px solid var(--border)',
+-                  borderRadius: 6,
+-                  padding: '8px 10px',
+-                  cursor: 'pointer',
+-                }}
+-              >
++              <Button type="button" variant="outline" onClick={() => removeRow(index)}>
+                 Remove
+-              </button>
++              </Button>
+             </div>
+             <input type="hidden" name="product_id" value={row.productId} />
+           </div>
+         ))}
+       </div>
+ 
+-      <button
+-        type="button"
+-        onClick={addRow}
+-        style={{
+-          marginTop: 12,
+-          background: 'transparent',
+-          color: 'var(--primary)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 6,
+-          padding: '8px 16px',
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Add Item
+-      </button>
+-
+-      <button
+-        type="submit"
+-        style={{
+-          marginTop: 16,
+-          marginLeft: 12,
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '8px 16px',
+-          border: 'none',
+-          borderRadius: 6,
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Create Return
+-      </button>
++      <div className="flex gap-2">
++        <Button type="button" variant="outline" onClick={addRow}>
++          Add Item
++        </Button>
++        <Button type="submit">Create Return</Button>
++      </div>
+     </form>
+   )
+ }
+diff --git a/apps/web/app/(app)/procurement/returns/page.tsx b/apps/web/app/(app)/procurement/returns/page.tsx
+index 04b9459..46e7900 100644
+--- a/apps/web/app/(app)/procurement/returns/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/page.tsx
+@@ -1,104 +1,81 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../utils/supabase/server'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnsListPage() {
+   const supabase = await createClient()
+   const { data: returns, error } = await supabase
+     .from('purchase_returns')
+     .select('id, return_number, reason, returned_at, total_amount, applied_amount, supplier:suppliers(name)')
+     .order('returned_at', { ascending: false })
+ 
+-  if (error) return <p style={{ color: 'var(--danger)' }}>Returns unavailable</p>
++  if (error) return <p className="text-sm text-destructive">Returns unavailable</p>
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Purchase Returns</h1>
+-        <Link
+-          href="/procurement/returns/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '6px 14px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-          }}
+-        >
+-          New Return
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Purchase Returns</h1>
++        <Button render={<Link href="/procurement/returns/new" />}>New Return</Button>
+       </div>
+       {!returns || returns.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No returns yet</p>
++        <p className="text-sm text-slate-500">No returns yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Return Number</th>
+-              <th style={thStyle}>Supplier</th>
+-              <th style={thStyle}>Reason</th>
+-              <th style={thStyle}>Date</th>
+-              <th style={thStyle}>Total</th>
+-              <th style={thStyle}>Applied</th>
+-              <th style={thStyle}>Status</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {returns.map((r: any) => {
+-              const applied = Number(r.applied_amount || 0)
+-              const total = Number(r.total_amount || 0)
+-              const status = applied >= total && total > 0 ? 'APPLIED' : 'OPEN'
+-              return (
+-                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                  <td style={tdStyle}>
+-                    <Link href={`/procurement/returns/${r.id}`} style={{ color: 'var(--primary)' }}>
+-                      {r.return_number}
+-                    </Link>
+-                  </td>
+-                  <td style={tdStyle}>{r.supplier?.name || '-'}</td>
+-                  <td style={tdStyle}>{r.reason}</td>
+-                  <td style={tdStyle}>{parseDate(r.returned_at)}</td>
+-                  <td style={tdStyle}>{total.toFixed(2)}</td>
+-                  <td style={tdStyle}>{applied.toFixed(2)}</td>
+-                  <td style={tdStyle}>
+-                    <span style={badgeStyle(status === 'APPLIED' ? '#0d9488' : '#f59e0b')}>{status}</span>
+-                  </td>
+-                </tr>
+-              )
+-            })}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Return Number</TableHead>
++                <TableHead>Supplier</TableHead>
++                <TableHead>Reason</TableHead>
++                <TableHead>Date</TableHead>
++                <TableHead className="text-right">Total</TableHead>
++                <TableHead className="text-right">Applied</TableHead>
++                <TableHead>Status</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {returns.map((r: any) => {
++                const applied = Number(r.applied_amount || 0)
++                const total = Number(r.total_amount || 0)
++                const status = applied >= total && total > 0 ? 'APPLIED' : 'OPEN'
++                return (
++                  <TableRow key={r.id} className="h-10">
++                    <TableCell>
++                      <Link href={`/procurement/returns/${r.id}`} className="text-primary hover:underline">
++                        {r.return_number}
++                      </Link>
++                    </TableCell>
++                    <TableCell>{r.supplier?.name || '-'}</TableCell>
++                    <TableCell>{r.reason}</TableCell>
++                    <TableCell>{parseDate(r.returned_at)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{total.toFixed(2)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{applied.toFixed(2)}</TableCell>
++                    <TableCell>
++                      <Badge variant={status === 'APPLIED' ? 'default' : 'secondary'}>{status}</Badge>
++                    </TableCell>
++                  </TableRow>
++                )
++              })}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+diff --git a/apps/web/app/(app)/suppliers/[id]/page.tsx b/apps/web/app/(app)/suppliers/[id]/page.tsx
+index 2993066..efc3a8f 100644
+--- a/apps/web/app/(app)/suppliers/[id]/page.tsx
++++ b/apps/web/app/(app)/suppliers/[id]/page.tsx
+@@ -1,15 +1,25 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../utils/auth'
+ import { buildStatementLedger, computeSupplierBalance } from '../../../../lib/purchase-returns'
+ import { PrintButton } from './print-button'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableFooter,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ // A4 print CSS scoped to .statement-print.
+ function printCss(): string {
+   return `
+   @media print {
+     @page { size: A4; margin: 14mm; }
+     body * { visibility: hidden; }
+     .statement-print, .statement-print * { visibility: visible; }
+     .statement-print { position: absolute; top: 0; left: 0; width: 100%; }
+     .no-print { display: none !important; }
+@@ -24,25 +34,25 @@ function parseDate(value: string | null | undefined): string {
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function SupplierStatementPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!role || role === 'CASHIER') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner, pharmacist, or inventory only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+   }
+ 
+   const { data: supplier } = await supabase.from('suppliers').select('*').eq('id', id).single()
+-  if (!supplier) return <p>Supplier not found</p>
++  if (!supplier) return <p className="text-sm text-slate-500">Supplier not found</p>
+ 
+   const { data: payables } = await supabase
+     .from('accounts_payables')
+     .select('id, invoice_number, due_date, receipt_total_amount, paid_amount, remaining_amount, goods_receipts(received_at, purchase_order_id)')
+     .eq('supplier_id', id)
+ 
+   const payableIds = (payables || []).map((p: any) => p.id)
+   const { data: payments } =
+     payableIds.length > 0
+       ? await supabase
+@@ -89,123 +99,96 @@ export default async function SupplierStatementPage({ params }: { params: Promis
+ 
+   const closingBalance = ledger.length > 0 ? ledger[ledger.length - 1].balance : 0
+   const balance = computeSupplierBalance(
+     (payables || []).map((p: any) => ({ remaining: Number(p.remaining_amount) })),
+     (returns || []).map((r: any) => ({ total: Number(r.total_amount), applied: 0 }))
+   )
+ 
+   return (
+     <>
+       <style dangerouslySetInnerHTML={{ __html: printCss() }} />
+-      <section style={{ maxWidth: 860 }}>
+-        <div
+-          className="no-print"
+-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+-        >
+-          <Link href="/suppliers" style={{ color: 'var(--primary)' }}>
++      <section className="space-y-6">
++        <div className="no-print flex items-center justify-between">
++          <Link href="/suppliers" className="text-sm text-primary hover:underline">
+             Back to Suppliers
+           </Link>
+           <PrintButton />
+         </div>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{supplier.name}</h1>
++        <h1 className="text-xl font-semibold text-slate-900">{supplier.name}</h1>
+ 
+-        <div
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 16,
+-            marginBottom: 16,
+-            display: 'grid',
+-            gridTemplateColumns: '1fr 1fr',
+-            gap: 8,
+-            fontSize: 14,
+-          }}
+-        >
++        <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
+           <div>
+             PBF: <strong>{supplier.is_pbf ? 'Yes' : 'No'}</strong>
+           </div>
+           <div>
+             License: <strong>{supplier.pbf_license_number || '-'}</strong>
+           </div>
+           <div>
+             Phone: <strong>{supplier.phone || '-'}</strong>
+           </div>
+           <div>
+             Payment Terms: <strong>{supplier.payment_terms_days} days</strong>
+           </div>
+         </div>
+ 
+-        <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>Statement (Kartu Hutang)</h2>
+-        <div className="statement-print">
+-          <div style={{ marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+-            Supplier: {supplier.name} • Generated: {new Date().toLocaleDateString()}
++        <div>
++          <h2 className="mb-3 text-base font-semibold text-slate-900">Statement (Kartu Hutang)</h2>
++          <div className="statement-print overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++            <div className="px-4 pt-3 text-xs text-slate-500">
++              Supplier: {supplier.name} • Generated: {new Date().toLocaleDateString()}
++            </div>
++            {ledger.length === 0 ? (
++              <p className="p-4 text-sm text-slate-500">No transactions yet</p>
++            ) : (
++              <Table>
++                <TableHeader className="bg-slate-50">
++                  <TableRow>
++                    <TableHead>Date</TableHead>
++                    <TableHead>Reference</TableHead>
++                    <TableHead>Description</TableHead>
++                    <TableHead className="text-right">Debit</TableHead>
++                    <TableHead className="text-right">Credit</TableHead>
++                    <TableHead className="text-right">Balance</TableHead>
++                  </TableRow>
++                </TableHeader>
++                <TableBody>
++                  {ledger.map((row, i) => {
++                    const poId = poByInvoice.get(row.ref)
++                    return (
++                      <TableRow key={i} className="h-10">
++                        <TableCell>{parseDate(row.date)}</TableCell>
++                        <TableCell>
++                          {poId ? (
++                            <Link href={`/procurement/${poId}`} className="text-primary hover:underline">
++                              {row.ref}
++                            </Link>
++                          ) : (
++                            row.ref
++                          )}
++                        </TableCell>
++                        <TableCell>{row.description}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.debit > 0 ? row.debit.toFixed(2) : ''}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.credit > 0 ? row.credit.toFixed(2) : ''}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.balance.toFixed(2)}</TableCell>
++                      </TableRow>
++                    )
++                  })}
++                </TableBody>
++                <TableFooter>
++                  <TableRow>
++                    <TableCell colSpan={5}>Closing Balance</TableCell>
++                    <TableCell className="text-right tabular-nums">
++                      {closingBalance.toFixed(2)}
++                      {balance < 0 && (
++                        <span className="text-xs text-slate-500"> (credit balance)</span>
++                      )}
++                    </TableCell>
++                  </TableRow>
++                </TableFooter>
++              </Table>
++            )}
+           </div>
+-          {ledger.length === 0 ? (
+-            <p style={{ color: 'var(--text-secondary)' }}>No transactions yet</p>
+-          ) : (
+-            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-              <thead>
+-                <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-                  <th style={thStyle}>Date</th>
+-                  <th style={thStyle}>Reference</th>
+-                  <th style={thStyle}>Description</th>
+-                  <th style={thStyle}>Debit</th>
+-                  <th style={thStyle}>Credit</th>
+-                  <th style={thStyle}>Balance</th>
+-                </tr>
+-              </thead>
+-              <tbody>
+-                {ledger.map((row, i) => {
+-                  const poId = poByInvoice.get(row.ref)
+-                  return (
+-                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+-                      <td style={tdStyle}>{parseDate(row.date)}</td>
+-                      <td style={tdStyle}>
+-                        {poId ? (
+-                          <Link href={`/procurement/${poId}`} style={{ color: 'var(--primary)' }}>
+-                            {row.ref}
+-                          </Link>
+-                        ) : (
+-                          row.ref
+-                        )}
+-                      </td>
+-                      <td style={tdStyle}>{row.description}</td>
+-                      <td style={tdStyle}>{row.debit > 0 ? row.debit.toFixed(2) : ''}</td>
+-                      <td style={tdStyle}>{row.credit > 0 ? row.credit.toFixed(2) : ''}</td>
+-                      <td style={tdStyle}>{row.balance.toFixed(2)}</td>
+-                    </tr>
+-                  )
+-                })}
+-              </tbody>
+-              <tfoot>
+-                <tr style={{ borderTop: '2px solid var(--border)', fontWeight: 600 }}>
+-                  <td style={tdStyle} colSpan={5}>
+-                    Closing Balance
+-                  </td>
+-                  <td style={tdStyle}>
+-                    {closingBalance.toFixed(2)}
+-                    {balance < 0 && (
+-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}> (credit balance)</span>
+-                    )}
+-                  </td>
+-                </tr>
+-              </tfoot>
+-            </table>
+-          )}
+         </div>
+       </section>
+     </>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+diff --git a/apps/web/app/(app)/suppliers/[id]/print-button.tsx b/apps/web/app/(app)/suppliers/[id]/print-button.tsx
+index dca754b..bde7425 100644
+--- a/apps/web/app/(app)/suppliers/[id]/print-button.tsx
++++ b/apps/web/app/(app)/suppliers/[id]/print-button.tsx
+@@ -1,20 +1,11 @@
+ 'use client'
+ 
++import { Button } from '@/components/ui/button'
++
+ export function PrintButton() {
+   return (
+-    <button
+-      onClick={() => window.print()}
+-      style={{
+-        background: 'transparent',
+-        color: 'var(--primary)',
+-        border: '1px solid var(--border)',
+-        borderRadius: 6,
+-        padding: '6px 14px',
+-        fontSize: 13,
+-        cursor: 'pointer',
+-      }}
+-    >
++    <Button type="button" variant="outline" onClick={() => window.print()}>
+       Print (A4)
+-    </button>
++    </Button>
+   )
+ }
+diff --git a/apps/web/app/(app)/suppliers/page.tsx b/apps/web/app/(app)/suppliers/page.tsx
+index d5a4cd6..32f5a73 100644
+--- a/apps/web/app/(app)/suppliers/page.tsx
++++ b/apps/web/app/(app)/suppliers/page.tsx
+@@ -1,75 +1,61 @@
+ import { createClient } from '../../../utils/supabase/server'
+ import Link from 'next/link'
++import { Badge } from '@/components/ui/badge'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ export default async function SuppliersPage() {
+   const supabase = await createClient()
+   const { data: suppliers } = await supabase
+     .from('suppliers')
+     .select('*')
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Suppliers (PBF)</h1>
++    <section className="space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">Suppliers (PBF)</h1>
+       {!suppliers || suppliers.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No suppliers yet</p>
++        <p className="text-sm text-slate-500">No suppliers yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Name</th>
+-              <th style={thStyle}>PBF</th>
+-              <th style={thStyle}>License Number</th>
+-              <th style={thStyle}>Phone</th>
+-              <th style={thStyle}>Payment Terms (days)</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {suppliers.map((s: any) => (
+-              <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/suppliers/${s.id}`} style={{ color: 'var(--primary)' }}>
+-                    {s.name}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>
+-                  {s.is_pbf ? (
+-                    <span style={badgeStyle('#0d9488')}>PBF</span>
+-                  ) : (
+-                    <span style={badgeStyle('#64748b')}>Non-PBF</span>
+-                  )}
+-                </td>
+-                <td style={tdStyle}>{s.pbf_license_number || '-'}</td>
+-                <td style={tdStyle}>{s.phone || '-'}</td>
+-                <td style={tdStyle}>{s.payment_terms_days}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Name</TableHead>
++                <TableHead>PBF</TableHead>
++                <TableHead>License Number</TableHead>
++                <TableHead>Phone</TableHead>
++                <TableHead className="text-right">Payment Terms (days)</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {suppliers.map((s: any) => (
++                <TableRow key={s.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/suppliers/${s.id}`} className="text-primary hover:underline">
++                      {s.name}
++                    </Link>
++                  </TableCell>
++                  <TableCell>
++                    <Badge variant={s.is_pbf ? 'default' : 'secondary'}>
++                      {s.is_pbf ? 'PBF' : 'Non-PBF'}
++                    </Badge>
++                  </TableCell>
++                  <TableCell>{s.pbf_license_number || '-'}</TableCell>
++                  <TableCell>{s.phone || '-'}</TableCell>
++                  <TableCell className="text-right tabular-nums">{s.payment_terms_days}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/global-error.tsx b/apps/web/app/global-error.tsx
+new file mode 100644
+index 0000000..3b0c1c2
+--- /dev/null
++++ b/apps/web/app/global-error.tsx
+@@ -0,0 +1,23 @@
++'use client'
++
++import * as Sentry from '@sentry/nextjs'
++import NextError from 'next/error'
++import { useEffect } from 'react'
++
++export default function GlobalError({
++  error,
++}: {
++  error: Error & { digest?: string }
++}) {
++  useEffect(() => {
++    Sentry.captureException(error)
++  }, [error])
++
++  return (
++    <html>
++      <body>
++        <NextError statusCode={0} />
++      </body>
++    </html>
++  )
++}
+diff --git a/apps/web/instrumentation-client.ts b/apps/web/instrumentation-client.ts
+new file mode 100644
+index 0000000..4371c43
+--- /dev/null
++++ b/apps/web/instrumentation-client.ts
+@@ -0,0 +1,18 @@
++import * as Sentry from '@sentry/nextjs'
++
++Sentry.init({
++  dsn:
++    process.env.NEXT_PUBLIC_SENTRY_DSN ??
++    'https://2cff9442f6e80c9f4e06e5db27240367@o4511864804343808.ingest.us.sentry.io/4511864835407872',
++  integrations: [
++    // send console.log, console.warn, and console.error calls as logs to Sentry
++    Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
++  ],
++  // Capture 100% of transactions for performance monitoring
++  tracesSampleRate: 1.0,
++  // Enable logs to be sent to Sentry
++  enableLogs: true,
++})
++
++// Hook into App Router navigation transitions
++export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
+diff --git a/apps/web/instrumentation.ts b/apps/web/instrumentation.ts
+new file mode 100644
+index 0000000..8bdfe77
+--- /dev/null
++++ b/apps/web/instrumentation.ts
+@@ -0,0 +1,14 @@
++import * as Sentry from '@sentry/nextjs'
++
++export async function register() {
++  if (process.env.NEXT_RUNTIME === 'nodejs') {
++    await import('./sentry.server.config')
++  }
++
++  if (process.env.NEXT_RUNTIME === 'edge') {
++    await import('./sentry.edge.config')
++  }
++}
++
++// Captures all unhandled server-side request errors
++export const onRequestError = Sentry.captureRequestError
+diff --git a/apps/web/middleware.ts b/apps/web/middleware.ts
+index 09511c2..770b731 100644
+--- a/apps/web/middleware.ts
++++ b/apps/web/middleware.ts
+@@ -34,12 +34,12 @@ export async function middleware(request: NextRequest) {
+   if (user && request.nextUrl.pathname.startsWith('/login')) {
+     const url = request.nextUrl.clone()
+     url.pathname = '/'
+     return NextResponse.redirect(url)
+   }
+ 
+   return supabaseResponse
+ }
+ 
+ export const config = {
+-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
++  matcher: ['/((?!monitoring|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+ }
+diff --git a/apps/web/next.config.js b/apps/web/next.config.js
+index cc59526..7f20d18 100644
+--- a/apps/web/next.config.js
++++ b/apps/web/next.config.js
+@@ -1,6 +1,15 @@
++const { withSentryConfig } = require('@sentry/nextjs')
++
+ /** @type {import('next').NextConfig} */
+ const nextConfig = {
+   output: 'standalone',
+ }
+ 
+-module.exports = nextConfig
+\ No newline at end of file
++module.exports = withSentryConfig(nextConfig, {
++  org: 'pharmacy-erp',
++  project: 'pharmacy-erp-web',
++  authToken: process.env.SENTRY_AUTH_TOKEN,
++  widenClientFileUpload: true,
++  tunnelRoute: '/monitoring',
++  silent: !process.env.CI,
++})
+\ No newline at end of file
+diff --git a/apps/web/package.json b/apps/web/package.json
+index aa7fe04..1002862 100644
+--- a/apps/web/package.json
++++ b/apps/web/package.json
+@@ -5,20 +5,21 @@
+   "scripts": {
+     "dev": "next dev",
+     "build": "next build",
+     "lint": "tsc --noEmit",
+     "test": "vitest run",
+     "test:watch": "vitest"
+   },
+   "dependencies": {
+     "@base-ui/react": "^1.7.0",
+     "@pharmacy/domain": "workspace:*",
++    "@sentry/nextjs": "^10.69.0",
+     "@supabase/ssr": "^0.12.4",
+     "@supabase/supabase-js": "^2.112.1",
+     "class-variance-authority": "^0.7.1",
+     "clsx": "^2.1.1",
+     "lucide-react": "^1.28.0",
+     "next": "^16.3.0",
+     "react": "^19.2.8",
+     "react-dom": "^19.2.8",
+     "shadcn": "^4.16.1",
+     "tailwind-merge": "^3.6.0",
+diff --git a/apps/web/sentry.edge.config.ts b/apps/web/sentry.edge.config.ts
+new file mode 100644
+index 0000000..ba3372b
+--- /dev/null
++++ b/apps/web/sentry.edge.config.ts
+@@ -0,0 +1,15 @@
++import * as Sentry from '@sentry/nextjs'
++
++Sentry.init({
++  dsn:
++    process.env.SENTRY_DSN ??
++    'https://2cff9442f6e80c9f4e06e5db27240367@o4511864804343808.ingest.us.sentry.io/4511864835407872',
++  integrations: [
++    // send console.log, console.warn, and console.error calls as logs to Sentry
++    Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
++  ],
++  // Capture 100% of transactions for performance monitoring
++  tracesSampleRate: 1.0,
++  // Enable logs to be sent to Sentry
++  enableLogs: true,
++})
+\ No newline at end of file
+diff --git a/apps/web/sentry.server.config.ts b/apps/web/sentry.server.config.ts
+new file mode 100644
+index 0000000..4a7e59d
+--- /dev/null
++++ b/apps/web/sentry.server.config.ts
+@@ -0,0 +1,17 @@
++import * as Sentry from '@sentry/nextjs'
++
++Sentry.init({
++  dsn:
++    process.env.SENTRY_DSN ??
++    'https://2cff9442f6e80c9f4e06e5db27240367@o4511864804343808.ingest.us.sentry.io/4511864835407872',
++  integrations: [
++    // send console.log, console.warn, and console.error calls as logs to Sentry
++    Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
++  ],
++  // Capture 100% of transactions for performance monitoring
++  tracesSampleRate: 1.0,
++  // Attach local variable values to stack frames
++  includeLocalVariables: true,
++  // Enable logs to be sent to Sentry
++  enableLogs: true,
++})
+\ No newline at end of file
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index e1babc4..b9da083 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -29,20 +29,26 @@ importers:
+         version: 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
+       '@nestjs/core':
+         specifier: ^11.1.28
+         version: 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@11.1.28)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+       '@nestjs/passport':
+         specifier: ^11.0.5
+         version: 11.0.5(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(passport@0.7.0)
+       '@nestjs/platform-express':
+         specifier: ^11.1.28
+         version: 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.28)(supports-color@8.1.1)
++      '@sentry/nestjs':
++        specifier: ^10.69.0
++        version: 10.69.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.28)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)
++      '@sentry/profiling-node':
++        specifier: ^10.69.0
++        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)
+       '@supabase/supabase-js':
+         specifier: ^2.111.0
+         version: 2.111.0
+       passport:
+         specifier: ^0.7.0
+         version: 0.7.0
+       passport-jwt:
+         specifier: ^4.0.1
+         version: 4.0.1
+       reflect-metadata:
+@@ -81,38 +87,41 @@ importers:
+         version: 6.0.3
+ 
+   apps/web:
+     dependencies:
+       '@base-ui/react':
+         specifier: ^1.7.0
+         version: 1.7.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+       '@pharmacy/domain':
+         specifier: workspace:*
+         version: link:../../packages/domain
++      '@sentry/nextjs':
++        specifier: ^10.69.0
++        version: 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))
+       '@supabase/ssr':
+         specifier: ^0.12.4
+-        version: 0.12.4(@supabase/supabase-js@2.112.1)
++        version: 0.12.4(@supabase/supabase-js@2.112.1(@opentelemetry/api@1.9.1))
+       '@supabase/supabase-js':
+         specifier: ^2.112.1
+-        version: 2.112.1
++        version: 2.112.1(@opentelemetry/api@1.9.1)
+       class-variance-authority:
+         specifier: ^0.7.1
+         version: 0.7.1
+       clsx:
+         specifier: ^2.1.1
+         version: 2.1.1
+       lucide-react:
+         specifier: ^1.28.0
+         version: 1.28.0(react@19.2.8)
+       next:
+         specifier: ^16.3.0
+-        version: 16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
++        version: 16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+       react:
+         specifier: ^19.2.8
+         version: 19.2.8
+       react-dom:
+         specifier: ^19.2.8
+         version: 19.2.8(react@19.2.8)
+       shadcn:
+         specifier: ^4.16.1
+         version: 4.16.1(supports-color@8.1.1)(typescript@6.0.3)
+       tailwind-merge:
+@@ -135,21 +144,21 @@ importers:
+         specifier: ^19.2.4
+         version: 19.2.4(@types/react@19.2.18)
+       tailwindcss:
+         specifier: ^4.3.3
+         version: 4.3.3
+       typescript:
+         specifier: ^6.0.3
+         version: 6.0.3
+       vitest:
+         specifier: ^4.1.10
+-        version: 4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1))
++        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1))
+ 
+   packages/domain:
+     devDependencies:
+       '@types/node':
+         specifier: ^26.1.2
+         version: 26.1.2
+       typescript:
+         specifier: ^6.0.3
+         version: 6.0.3
+ 
+@@ -183,20 +192,31 @@ packages:
+     hasBin: true
+ 
+   '@angular-devkit/schematics@19.2.24':
+     resolution: {integrity: sha512-lnw+ZM1Io+cJAkReC0NPDjqObL8NtKzKIkdgEEKC8CUmkhurYhedbicN8Y8NYHgG1uLd2GozW3+/QqPRZaN+Lw==}
+     engines: {node: ^18.19.1 || ^20.11.1 || >=22.0.0, npm: ^6.11.0 || ^7.5.6 || >=8.0.0, yarn: '>= 1.13.0'}
+ 
+   '@angular-devkit/schematics@19.2.27':
+     resolution: {integrity: sha512-/PZmyAlb2NGWPikRRuiWLdfHQd8Wrx6lX4HqvTcaDhlU43M3T0ud4PH2T3QDp7BzHYY92xtD8iPxX2asg67G1A==}
+     engines: {node: ^18.19.1 || ^20.11.1 || >=22.0.0, npm: ^6.11.0 || ^7.5.6 || >=8.0.0, yarn: '>= 1.13.0'}
+ 
++  '@apm-js-collab/code-transformer-bundler-plugins@0.7.4':
++    resolution: {integrity: sha512-nAfOeZPSUAQvJa1iFT/5oCrTm5YQhMMrfCNthNnaXHZiOQhu1KGuLoIx7HtbAi3wfwaBYLaICPIeenIaEwcXIg==}
++    engines: {node: '>=18.0.0'}
++
++  '@apm-js-collab/code-transformer@0.18.1':
++    resolution: {integrity: sha512-u1Hb6bHjWtkSpiprwVP6YaHC1DTN4RAU3zYkUDUe7WMnJwdyU1pwTL9dFKiSJB9IiLue/EQovmyx6xhU7FFtAQ==}
++    hasBin: true
++
++  '@apm-js-collab/tracing-hooks@0.13.0':
++    resolution: {integrity: sha512-mTvWz9rnQwx1U3h0XPTHaX7bgfkpipLLTQyjlC2cdhQpQEuoLT0AGzoydeoq2NxfEVv6fWOOETcSbb2nptleyw==}
++
+   '@babel/code-frame@7.29.7':
+     resolution: {integrity: sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw==}
+     engines: {node: '>=6.9.0'}
+ 
+   '@babel/compat-data@7.29.7':
+     resolution: {integrity: sha512-locTkQyKvwIEgBzVrn8693ebc97F2U8ZHjbXwDXJ5Fn2TCpNwTlKcaKLkdHop5c/icOFE7qt7Q9JC5hnKNa6Gg==}
+     engines: {node: '>=6.9.0'}
+ 
+   '@babel/core@7.29.7':
+     resolution: {integrity: sha512-RgHBCvtjbOK2gXSNBNIkNoEc9qoVEtau3hj8gEqKQuL3HZAibKarWFEI3Lfm6EYKkLalOh8eSrj9b+ch9H/VBA==}
+@@ -1069,20 +1089,27 @@ packages:
+   '@modelcontextprotocol/sdk@1.30.0':
+     resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
+     engines: {node: '>=18'}
+     peerDependencies:
+       '@cfworker/json-schema': ^4.1.1
+       zod: ^3.25 || ^4.0
+     peerDependenciesMeta:
+       '@cfworker/json-schema':
+         optional: true
+ 
++  '@napi-rs/lzma-linux-x64-gnu@1.5.1':
++    resolution: {integrity: sha512-oTXEIha4SsuXdTA4Iyskj0kpdx2yVXdhd75c2v3xGrHFfVMsbhTPZU/nMPL4sWKo4pBHm3aucLaqGlF696dTyQ==}
++    engines: {node: ^22.20 || ^24.12 || >=25}
++    cpu: [x64]
++    os: [linux]
++    libc: [glibc]
++
+   '@napi-rs/wasm-runtime@1.2.2':
+     resolution: {integrity: sha512-JfB4kuJQjaoHuCTseIINHtHWeJnvgEcxjwA5t/Y00ZgaOO1Crz3fjT/p8kT28zA/Caz7oiUMn3d6H2yOVCVwuw==}
+     engines: {node: ^20.19.0 || ^22.13.0 || >=23.5.0}
+     peerDependencies:
+       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.3
+       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.3
+ 
+   '@nestjs/cli@11.0.24':
+     resolution: {integrity: sha512-aIHxQLSYtXShifA3zwWIeznEsZnNa3Iz2QRykFj+sl9IcbERBHr5nH87FRgywM+He3NxoF5WazHfR8FsmVeWxw==}
+     engines: {node: '>= 20.11'}
+@@ -1221,20 +1248,62 @@ packages:
+     engines: {node: '>= 8'}
+ 
+   '@nodelib/fs.stat@2.0.5':
+     resolution: {integrity: sha512-RkhPPp2zrqDAQA/2jNhnztcPAlv64XdhIp7a7454A5ovI7Bukxgt7MX7udwAu3zg1DcpPU0rz3VV1SeaqvY4+A==}
+     engines: {node: '>= 8'}
+ 
+   '@nodelib/fs.walk@1.2.8':
+     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
+     engines: {node: '>= 8'}
+ 
++  '@opentelemetry/api-logs@0.220.0':
++    resolution: {integrity: sha512-CmVa4ImJ+ynfrPMNaAXHET6Bhb44SwzmfyVJFq9ni2jgXJR/l7C6gfVFddNmHP+ZOkP9cf4f9DBe68qVLTHc9w==}
++    engines: {node: '>=8.0.0'}
++
++  '@opentelemetry/api@1.9.1':
++    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
++    engines: {node: '>=8.0.0'}
++
++  '@opentelemetry/core@2.10.0':
++    resolution: {integrity: sha512-/wNZ8twnEQQA4HoHu22+vcsdru6pWPWxW+7w+FlxT6Id7PE/WIbZmVKkte+PF72e0F2dnImFeHD2syyE1Mw6MQ==}
++    engines: {node: ^18.19.0 || >=20.6.0}
++    peerDependencies:
++      '@opentelemetry/api': '>=1.0.0 <1.10.0'
++
++  '@opentelemetry/instrumentation@0.220.0':
++    resolution: {integrity: sha512-xQx3E2WxP1mDvKzxLxX+CTCtNLa560YJZ3087qYHerl2YmiKpv7AH+dAy7vmx+eVrZ5BwhfWUAVoKOoxCNHcpw==}
++    engines: {node: ^18.19.0 || >=20.6.0}
++    peerDependencies:
++      '@opentelemetry/api': ^1.3.0
++
++  '@opentelemetry/resources@2.10.0':
++    resolution: {integrity: sha512-q6MMm2zhggzsHVNbabYwut+a6nbuQQe3URUoxaojM/8K1IBfwwPzvxIjNi2/lI1TFe+fMHMW9MWhrtDLEXEnkA==}
++    engines: {node: ^18.19.0 || >=20.6.0}
++    peerDependencies:
++      '@opentelemetry/api': '>=1.3.0 <1.10.0'
++
++  '@opentelemetry/sdk-trace-base@2.10.0':
++    resolution: {integrity: sha512-GuYQQT7QD2EeO8lcZLRQzcbOyhqAzL+6WWTKTU9mSUBYBazkEDl+VrQcXQhbB08OWM9anD1aHleVadzulpOaUQ==}
++    engines: {node: ^18.19.0 || >=20.6.0}
++    peerDependencies:
++      '@opentelemetry/api': '>=1.3.0 <1.10.0'
++
++  '@opentelemetry/sdk-trace@2.10.0':
++    resolution: {integrity: sha512-MfQGq3GRmTh5fM/y+OjaO0vj6+luCB1XO2gfXCalKCfgKw0eHL++sm75DNweC6ohlp+aFvACqeE0fYayqdRaoQ==}
++    engines: {node: ^18.19.0 || >=20.6.0}
++    peerDependencies:
++      '@opentelemetry/api': '>=1.3.0 <1.10.0'
++
++  '@opentelemetry/semantic-conventions@1.43.0':
++    resolution: {integrity: sha512-eSYWTm620tTk45EKSedaUL8MFYI8hW164hIXsgIHyxu3VobUB3fFCu5t0hQby6OoWRPsG1KkKUG2M5UadiLiVg==}
++    engines: {node: '>=14'}
++
+   '@oxc-project/types@0.142.0':
+     resolution: {integrity: sha512-7W+2q5AKQVU36fkaryontrHn3YDt1RyUYXatw9i5H8ocYe2sPKSFB6eS8WNPeRKiN1qAWWZUPm7gwFzJGrccqQ==}
+ 
+   '@pkgjs/parseargs@0.11.0':
+     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
+     engines: {node: '>=14'}
+ 
+   '@pkgr/core@0.3.6':
+     resolution: {integrity: sha512-SEeaJLb3qBNF/OaXnaR1NmmBbFYk1zC0ZH/52fATcRPLFg/p791YrcyFFy44Bo9sLaGuSuLp5Q6axbb/O+v/RA==}
+     engines: {node: ^14.18.0 || >=16.0.0}
+@@ -1329,23 +1398,354 @@ packages:
+ 
+   '@rolldown/binding-win32-x64-msvc@1.2.1':
+     resolution: {integrity: sha512-Z4eCmn5QJ/5+azF9knpLWKfVd9aidn0mAe9TpJgvBLId9Ax3t0+JVxBmT25Bv7NBbVW1TZyKjQjQReouMeH5UQ==}
+     engines: {node: ^20.19.0 || >=22.12.0}
+     cpu: [x64]
+     os: [win32]
+ 
+   '@rolldown/pluginutils@1.0.1':
+     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+ 
++  '@rollup/plugin-commonjs@28.0.1':
++    resolution: {integrity: sha512-+tNWdlWKbpB3WgBN7ijjYkq9X5uhjmcvyjEght4NmH5fAU++zfQzAJ6wumLS+dNcvwEZhKx2Z+skY8m7v0wGSA==}
++    engines: {node: '>=16.0.0 || 14 >= 14.17'}
++    peerDependencies:
++      rollup: ^2.68.0||^3.0.0||^4.0.0
++    peerDependenciesMeta:
++      rollup:
++        optional: true
++
++  '@rollup/pluginutils@5.4.0':
++    resolution: {integrity: sha512-MfPp06CjRLfXQ3wY0R8vJDYBy/MvVcc9OulEfR0B8Iv9ko+GCNaRZ+EpJYFl27LhKsZK0o420sYCRHCjfCgeUg==}
++    engines: {node: '>=14.0.0'}
++    peerDependencies:
++      rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
++    peerDependenciesMeta:
++      rollup:
++        optional: true
++
++  '@rollup/rollup-android-arm-eabi@4.62.4':
++    resolution: {integrity: sha512-RrPokAb7dmbxFoeO3TloqHyOjgye8RkBhSqmp4aJMIex4c9r46ZstPnleDQOq1t46VOVjwIuwNogIqbodV1Vvg==}
++    cpu: [arm]
++    os: [android]
++
++  '@rollup/rollup-android-arm64@4.62.4':
++    resolution: {integrity: sha512-JKuJc+pnpks2pjy7L/N3v/cAkZxYlnmuZoD840ldbMI5KDbC4iO9NKwPKYdjYFCMAIIlBzYSFHxIJVYzRo2/8A==}
++    cpu: [arm64]
++    os: [android]
++
++  '@rollup/rollup-darwin-arm64@4.62.4':
++    resolution: {integrity: sha512-krw5uS2STmvJ02x0uTXHbqQNuz+9eZ1iw+qXk9dmW2gvV4jV7O2hEoOnuhFrpOPiel1mBFtqbxYZZtC46hXLOw==}
++    cpu: [arm64]
++    os: [darwin]
++
++  '@rollup/rollup-darwin-x64@4.62.4':
++    resolution: {integrity: sha512-wsTxtgApb4PrOsNJIm0FZ1h3WvCC+k9uxLJ4ad75hgoS4NiRes2SoJFlDAyMwiUY8IssDqGcHbXuN0sx1tfF1A==}
++    cpu: [x64]
++    os: [darwin]
++
++  '@rollup/rollup-freebsd-arm64@4.62.4':
++    resolution: {integrity: sha512-GUOnQlyZe3yAXhWOtOMsn5Qkrv5E5mZXa0thbARWi5Ei2szlVXJFQhddZ4HbAzh8q92w5twp+CQvs/eFanz9YQ==}
++    cpu: [arm64]
++    os: [freebsd]
++
++  '@rollup/rollup-freebsd-x64@4.62.4':
++    resolution: {integrity: sha512-/Y7f3QuxjzPKsjA/rfEDa3+0vXqyjmJ50Ln8dPpCmWkKTrUoWHG1cWhTqaAMLob2m2nESWuC7yGrREz019Ztqg==}
++    cpu: [x64]
++    os: [freebsd]
++
++  '@rollup/rollup-linux-arm-gnueabihf@4.62.4':
++    resolution: {integrity: sha512-81wiiX3v7aqy+T+bT61TJ78yJjRquqFFTTbAPt08imfQQzkPIW8t6aJbkTagtCCrXMNc9D66+geqlK7ydLPNqA==}
++    cpu: [arm]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-arm-musleabihf@4.62.4':
++    resolution: {integrity: sha512-9kmDIvNZqdoHOBZgNtpTBeLWYO/LVipM3H/j62P8848/l/VPEQL6N3uxU9pvP1oZAsXyC2MEnFP3ovRjo7WYNQ==}
++    cpu: [arm]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-linux-arm64-gnu@4.62.4':
++    resolution: {integrity: sha512-CcnXHWnXg69g+DX5VWL3FHts3qMRN2uVEHX+BZvGLdd07/gXkn3ePjYtO1LDJvxkGKVHMclKBRa1QUTH+6toYQ==}
++    cpu: [arm64]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-arm64-musl@4.62.4':
++    resolution: {integrity: sha512-iFOibiHnTRuhrWLlRsOQFdZJJIa7S8OwkneJr4ocALP16u5yk6lWLINFwhHaEqBFMsKDUZofLkGos7+CPzGB3g==}
++    cpu: [arm64]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-linux-loong64-gnu@4.62.4':
++    resolution: {integrity: sha512-XnWYMI7euHlb5a871xPja+Gm7DRCFU+FGRrtS2sMq9N8FvqtpagUy6gD4YOemC5MRk9xbh8+jYMEJbigFQwsgA==}
++    cpu: [loong64]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-loong64-musl@4.62.4':
++    resolution: {integrity: sha512-qGDAlO0U8xedCcsdRm9oaoQY8DAx/QT7uIxJWhCdx0ceIWX783UC9QSYkdpzAe29wNiVfp24+bZdQmn49o45SQ==}
++    cpu: [loong64]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-linux-ppc64-gnu@4.62.4':
++    resolution: {integrity: sha512-ru4H6ezD7ysA5EiEK6qkkaEb4modH8CTej6kUy/gQi20u3kB3G7Zn8snXXkeJSCOFKG/rbPPtM/+9Wgas1961w==}
++    cpu: [ppc64]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-ppc64-musl@4.62.4':
++    resolution: {integrity: sha512-2W4MO5WQVJnbJaZdvDb9rhBDuFU1nKIepPFpJUBsTh2k1YY2g+ODViaWuyOAjQ5cOP7NvrvLzt3wvHOoiAvc7w==}
++    cpu: [ppc64]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-linux-riscv64-gnu@4.62.4':
++    resolution: {integrity: sha512-+fxjfuoAmVMCYV5QyjoIpu0cp5DOiOTeqYFk1AVaxGr+/ravWLX89XfQmptsoWcaVy/TGf2hexzbUOrCQIL1CQ==}
++    cpu: [riscv64]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-riscv64-musl@4.62.4':
++    resolution: {integrity: sha512-jTn8JfHGL4djjFxPuM06LmNUJDsst2jeVlsd9OmIH6zc5sC9K6rIuO4YajXatLUpBmBKl6b35ro1QZocLi+tcA==}
++    cpu: [riscv64]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-linux-s390x-gnu@4.62.4':
++    resolution: {integrity: sha512-oCJCJL4pXsoDcP2QZ+JVlPTIRc6266zsIaeJJsWImmF7HO0W8nb6HuSgZlMWxJwaPf8ehbSw8yo0EUw925hKsA==}
++    cpu: [s390x]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-x64-gnu@4.62.4':
++    resolution: {integrity: sha512-W69hukhZ3KKNRCaMIEzKvcFye42hh0FE1+YoYaf5+Ikacuftoco6yO/xouz0hc5d5W/s3yBro5jRiuEE/Q5vUw==}
++    cpu: [x64]
++    os: [linux]
++    libc: [glibc]
++
++  '@rollup/rollup-linux-x64-musl@4.62.4':
++    resolution: {integrity: sha512-qiXbGG2jkjXhzXpsFZSR2Xpb8DN/UaxYsbb/STbuR/6fpaDgRmmaq1B/LmtF2wQFOFOSsK2jdE0RZ3a0zHn4QA==}
++    cpu: [x64]
++    os: [linux]
++    libc: [musl]
++
++  '@rollup/rollup-openbsd-x64@4.62.4':
++    resolution: {integrity: sha512-nWeM//hxv8mIo6jD7Hu4o48DVmV9pbV6gsKaWU+4NFyqHoPKwrkRiZGLKUhOBk8qNmDmpwFtPKg80Bo/Tn4xiQ==}
++    cpu: [x64]
++    os: [openbsd]
++
++  '@rollup/rollup-openharmony-arm64@4.62.4':
++    resolution: {integrity: sha512-s62SQ/vgsRSvMwDkOEfTqfgASF0f26ZNaQuTA6Aok5lrikf89yI2W0gFHvZb2Jpgc6N8JnOKZgCK2iciO3CsxQ==}
++    cpu: [arm64]
++    os: [openharmony]
++
++  '@rollup/rollup-win32-arm64-msvc@4.62.4':
++    resolution: {integrity: sha512-J6wGf8TVGbXJq+HH+ttTvrcfNKPbuZecV6KT1B8I18BC5IURUh5kl4Yl5OEP5eFIUoI5BWxCsyYMhFsDx8kekw==}
++    cpu: [arm64]
++    os: [win32]
++
++  '@rollup/rollup-win32-ia32-msvc@4.62.4':
++    resolution: {integrity: sha512-zmfrQd/0wu6oJs8Vq8KwY/YtsKSsLtKe/HwAP4Wqy8LhWjeT55fHRAkOhYQ12wI3ayS4Tt12d5CDRD7N96SAYQ==}
++    cpu: [ia32]
++    os: [win32]
++
++  '@rollup/rollup-win32-x64-gnu@4.62.4':
++    resolution: {integrity: sha512-qPzHqdj9rfUD+w79dtE07zi/kFwKyCJqplp5K5ygeLTp7jLpAoc16OAH39HSmRC9UpozaecsleI8uAdEj6v2yw==}
++    cpu: [x64]
++    os: [win32]
++
++  '@rollup/rollup-win32-x64-msvc@4.62.4':
++    resolution: {integrity: sha512-zD6NdeWEByGE9QF9vCrlJ5YQB4oq9q91kPZS37Jwj5hOkvR1lTBSpsKhKDw4IJtbQ35LsTS1HD9DZYGKIshU1Q==}
++    cpu: [x64]
++    os: [win32]
++
+   '@sec-ant/readable-stream@0.4.1':
+     resolution: {integrity: sha512-831qok9r2t8AlxLko40y2ebgSDhenenCatLVeW/uBtnHPyhHOvG0C7TvfgecV+wHzIm5KUICgzmVpWS+IMEAeg==}
+ 
++  '@sentry/babel-plugin-component-annotate@5.3.0':
++    resolution: {integrity: sha512-p4q8gn8wcFqZGP/s2MnJCAAd8fTikaU6A0mM97RDHQgStcrYiaS0Sc5zUNfb1V+UOLPuvdEdL6MwyxfzjYJQTA==}
++    engines: {node: '>= 18'}
++
++  '@sentry/browser-utils@10.69.0':
++    resolution: {integrity: sha512-e/u1Abj0zRPwR/deGZAP3GOULrsx67/XXnM5Skniqs4uxTsdNtPek1Nef0tpxwaQJYxwh6pWdhswLPPbbPOgBQ==}
++    engines: {node: '>=18'}
++
++  '@sentry/browser@10.69.0':
++    resolution: {integrity: sha512-8391tnm96YbR7b8SYfEA/NEIZuyb2r3SZrtAT0bhZtjlujcYWjo7gugQvk8sWLU9cAa/euD00eJoIoJvNfpd7Q==}
++    engines: {node: '>=18'}
++
++  '@sentry/bundler-plugin-core@5.3.0':
++    resolution: {integrity: sha512-L5T60sWdAI3qWwdg3Ptwek/0TY59PERrxyqp4XMUkroayQvGd9r5dIW9Q1kSeXX9iJ442nXbFZKAOyCKV4Z13Q==}
++    engines: {node: '>= 18'}
++
++  '@sentry/bundler-plugins@10.69.0':
++    resolution: {integrity: sha512-I1otnSJIH4IOugLp+kcBbT0Kcex+J8xnHuUyzMAwCYSpZ0FMVvA723uNmkMdW0PxRRw0oEhe0qDB+t+ZjHxUiA==}
++    engines: {node: '>= 18'}
++    peerDependencies:
++      rollup: '>=3.2.0'
++      webpack: '>=5.0.0'
++    peerDependenciesMeta:
++      rollup:
++        optional: true
++      webpack:
++        optional: true
++
++  '@sentry/cli-darwin@2.58.6':
++    resolution: {integrity: sha512-udAVvcyfNa0R+95GvPz/+43/N3TC0TYKdkQ7D7jhPSzbcMc7l2fxRNN5yB3UpCA5fWFnW4toeaqwDBhb/Wh3LA==}
++    engines: {node: '>=10'}
++    os: [darwin]
++
++  '@sentry/cli-linux-arm64@2.58.6':
++    resolution: {integrity: sha512-q8mEcNNmeXMy5i+jWT30TVpH7LcP4HD21CD5XRSPAd/a912HF6EpK0ybf/1USO14WOhoXbAGi9txwaWabSe33g==}
++    engines: {node: '>=10'}
++    cpu: [arm64]
++    os: [linux, freebsd, android]
++
++  '@sentry/cli-linux-arm@2.58.6':
++    resolution: {integrity: sha512-pD0LAt5PcUzAinBwvDqc66x9+2CabHEv486yP0gRjWO7SakbaxmfVq/EXd8VLq/Tzi39LAu422UYK1lpW3MILw==}
++    engines: {node: '>=10'}
++    cpu: [arm]
++    os: [linux, freebsd, android]
++
++  '@sentry/cli-linux-i686@2.58.6':
++    resolution: {integrity: sha512-q8vNJi1eOV/4vxAFWBsEwLHoSYapaZHIf4j76KJGJXFKTkEbsjCOOsKbwUIBTQQhRgV4DFWh3ryfsPS/que4Kg==}
++    engines: {node: '>=10'}
++    cpu: [x86, ia32]
++    os: [linux, freebsd, android]
++
++  '@sentry/cli-linux-x64@2.58.6':
++    resolution: {integrity: sha512-DZu956Mhi3ZRjTBe1WdbGV46ldVbA8d2rgp/fh51GsI25zjBHah4wZnPTSzpc+YqxU6pJpg579B/r3jrIK530Q==}
++    engines: {node: '>=10'}
++    cpu: [x64]
++    os: [linux, freebsd, android]
++
++  '@sentry/cli-win32-arm64@2.58.6':
++    resolution: {integrity: sha512-nj0Ff/kmAB73EPDhR8B4O9r+NUHK5GkPCkGWC+kXVemqAJWL5jcJ5KdxG0l/S0z6RoEoltID8/43/B+TaMlT7A==}
++    engines: {node: '>=10'}
++    cpu: [arm64]
++    os: [win32]
++
++  '@sentry/cli-win32-i686@2.58.6':
++    resolution: {integrity: sha512-WNZiDzPbgsEMQWq4avsQ391v/xWKJDIWWWo9GYl+N/w5qcYKkoDW7wQG7T9FasI6ENn68phChTOAPXXxbfAdOg==}
++    engines: {node: '>=10'}
++    cpu: [x86, ia32]
++    os: [win32]
++
++  '@sentry/cli-win32-x64@2.58.6':
++    resolution: {integrity: sha512-R35WJ17oF4D2eqI1DR2sQQqr0fjRTt5xoP16WrTu91XM2lndRMFsnjh+/GttbxapLCBNlrjzia99MJ0PZHZpgA==}
++    engines: {node: '>=10'}
++    cpu: [x64]
++    os: [win32]
++
++  '@sentry/cli@2.58.6':
++    resolution: {integrity: sha512-baBcNPLLfUi9WuL+Tpri9BFaAdvugZIKelC5X0tt0Zdy+K0K+PCVSrnNmwMWU/HyaF/SEv6b6UHnXIdqanBlcg==}
++    engines: {node: '>= 10'}
++    hasBin: true
++
++  '@sentry/conventions@0.16.0':
++    resolution: {integrity: sha512-fO9PLmHdVURcSPUpWCItWAtgKiMwGdJHbovoSEyLplX5sxs2ugvI4CBPTrkkgqhObnZOD0CnWBKDzSVQYBKEyQ==}
++    engines: {node: '>=14'}
++
++  '@sentry/core@10.69.0':
++    resolution: {integrity: sha512-+uuqVEeiDzYuAKjZLqsROKXvRTbl/QeH0gfGRtpYib1cud4rAFWRIkFmcR7Jb7JGFYwmReyQotiTj/hcDszTZg==}
++    engines: {node: '>=18'}
++
++  '@sentry/feedback@10.69.0':
++    resolution: {integrity: sha512-qrGz5Qaw93/IhMjlFN6uIaXeHwgHDaKGa6FkTAP6PonpkvSbGGqan6xfsENxzj9HUVoli1lZ6tMRDnt2qtSPhg==}
++    engines: {node: '>=18'}
++
++  '@sentry/nestjs@10.69.0':
++    resolution: {integrity: sha512-NMA86y29uFA3qlS3MnsmZUrL9jsQeVAyy+AQHD84L8AQlivcEfMCmRdeUuauG5SbbmyhQBcgoXCFqYEBsk7Q0Q==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
++      '@nestjs/core': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
++
++  '@sentry/nextjs@10.69.0':
++    resolution: {integrity: sha512-48eYXezKAmSlSWtBsvwXvdHHHavXRDVIVZ3mI5vidhJwhqSs0ekwG0ZsPG3xNdaJLmnNEmavHEVupSbuuOTZZA==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      next: ^13.2.0 || ^14.0 || ^15.0.0-rc.0 || ^16.0.0-0
++
++  '@sentry/node-core@10.69.0':
++    resolution: {integrity: sha512-IgArHczrZJxkgxoffHscj0NxQrG6kCazgmGQnlf3j58J1ec21YaUu8Tu+7G4Lo5tCiW3teQnwlKW1ttMXSqWRw==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      '@opentelemetry/api': ^1.9.0
++      '@opentelemetry/core': ^1.30.1 || ^2.1.0
++      '@opentelemetry/exporter-trace-otlp-http': '>=0.57.0 <1'
++      '@opentelemetry/instrumentation': '>=0.57.1 <1'
++      '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
++    peerDependenciesMeta:
++      '@opentelemetry/api':
++        optional: true
++      '@opentelemetry/core':
++        optional: true
++      '@opentelemetry/exporter-trace-otlp-http':
++        optional: true
++      '@opentelemetry/instrumentation':
++        optional: true
++      '@opentelemetry/sdk-trace-base':
++        optional: true
++
++  '@sentry/node-cpu-profiler@2.4.3':
++    resolution: {integrity: sha512-18g/yJKRUk4PNcnZYEPyT2nS+9UoFcTRrIrct1DbpfI7k//RtQ+8araZrR0WH5MT8xoiLCm67GEX/RcxDsI0iQ==}
++    engines: {node: '>=18'}
++
++  '@sentry/node@10.69.0':
++    resolution: {integrity: sha512-xEXA1YGIiTZbrW6MWV34uS6JGQuQg2ijTI0zed+FsJb9JZKPYel/GZK8Km26vfTVb+yCXFmWZNBesKegNcVdzg==}
++    engines: {node: '>=18'}
++
++  '@sentry/opentelemetry@10.69.0':
++    resolution: {integrity: sha512-3FyWV6YcEJuvLrlaKGE1dHXCI+1YO0a62w7PkwlRg8yp6K6YXkmdwu9GjqaYD+Ju4tm7uC7mHIsGFQMm0M7pqQ==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      '@opentelemetry/api': ^1.9.0
++      '@opentelemetry/core': ^1.30.1 || ^2.1.0
++      '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
++
++  '@sentry/profiling-node@10.69.0':
++    resolution: {integrity: sha512-Xp85pRtPi8AIplXArYFLO5ggphP31h3EAXLsNEYxaCRMp4e8Kt0X57mq6Zney+eHa6mi1x7HJaScI8NBhmUKXw==}
++    engines: {node: '>=18'}
++    hasBin: true
++
++  '@sentry/react@10.69.0':
++    resolution: {integrity: sha512-f0Il/JMteHjdWPNZQB3rtp1Pcj2Leb3p0KSZuv3rh0EUril9CbWtQVy5zJhoAppi+MWWmgRWa+6BpHbQf+ABQA==}
++    engines: {node: '>=18'}
++    peerDependencies:
++      react: ^16.14.0 || 17.x || 18.x || 19.x
++
++  '@sentry/replay-canvas@10.69.0':
++    resolution: {integrity: sha512-VF6nXvSninHcc7dC1Zme0RjkC7VgRMCixs6jKaQX5zTNeqTW3dZGSefSOVv+ZteRi3hJvVORq985VjUC9Z/0+A==}
++    engines: {node: '>=18'}
++
++  '@sentry/replay@10.69.0':
++    resolution: {integrity: sha512-uRhmNhtFGPOlM0iniVmWKAX3KVXI0le41yYK/iKdPjinT9jA3ZrmykO/Fv1v/KI5znOtwa9D6eHRnDTTMRxFrg==}
++    engines: {node: '>=18'}
++
++  '@sentry/server-utils@10.69.0':
++    resolution: {integrity: sha512-0MwHrA8+nNvMIsqf8m3cXwCBlUjr6AS7N6CZvHJtY1DkqEvQqEbD5VIrhzEyHN/KMZIgQ8XeDCQRhjnXFQGRhg==}
++    engines: {node: '>=18'}
++
++  '@sentry/vercel-edge@10.69.0':
++    resolution: {integrity: sha512-P3IsZyM3j8s4sGuxnGn1+EScVZHABsuzqv0NzIUen61ml0x+c6F6XXobvMhMcRp98fIQe1hZBpzH0VNxc7eCIA==}
++    engines: {node: '>=18'}
++
++  '@sentry/webpack-plugin@5.4.0':
++    resolution: {integrity: sha512-J3a0BvUZ75Qxy+v/Ap3Hx4ZEcSjlPHZ/jDtxdRhXQCyNeEb8xq0uUBTI9VLtGk2eNeNucOxOEJ5ngqdNjnEH/A==}
++    engines: {node: '>= 18'}
++    peerDependencies:
++      webpack: '>=5.0.0'
++
+   '@sinclair/typebox@0.34.52':
+     resolution: {integrity: sha512-XiMQh7qqVlxZzcVD+kkGMNGMzcTrDMLWI7S4x7z1MkCkbDPrekpZXEUK0eZqZFMuHQg2a2DZOcDIh9o5v3Gonw==}
+ 
+   '@sindresorhus/merge-streams@4.0.0':
+     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
+     engines: {node: '>=18'}
+ 
+   '@sinonjs/commons@3.0.1':
+     resolution: {integrity: sha512-K3mCHKQ9sVh8o1C9cxkwxaOmXoAMlDxC1mYyHrjqOWEcBjYr76t96zL2zlj5dUGZ3HSw240X1qgH3Mjf1yJWpQ==}
+ 
+@@ -1842,20 +2242,24 @@ packages:
+     resolution: {integrity: sha512-wKmbr/DDiIXzEOiWrTTUcDm24kQ2vGfZQvM2fwg2vXqR5uW6aapr7ObPtj1th32b9u90/Pf4AItvdTh42fBmVQ==}
+     engines: {node: '>=10.13.0'}
+     peerDependencies:
+       acorn: ^8.14.0
+ 
+   acorn@8.18.0:
+     resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
+     engines: {node: '>=0.4.0'}
+     hasBin: true
+ 
++  agent-base@6.0.2:
++    resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
++    engines: {node: '>= 6.0.0'}
++
+   ajv-formats@2.1.1:
+     resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
+     peerDependencies:
+       ajv: ^8.0.0
+     peerDependenciesMeta:
+       ajv:
+         optional: true
+ 
+   ajv-formats@3.0.1:
+     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
+@@ -1933,20 +2337,24 @@ packages:
+     resolution: {integrity: sha512-/+3GRL7dDAGEfM6TseQk/U+mi18TU2Ms9I3UlLdUMhz2hbvGNTKdj9xniwXfUqgYhHxRx0+8UnKkvlNwVU+cWQ==}
+ 
+   assertion-error@2.0.1:
+     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
+     engines: {node: '>=12'}
+ 
+   ast-types@0.16.1:
+     resolution: {integrity: sha512-6t10qk83GOG8p0vKmaCr8eiilZwO171AvbROMtvvNiwrTly62t+7XkA8RdIIVbpMhCASAsxgAzdRSwh6nw/5Dg==}
+     engines: {node: '>=4'}
+ 
++  astring@1.9.0:
++    resolution: {integrity: sha512-LElXdjswlqjWrPpJFg1Fx4wpkOCxj1TDHlSV4PlaRxHGWko024xICaa97ZkMfs6DRKlCguiAI+rbXv5GWwXIkg==}
++    hasBin: true
++
+   atomically@1.7.0:
+     resolution: {integrity: sha512-Xcz9l0z7y9yQ9rdDaxlmaI4uJHf/T8g9hOEzJcsEqX2SjCj4J20uK7+ldkDHMbpJDK76wF7xEIgxc/vSlsfw5w==}
+     engines: {node: '>=10.12.0'}
+ 
+   babel-jest@30.4.1:
+     resolution: {integrity: sha512-fATAbM8piYxkiXQp3RBXmZHxZVNJZAVXXfyeyCN2Tida3+qJ8ea9UxhiJ2y4fLO90ZImKt6k9FlcH2+rLkJGhw==}
+     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
+     peerDependencies:
+       '@babel/core': ^7.11.0 || ^8.0.0-0
+ 
+@@ -2162,20 +2570,23 @@ packages:
+     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
+ 
+   commander@4.1.1:
+     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
+     engines: {node: '>= 6'}
+ 
+   comment-json@5.0.0:
+     resolution: {integrity: sha512-uiqLcOiVDJtBP8WGkZHEP+FZIhTzP1dxvn59EfoYUi9gqupjrBWVQkO2atDrbnKPwLeotFYDsuNb26uBMqB+hw==}
+     engines: {node: '>= 6'}
+ 
++  commondir@1.0.1:
++    resolution: {integrity: sha512-W9pAhw0ja1Edb5GVdIF1mjZw/ASI0AlShXM83UUGe2DVr5TdAPEA1OA8m/g8zWp9x6On7gqufY+FatDbC3MDQg==}
++
+   concat-map@0.0.1:
+     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
+ 
+   concat-stream@2.0.0:
+     resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
+     engines: {'0': node >= 6.0}
+ 
+   conf@10.2.0:
+     resolution: {integrity: sha512-8fLl9F04EJqjSqH+QjITQfJF8BrOVaYr1jewVgSRAEWePfxT0sku4w2hrGQ60BC/TNLGQ2pgxNlTbWQmMPFvXg==}
+     engines: {node: '>=12'}
+@@ -2298,20 +2709,24 @@ packages:
+     engines: {node: '>=8'}
+ 
+   diff@8.0.4:
+     resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
+     engines: {node: '>=0.3.1'}
+ 
+   dot-prop@6.0.1:
+     resolution: {integrity: sha512-tE7ztYzXHIeyvc7N+hR3oi7FIbf/NIjVP9hmAt3yMXzrQ072/fpjGLx2GxNxGxUl5V73MEqYzioOMoVhGMJ5cA==}
+     engines: {node: '>=10'}
+ 
++  dotenv@16.6.1:
++    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
++    engines: {node: '>=12'}
++
+   dotenv@17.4.2:
+     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+     engines: {node: '>=12'}
+ 
+   dunder-proto@1.0.1:
+     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
+     engines: {node: '>= 0.4'}
+ 
+   eastasianwidth@0.2.0:
+     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+@@ -2390,32 +2805,39 @@ packages:
+ 
+   eslint-scope@5.1.1:
+     resolution: {integrity: sha512-2NxwbF/hZ0KpepYN0cNbo+FN6XoK7GaHlQhgx/hIZl6Va0bF45RQOOwhLIy8lQDbuCiadSLCBnH2CFYquit5bw==}
+     engines: {node: '>=8.0.0'}
+ 
+   esprima@4.0.1:
+     resolution: {integrity: sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==}
+     engines: {node: '>=4'}
+     hasBin: true
+ 
++  esquery@1.7.0:
++    resolution: {integrity: sha512-Ap6G0WQwcU/LHsvLwON1fAQX9Zp0A2Y6Y/cJBl9r/JbW90Zyg4/zbG6zzKa2OTALELarYHmKu0GhpM5EO+7T0g==}
++    engines: {node: '>=0.10'}
++
+   esrecurse@4.3.0:
+     resolution: {integrity: sha512-KmfKL3b6G+RXvP8N1vr3Tq1kL/oCFgn2NYXEtqP8/L3pKapUA4G8cFVaoF3SU323CD4XypR/ffioHmkti6/Tag==}
+     engines: {node: '>=4.0'}
+ 
+   estraverse@4.3.0:
+     resolution: {integrity: sha512-39nnKffWz8xN1BU/2c79n9nB9HDzo0niYUqx6xyqUnyoAnQyyWpOTdZEeiCch8BBu515t4wp9ZmgVfVhn9EBpw==}
+     engines: {node: '>=4.0'}
+ 
+   estraverse@5.3.0:
+     resolution: {integrity: sha512-MMdARuVEQziNTeJD8DgMqmhwR11BRQ/cBP+pLtYdSTnf3MIO8fFeiINEbX36ZdNlfU/7A9f3gUw49B3oQsvwBA==}
+     engines: {node: '>=4.0'}
+ 
++  estree-walker@2.0.2:
++    resolution: {integrity: sha512-Rfkk/Mp/DL7JVje3u18FxFujQlTNR2q6QfMSMB7AvCBx91NGj/ba3kCfza0f6dVDbw7YlRf/nDrn7pQrCCyQ/w==}
++
+   estree-walker@3.0.3:
+     resolution: {integrity: sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==}
+ 
+   etag@1.8.1:
+     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
+     engines: {node: '>= 0.6'}
+ 
+   events@3.3.0:
+     resolution: {integrity: sha512-mQw+2fkQbALzQ7V0MY0IqdnXNOeTtP4r0lN9z7AAawCXgqea7bDii20AYrIBrFd/Hx0M2Ocz6S111CaFkUcb0Q==}
+     engines: {node: '>=0.8.x'}
+@@ -2506,20 +2928,24 @@ packages:
+     engines: {node: '>= 18.0.0'}
+ 
+   find-up@3.0.0:
+     resolution: {integrity: sha512-1yD6RmLI1XBfxugvORwlck6f75tYL+iR0jqwsOrOxMZyGYqUuDhJ0l4AXdO1iX/FTs9cBAMEk1gWSEx1kSbylg==}
+     engines: {node: '>=6'}
+ 
+   find-up@4.1.0:
+     resolution: {integrity: sha512-PpOwAdQ/YlXQ2vj8a3h8IipDuYRi3wceVQQGYWxNINccq40Anw7BlsEXCMbt1Zt+OLA6Fq9suIpIWD0OsnISlw==}
+     engines: {node: '>=8'}
+ 
++  find-up@5.0.0:
++    resolution: {integrity: sha512-78/PXT1wlLLDgTzDs7sjq9hzz0vXD+zn+7wypEe4fXQxCmdmqfGsEPQxmiCSQI3ajFV91bVSsvNtrJRiW6nGng==}
++    engines: {node: '>=10'}
++
+   foreground-child@3.3.1:
+     resolution: {integrity: sha512-gIXjKqtFuWEgzFRJA9WCQeSJLZDjgJUOMCMzxtvFq/37KojM1BFGufqsCy0r4qSQmYLsZYMeyRqzIWOMup03sw==}
+     engines: {node: '>=14'}
+ 
+   fork-ts-checker-webpack-plugin@9.1.0:
+     resolution: {integrity: sha512-mpafl89VFPJmhnJ1ssH+8wmM2b50n+Rew5x42NeI2U78aRWgtkEtGmctp7iT16UjquJTjorEmIfESj3DxdW84Q==}
+     engines: {node: '>=14.21.3'}
+     peerDependencies:
+       typescript: '>3.6.0'
+       webpack: ^5.11.0
+@@ -2641,20 +3067,24 @@ packages:
+     resolution: {integrity: sha512-jhunvfHWxd7J5EFfSgH4xsYJzSe/lfqbUCxiyyeaQasUsXeEHXtzVid+7EOGByc5JnFa23SSFL3Y2RV/z1T+eQ==}
+     engines: {node: '>=16.9.0'}
+ 
+   html-escaper@2.0.2:
+     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
+ 
+   http-errors@2.0.1:
+     resolution: {integrity: sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==}
+     engines: {node: '>= 0.8'}
+ 
++  https-proxy-agent@5.0.1:
++    resolution: {integrity: sha512-dFcAjpTQFgoLMzC2VwU+C/CbS7uRL0lWmxDITmqm7C+7F0Odmj6s9l6alZc6AELXhrnggM2CeWSXHGOdX2YtwA==}
++    engines: {node: '>= 6'}
++
+   human-signals@2.1.0:
+     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
+     engines: {node: '>=10.17.0'}
+ 
+   human-signals@8.0.1:
+     resolution: {integrity: sha512-eKCa6bwnJhvxj14kZk5NCPc6Hb6BdsU9DZcOnmQKSnO1VKrfV0zCvtttPZUsBvjmNDn8rpcJfpwSYnHBjc95MQ==}
+     engines: {node: '>=18.18.0'}
+ 
+   husky@9.1.7:
+     resolution: {integrity: sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==}
+@@ -2673,20 +3103,24 @@ packages:
+     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
+ 
+   ignore@5.3.2:
+     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
+     engines: {node: '>= 4'}
+ 
+   import-fresh@3.3.1:
+     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
+     engines: {node: '>=6'}
+ 
++  import-in-the-middle@3.3.3:
++    resolution: {integrity: sha512-AiohS3H80sXO6owEltjGX+glb7qXaDhBoJb9XcQVH4UI207xu/bDLUcadVKp7Qe576reg9yr/PXZjV5qx8gfbA==}
++    engines: {node: '>=18'}
++
+   import-local@3.2.0:
+     resolution: {integrity: sha512-2SPlun1JUPWoM6t3F0dw0FkCF/jWY8kttcY4f599GLTSjh2OCuuhdTkJQsEcZzBqbXZGKMK2OqW1oZsjtf/gQA==}
+     engines: {node: '>=8'}
+     hasBin: true
+ 
+   imurmurhash@0.1.4:
+     resolution: {integrity: sha512-JmXMZ6wuvDmLiHEml9ykzqO6lwFbof0GG4IkcGaENdCRDDmMVnny7s5HsIgHCbaq0w2MyPhDqkhTUgS2LU2PHA==}
+     engines: {node: '>=0.8.19'}
+ 
+   inflight@1.0.6:
+@@ -2762,20 +3196,23 @@ packages:
+     resolution: {integrity: sha512-IlsXEHOjtKhpN8r/tRFj2nDyTmHvcfNeu/nrRIcXE17ROeatXchkojffa1SpdqW4cr/Fj6QkEf/Gn4zf6KKvEQ==}
+     engines: {node: '>=12'}
+ 
+   is-plain-obj@4.1.0:
+     resolution: {integrity: sha512-+Pgi+vMuUNkJyExiMBt5IlFoMyKnr5zhJ4Uspz58WOhBF5QoIZkFyNHIbBAtHwzVAgk5RtndVNsDRN61/mmDqg==}
+     engines: {node: '>=12'}
+ 
+   is-promise@4.0.0:
+     resolution: {integrity: sha512-hvpoI6korhJMnej285dSg6nu1+e6uxs7zG3BYAm5byqDsgJNWwxzM6z6iZiAgQR4TJ30JmBTOwqZUw3WlyH3AQ==}
+ 
++  is-reference@1.2.1:
++    resolution: {integrity: sha512-U82MsXXiFIrjCK4otLT+o2NA2Cd2g5MLoOVXUZjIOhLurrRxpEXzI8O0KZHr3IjLvlAH1kTPYSuqer5T9ZVBKQ==}
++
+   is-regexp@3.1.0:
+     resolution: {integrity: sha512-rbku49cWloU5bSMI+zaRaXdQHXnthP6DZ/vLnfdSKyL4zUzuWnomtOEiZZOd+ioQ+avFo/qau3KPTc7Fjy1uPA==}
+     engines: {node: '>=12'}
+ 
+   is-stream@2.0.1:
+     resolution: {integrity: sha512-hFoiJiTl63nn+kstHGBtewWSKnQLpyb155KHheA1l39uvtO9nWIop1p3udqPcUd/xbF1VLMO4n7OI6p7RbngDg==}
+     engines: {node: '>=8'}
+ 
+   is-stream@4.0.1:
+     resolution: {integrity: sha512-Dnz92NInDqYckGEUJv689RbRiTSEHCQ7wOVeALbkOz999YpqT46yMRIGtSNl2iCL1waAZSx40+h59NV/EwzV/A==}
+@@ -3198,20 +3635,24 @@ packages:
+     engines: {node: '>=6.11.5'}
+ 
+   locate-path@3.0.0:
+     resolution: {integrity: sha512-7AO748wWnIhNqAuaty2ZWHkQHRSNfPVIsPIfwEOWO22AmaoVrWavlOcMR5nzTLNYvp36X220/maaRsrec1G65A==}
+     engines: {node: '>=6'}
+ 
+   locate-path@5.0.0:
+     resolution: {integrity: sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==}
+     engines: {node: '>=8'}
+ 
++  locate-path@6.0.0:
++    resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
++    engines: {node: '>=10'}
++
+   lodash.includes@4.3.0:
+     resolution: {integrity: sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==}
+ 
+   lodash.isboolean@3.0.3:
+     resolution: {integrity: sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==}
+ 
+   lodash.isinteger@4.0.4:
+     resolution: {integrity: sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==}
+ 
+   lodash.isnumber@3.0.3:
+@@ -3291,20 +3732,24 @@ packages:
+     resolution: {integrity: sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g==}
+     engines: {node: '>=18'}
+ 
+   merge-stream@2.0.0:
+     resolution: {integrity: sha512-abv/qOcuPfk3URPfDzmZU1LKmuw8kT+0nIHvKrKgFrwifol/doWcdA4ZqsWQ8ENrFKkd67Mfpo/LovbIUsbt3w==}
+ 
+   merge2@1.4.1:
+     resolution: {integrity: sha512-8q7VEgMJW4J8tcfVPy8g09NcQwZdbwFEqhe/WZkoIzjn/3TGDwtOCYtXGxA3O8tPzpczCCDgv+P2P5y00ZJOOg==}
+     engines: {node: '>= 8'}
+ 
++  meriyah@6.1.4:
++    resolution: {integrity: sha512-Sz8FzjzI0kN13GK/6MVEsVzMZEPvOhnmmI1lU5+/1cGOiK3QUahntrNNtdVeihrO7t9JpoH75iMNXg6R6uWflQ==}
++    engines: {node: '>=18.0.0'}
++
+   micromatch@4.0.8:
+     resolution: {integrity: sha512-PXwfBhYu0hBCPw8Dn0E+WDYb7af3dSLVWKi3HGv84IdF4TyFoC0ysxFd0Goxw7nSv4T/PzEJQxsYsEiFCKo2BA==}
+     engines: {node: '>=8.6'}
+ 
+   mime-db@1.52.0:
+     resolution: {integrity: sha512-sPU4uV7dYlvtWJxwwxHD0PuihVNiE7TyAbQ5SWxDCB9mUYvOgroQOwYQQOKPJ8CIbE+1ETVlOoK1UC2nU3gYvg==}
+     engines: {node: '>= 0.6'}
+ 
+   mime-db@1.54.0:
+     resolution: {integrity: sha512-aU5EJuIN2WDemCcAp2vFBfp/m4EAhWJnUNSSw0ixs7/kXbd6Pg64EmwJkNdFhB8aWt1sH2CTXrLxo/iAGV3oPQ==}
+@@ -3341,20 +3786,23 @@ packages:
+     resolution: {integrity: sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==}
+     engines: {node: '>=16 || 14 >=14.17'}
+ 
+   minimist@1.2.8:
+     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
+ 
+   minipass@7.1.3:
+     resolution: {integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==}
+     engines: {node: '>=16 || 14 >=14.17'}
+ 
++  module-details-from-path@1.0.4:
++    resolution: {integrity: sha512-EGWKgxALGMgzvxYF1UyGTy0HXX/2vHLkw6+NvDKW2jypWbHpjQuj4UMcqQWXHERJhVGKikolT06G3bcKe4fi7w==}
++
+   ms@2.1.3:
+     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
+ 
+   multer@2.2.0:
+     resolution: {integrity: sha512-6rdyFg2kLrMh9Jee7/BMPuV9lEAd7lLW2YUpF9/YxR7njyoUwwQ0ZPh3TaIY50Sw6vlyD2HW3wGOkTS4P79xrQ==}
+     engines: {node: '>= 10.16.0'}
+ 
+   mute-stream@2.0.0:
+     resolution: {integrity: sha512-WWdIxpyjEn+FhQJQQv9aQAYlHoNVdzIzUySNV1gHUPDSdZJ3yZn7pAAbQcV7B56Mvu881q9FZV+0Vx2xC44VWA==}
+     engines: {node: ^18.17.0 || >=20.5.0}
+@@ -3393,26 +3841,39 @@ packages:
+     peerDependenciesMeta:
+       '@opentelemetry/api':
+         optional: true
+       '@playwright/test':
+         optional: true
+       babel-plugin-react-compiler:
+         optional: true
+       sass:
+         optional: true
+ 
++  node-abi@3.94.0:
++    resolution: {integrity: sha512-W5ZNO5KRPB5TkYmGVD9F6YqhsglXJzE6etpbmT+f6EQElhiX/UTG551cnsRGvLG3fyZEg9HwaDmNmj5nwJ4z9g==}
++    engines: {node: '>=10'}
++
+   node-abort-controller@3.1.1:
+     resolution: {integrity: sha512-AGK2yQKIjRuqnc6VkX2Xj5d+QW8xZ87pa1UK6yA6ouUyuxfHuMP6umE5QK7UmTeOAymo+Zx1Fxiuw9rVx8taHQ==}
+ 
+   node-emoji@1.11.0:
+     resolution: {integrity: sha512-wo2DpQkQp7Sjm2A0cq+sN7EHKO6Sl0ctXeBdFZrL9T9+UywORbufTcTZxom8YqpLQt/FqNMUkOpkZrJVYSKD3A==}
+ 
++  node-fetch@2.7.0:
++    resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
++    engines: {node: 4.x || >=6.0.0}
++    peerDependencies:
++      encoding: ^0.1.0
++    peerDependenciesMeta:
++      encoding:
++        optional: true
++
+   node-int64@0.4.0:
+     resolution: {integrity: sha512-O5lz91xSOeoXP6DulyHfllpq+Eg00MWitZIbtPfoSEvqIHdl5gfcY6hYzDWnj0qD5tz52PI08u9qUvSVeUBeHw==}
+ 
+   node-releases@2.0.51:
+     resolution: {integrity: sha512-wRNIrw4DmVLKQlbgOMdkMx27Wrpzes2hh5Jtbi2bjPd+4wJstWIqP5A+lscnqbm0xxmT5Bpg8Lec5ItEBwx6BQ==}
+     engines: {node: '>=18'}
+ 
+   normalize-path@3.0.0:
+     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
+     engines: {node: '>=0.10.0'}
+@@ -3481,20 +3942,24 @@ packages:
+     engines: {node: '>=10'}
+ 
+   p-locate@3.0.0:
+     resolution: {integrity: sha512-x+12w/To+4GFfgJhBEpiDcLozRJGegY+Ei7/z0tSLkMmxGZNybVMSfWj9aJn8Z5Fc7dBUNJOOVgPv2H7IwulSQ==}
+     engines: {node: '>=6'}
+ 
+   p-locate@4.1.0:
+     resolution: {integrity: sha512-R79ZZ/0wAxKGu3oYMlz8jy/kbhsNrS7SKZ7PxEHBgJ5+F2mtFW2fK2cOtBh1cHYkQsbzFV7I+EoRKe6Yt0oK7A==}
+     engines: {node: '>=8'}
+ 
++  p-locate@5.0.0:
++    resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
++    engines: {node: '>=10'}
++
+   p-try@2.2.0:
+     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
+     engines: {node: '>=6'}
+ 
+   package-json-from-dist@1.0.1:
+     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
+ 
+   parent-module@1.0.1:
+     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
+     engines: {node: '>=6'}
+@@ -3614,28 +4079,35 @@ packages:
+     engines: {node: '>=20'}
+ 
+   pretty-format@30.4.1:
+     resolution: {integrity: sha512-K6KiKMHTL4jjX4u3Kir2EW07nRfcqVTXIImx50wbjHQTcZPgg+gjVeNTIT3l3L1Rd4UefxfogquC9J37SoFyyw==}
+     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
+ 
+   pretty-ms@9.3.0:
+     resolution: {integrity: sha512-gjVS5hOP+M3wMm5nmNOucbIrqudzs9v/57bWRHQWLYklXqoXKrVfYW2W9+glfGsqtPgpiz5WwyEEB+ksXIx3gQ==}
+     engines: {node: '>=18'}
+ 
++  progress@2.0.3:
++    resolution: {integrity: sha512-7PiHtLll5LdnKIMw100I+8xJXR5gW2QwWYkT6iJva0bXitZKa/XMrSbdmg3r2Xnaidz9Qumd0VPaMrZlF9V9sA==}
++    engines: {node: '>=0.4.0'}
++
+   prompts@2.4.2:
+     resolution: {integrity: sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==}
+     engines: {node: '>= 6'}
+ 
+   proxy-addr@2.0.7:
+     resolution: {integrity: sha512-llQsMLSUDUPT44jdrU/O37qlnifitDP+ZwrmmZcoSKyLKvtZxpyV0n2/bD/N4tBAAZ/gJEdZU7KMraoK1+XYAg==}
+     engines: {node: '>= 0.10'}
+ 
++  proxy-from-env@1.1.0:
++    resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
++
+   punycode@2.3.1:
+     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
+     engines: {node: '>=6'}
+ 
+   pure-rand@7.0.1:
+     resolution: {integrity: sha512-oTUZM/NAZS8p7ANR3SHh30kXB+zK2r2BPcEn/awJIbOvq82WoMN4p62AWWp3Hhw50G0xMsw1mhIBLqHw64EcNQ==}
+ 
+   qs@6.14.2:
+     resolution: {integrity: sha512-V/yCWTTF7VJ9hIh18Ugr2zhJMP01MY7c5kh4J870L7imm6/DIzBsNLTXzMwUA3yZ5b/KBqLx8Kp3uRvd7xSe3Q==}
+     engines: {node: '>=0.6'}
+@@ -3686,20 +4158,24 @@ packages:
+     resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
+ 
+   require-directory@2.1.1:
+     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
+     engines: {node: '>=0.10.0'}
+ 
+   require-from-string@2.0.2:
+     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
+     engines: {node: '>=0.10.0'}
+ 
++  require-in-the-middle@8.0.1:
++    resolution: {integrity: sha512-QT7FVMXfWOYFbeRBF6nu+I6tr2Tf3u0q8RIEjNob/heKY/nh7drD/k7eeMFmSQgnTtCzLDcCu/XEnpW2wk4xCQ==}
++    engines: {node: '>=9.3.0 || >=8.10.0 <9.0.0'}
++
+   reselect@5.2.0:
+     resolution: {integrity: sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==}
+ 
+   resolve-cwd@3.0.0:
+     resolution: {integrity: sha512-OrZaX2Mb+rJCpH/6CpSqt9xFVpN++x01XnN2ie9g6P5/3xelLAkXWVADpdz1IHD/KFfEXyE6V0U01OQ3UO2rEg==}
+     engines: {node: '>=8'}
+ 
+   resolve-from@4.0.0:
+     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
+     engines: {node: '>=4'}
+@@ -3718,20 +4194,25 @@ packages:
+ 
+   reusify@1.1.0:
+     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
+     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
+ 
+   rolldown@1.2.1:
+     resolution: {integrity: sha512-4FKJhg8d3OiyQOA6Q1Q0hoFFpW9/OoX+VsHzpECsdsIZoOArrAK90gl59YK/Z+gnDel45bgJZK03ozH/9bCqEw==}
+     engines: {node: ^20.19.0 || >=22.12.0}
+     hasBin: true
+ 
++  rollup@4.62.4:
++    resolution: {integrity: sha512-RXOqwaPsBGjMNMa4sQjDjHieHEZDFoj/Rdr46l2MU5DfEs16wHJPC2RPTPHWhNl+M3aI472LLqFkFKut4SblOg==}
++    engines: {node: '>=18.0.0', npm: '>=8.0.0'}
++    hasBin: true
++
+   router@2.2.0:
+     resolution: {integrity: sha512-nLTrUKm2UyiL7rlhapu/Zl45FwNgkZGaCpZbIHajDYgwlJCOzLSk+cIPAnsEqV955GjILJnKbdQC1nVPz+gAYQ==}
+     engines: {node: '>= 18'}
+ 
+   run-applescript@7.1.0:
+     resolution: {integrity: sha512-DPe5pVFaAsinSaV6QjQ6gdiedWDcRCbUuiQfQa2wmWV7+xC9bGulGI8+TdRmoFkAPaBXk8CrAbnlY2ISniJ47Q==}
+     engines: {node: '>=18'}
+ 
+   run-parallel@1.2.0:
+     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
+@@ -3752,20 +4233,23 @@ packages:
+     resolution: {integrity: sha512-eNv+WrVbKu1f3vbYJT/xtiF5syA5HPIMtf9IgY/nKg0sWqzAUEvqY/xm7OcZc/qafLx/iO9FgOmeSAp4v5ti/Q==}
+ 
+   schema-utils@3.3.0:
+     resolution: {integrity: sha512-pN/yOAvcC+5rQ5nERGuwrjLlYvLTbCibnZ1I7B1LaiAz9BRBlE9GMgE/eqV30P7aJQUf7Ddimy/RsbYO/GrVGg==}
+     engines: {node: '>= 10.13.0'}
+ 
+   schema-utils@4.3.3:
+     resolution: {integrity: sha512-eflK8wEtyOE6+hsaRVPxvUKYCpRgzLqDTb8krvAsRIwOGlHoSgYLgBXoubGgLd2fT41/OUYdb48v4k4WWHQurA==}
+     engines: {node: '>= 10.13.0'}
+ 
++  semifies@1.0.0:
++    resolution: {integrity: sha512-xXR3KGeoxTNWPD4aBvL5NUpMTT7WMANr3EWnaS190QVkY52lqqcVRD7Q05UVbBhiWDGWMlJEUam9m7uFFGVScw==}
++
+   semver@6.3.1:
+     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
+     hasBin: true
+ 
+   semver@7.8.5:
+     resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+     engines: {node: '>=10'}
+     hasBin: true
+ 
+   send@1.2.1:
+@@ -3855,20 +4339,24 @@ packages:
+   sprintf-js@1.0.3:
+     resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
+ 
+   stack-utils@2.0.6:
+     resolution: {integrity: sha512-XlkWvfIm6RmsWtNJx+uqtKLS8eqFbxUg0ZzLXqY0caEy9l7hruX8IpiDnjsLavoBgqCCR71TqWO8MaXYheJ3RQ==}
+     engines: {node: '>=10'}
+ 
+   stackback@0.0.2:
+     resolution: {integrity: sha512-1XMJE5fQo1jGH6Y/7ebnwPOBEkIEnT4QF32d5R1+VXdXveM0IBMJt8zfaxX1P3QhVwrYe+576+jkANtSS2mBbw==}
+ 
++  stacktrace-parser@0.1.11:
++    resolution: {integrity: sha512-WjlahMgHmCJpqzU8bIBy4qtsZdU9lRlcZE3Lvyej6t4tuOuv1vk57OW3MBrj6hXBFx/nNoC9MPMTcr5YA7NQbg==}
++    engines: {node: '>=6'}
++
+   statuses@2.0.2:
+     resolution: {integrity: sha512-DvEy55V3DB7uknRo+4iOGT5fP1slR8wQohVdknigZPMpMstaKJQWhwiYBACJE3Ul2pTnATihhBYnRhZQHGBiRw==}
+     engines: {node: '>= 0.8'}
+ 
+   std-env@4.2.0:
+     resolution: {integrity: sha512-oCUKSupKTHX53EyjDtuZQ64pjLJ6yYCtpmEw0goYxtjG9KpbRe8KAsl2tBUGU9DyMcJ0RwJ8GqJAFzMXcXW1Rw==}
+ 
+   stdin-discarder@0.2.2:
+     resolution: {integrity: sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ==}
+     engines: {node: '>=18'}
+@@ -4055,20 +4543,23 @@ packages:
+     engines: {node: '>=8.0'}
+ 
+   toidentifier@1.0.1:
+     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
+     engines: {node: '>=0.6'}
+ 
+   token-types@6.1.2:
+     resolution: {integrity: sha512-dRXchy+C0IgK8WPC6xvCHFRIWYUbqqdEIKPaKo/AcTUNzwLTK6AH7RjdLWsEZcAN/TBdtfUw3PYEgPr5VPr6ww==}
+     engines: {node: '>=14.16'}
+ 
++  tr46@0.0.3:
++    resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
++
+   ts-jest@29.4.12:
+     resolution: {integrity: sha512-Ov6ClY53Fflh6BGAnY2DlTq1hYDrTycz2PVTXBWFW2CU+9zrEqAp9fWdGXl42EXO5RLSFAcAZ2JFKbP+zBTFfw==}
+     engines: {node: ^14.15.0 || ^16.10.0 || ^18.0.0 || >=20.0.0}
+     hasBin: true
+     peerDependencies:
+       '@babel/core': '>=7.0.0-beta.0 <8'
+       '@jest/transform': ^29.0.0 || ^30.0.0
+       '@jest/types': ^29.0.0 || ^30.0.0
+       babel-jest: ^29.0.0 || ^30.0.0
+       esbuild: '*'
+@@ -4112,20 +4603,24 @@ packages:
+     resolution: {integrity: sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ==}
+ 
+   type-detect@4.0.8:
+     resolution: {integrity: sha512-0fr/mIH1dlO+x7TlcMy+bIDqKPsw/70tVyeHW787goQjhmqaZe10uwLujubK9q9Lg6Fiho1KUKDYz0Z7k7g5/g==}
+     engines: {node: '>=4'}
+ 
+   type-fest@0.21.3:
+     resolution: {integrity: sha512-t0rzBq87m3fVcduHDUFhKmyyX+9eo6WQjZvf51Ea/M0Q7+T374Jp1aUiyUl0GKxp8M/OETVHSDvmkyPgvX+X2w==}
+     engines: {node: '>=10'}
+ 
++  type-fest@0.7.1:
++    resolution: {integrity: sha512-Ne2YiiGN8bmrmJJEuTWTLJR32nh/JdL1+PSicowtNb0WFpn59GK8/lfD61bVtzguz7b3PBt74nxpv/Pw5po5Rg==}
++    engines: {node: '>=8'}
++
+   type-fest@4.41.0:
+     resolution: {integrity: sha512-TeTSQ6H5YHvpqVwBRcnLDCBnDOHWYu7IvGbHT6N8AOymcr9PJGjc1GTtiWZTYg0NCgYwvnYWEkVChQAr9bjfwA==}
+     engines: {node: '>=16'}
+ 
+   type-is@1.6.18:
+     resolution: {integrity: sha512-TkRKr9sUTxEH8MdfuCSP7VizJyzRNMjj2J2do2Jr3Kym598JVdEksuzPQCnlFPW4ky9Q+iA+ma9BGm06XQBy8g==}
+     engines: {node: '>= 0.6'}
+ 
+   type-is@2.1.0:
+     resolution: {integrity: sha512-faYHw0anBbc/kWF3zFTEnxSFOAGUX9GFbOBthvDdLsIlEoWOFOtS0zgCiQYwIskL9iGXZL3kAXD8OoZ4GmMATA==}
+@@ -4299,38 +4794,44 @@ packages:
+   walker@1.0.8:
+     resolution: {integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==}
+ 
+   watchpack@2.5.2:
+     resolution: {integrity: sha512-6i/00NBjP4yGPs+caKSyRfpTF/8Torsu0MOW3mMzIbhgISFder8i7xbqgHlLMwJrdiN8ndBV3UA1/AfzPSr+jg==}
+     engines: {node: '>=10.13.0'}
+ 
+   wcwidth@1.0.1:
+     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
+ 
++  webidl-conversions@3.0.1:
++    resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
++
+   webpack-node-externals@3.0.0:
+     resolution: {integrity: sha512-LnL6Z3GGDPht/AigwRh2dvL9PQPFQ8skEpVrWZXLWBYmqcaojHNN0onvHzie6rq7EWKrrBfPYqNEzTJgiwEQDQ==}
+     engines: {node: '>=6'}
+ 
+   webpack-sources@3.5.1:
+     resolution: {integrity: sha512-jyuiGJdtvY434z5bUZrjz67v76/ePNvFZTp9Mdz29IlH4+GPsgyGjiv0fKI+M7BdkU6ADjulUcKAd3tUK3WlEw==}
+     engines: {node: '>=10.13.0'}
+ 
+   webpack@5.106.2:
+     resolution: {integrity: sha512-wGN3qcrBQIFmQ/c0AiOAQBvrZ5lmY8vbbMv4Mxfgzqd/B6+9pXtLo73WuS1dSGXM5QYY3hZnIbvx+K1xxe6FyA==}
+     engines: {node: '>=10.13.0'}
+     hasBin: true
+     peerDependencies:
+       webpack-cli: '*'
+     peerDependenciesMeta:
+       webpack-cli:
+         optional: true
+ 
++  whatwg-url@5.0.0:
++    resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
++
+   which@2.0.2:
+     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
+     engines: {node: '>= 8'}
+     hasBin: true
+ 
+   which@4.0.0:
+     resolution: {integrity: sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==}
+     engines: {node: ^16.13.0 || >=18.0.0}
+     hasBin: true
+ 
+@@ -4455,20 +4956,44 @@ snapshots:
+   '@angular-devkit/schematics@19.2.27(chokidar@4.0.3)':
+     dependencies:
+       '@angular-devkit/core': 19.2.27(chokidar@4.0.3)
+       jsonc-parser: 3.3.1
+       magic-string: 0.30.17
+       ora: 5.4.1
+       rxjs: 7.8.1
+     transitivePeerDependencies:
+       - chokidar
+ 
++  '@apm-js-collab/code-transformer-bundler-plugins@0.7.4':
++    dependencies:
++      '@apm-js-collab/code-transformer': 0.18.1
++      es-module-lexer: 2.3.1
++      magic-string: 0.30.21
++      module-details-from-path: 1.0.4
++
++  '@apm-js-collab/code-transformer@0.18.1':
++    dependencies:
++      '@types/estree': 1.0.9
++      astring: 1.9.0
++      esquery: 1.7.0
++      meriyah: 6.1.4
++      semifies: 1.0.0
++      source-map: 0.6.1
++
++  '@apm-js-collab/tracing-hooks@0.13.0(supports-color@8.1.1)':
++    dependencies:
++      '@apm-js-collab/code-transformer': 0.18.1
++      debug: 4.4.3(supports-color@8.1.1)
++      module-details-from-path: 1.0.4
++    transitivePeerDependencies:
++      - supports-color
++
+   '@babel/code-frame@7.29.7':
+     dependencies:
+       '@babel/helper-validator-identifier': 7.29.7
+       js-tokens: 4.0.0
+       picocolors: 1.1.1
+ 
+   '@babel/compat-data@7.29.7': {}
+ 
+   '@babel/core@7.29.7(supports-color@8.1.1)':
+     dependencies:
+@@ -5397,20 +5922,23 @@ snapshots:
+       hono: 4.13.0
+       jose: 6.2.8
+       json-schema-typed: 8.0.2
+       pkce-challenge: 5.0.1
+       raw-body: 3.0.2
+       zod: 3.25.76
+       zod-to-json-schema: 3.25.2(zod@3.25.76)
+     transitivePeerDependencies:
+       - supports-color
+ 
++  '@napi-rs/lzma-linux-x64-gnu@1.5.1':
++    optional: true
++
+   '@napi-rs/wasm-runtime@1.2.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
+     dependencies:
+       '@emnapi/core': 1.10.0
+       '@emnapi/runtime': 1.10.0
+       '@tybys/wasm-util': 0.10.3
+     optional: true
+ 
+   '@napi-rs/wasm-runtime@1.2.2(@emnapi/core@2.0.0-alpha.3)(@emnapi/runtime@2.0.0-alpha.3)':
+     dependencies:
+       '@emnapi/core': 2.0.0-alpha.3
+@@ -5546,20 +6074,63 @@ snapshots:
+       '@nodelib/fs.stat': 2.0.5
+       run-parallel: 1.2.0
+ 
+   '@nodelib/fs.stat@2.0.5': {}
+ 
+   '@nodelib/fs.walk@1.2.8':
+     dependencies:
+       '@nodelib/fs.scandir': 2.1.5
+       fastq: 1.20.1
+ 
++  '@opentelemetry/api-logs@0.220.0':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++
++  '@opentelemetry/api@1.9.1': {}
++
++  '@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/semantic-conventions': 1.43.0
++
++  '@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/api-logs': 0.220.0
++      import-in-the-middle: 3.3.3
++      require-in-the-middle: 8.0.1(supports-color@8.1.1)
++    transitivePeerDependencies:
++      - supports-color
++
++  '@opentelemetry/resources@2.10.0(@opentelemetry/api@1.9.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/semantic-conventions': 1.43.0
++
++  '@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/resources': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/sdk-trace': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/semantic-conventions': 1.43.0
++
++  '@opentelemetry/sdk-trace@2.10.0(@opentelemetry/api@1.9.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/resources': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/semantic-conventions': 1.43.0
++
++  '@opentelemetry/semantic-conventions@1.43.0': {}
++
+   '@oxc-project/types@0.142.0': {}
+ 
+   '@pkgjs/parseargs@0.11.0':
+     optional: true
+ 
+   '@pkgr/core@0.3.6': {}
+ 
+   '@rolldown/binding-android-arm64@1.2.1':
+     optional: true
+ 
+@@ -5604,22 +6175,349 @@ snapshots:
+     optional: true
+ 
+   '@rolldown/binding-win32-arm64-msvc@1.2.1':
+     optional: true
+ 
+   '@rolldown/binding-win32-x64-msvc@1.2.1':
+     optional: true
+ 
+   '@rolldown/pluginutils@1.0.1': {}
+ 
++  '@rollup/plugin-commonjs@28.0.1(rollup@4.62.4)':
++    dependencies:
++      '@rollup/pluginutils': 5.4.0(rollup@4.62.4)
++      commondir: 1.0.1
++      estree-walker: 2.0.2
++      fdir: 6.5.0(picomatch@4.0.5)
++      is-reference: 1.2.1
++      magic-string: 0.30.21
++      picomatch: 4.0.5
++    optionalDependencies:
++      rollup: 4.62.4
++
++  '@rollup/pluginutils@5.4.0(rollup@4.62.4)':
++    dependencies:
++      '@types/estree': 1.0.9
++      estree-walker: 2.0.2
++      picomatch: 4.0.5
++    optionalDependencies:
++      rollup: 4.62.4
++
++  '@rollup/rollup-android-arm-eabi@4.62.4':
++    optional: true
++
++  '@rollup/rollup-android-arm64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-darwin-arm64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-darwin-x64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-freebsd-arm64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-freebsd-x64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-arm-gnueabihf@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-arm-musleabihf@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-arm64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-arm64-musl@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-loong64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-loong64-musl@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-ppc64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-ppc64-musl@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-riscv64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-riscv64-musl@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-s390x-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-x64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-linux-x64-musl@4.62.4':
++    optional: true
++
++  '@rollup/rollup-openbsd-x64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-openharmony-arm64@4.62.4':
++    optional: true
++
++  '@rollup/rollup-win32-arm64-msvc@4.62.4':
++    optional: true
++
++  '@rollup/rollup-win32-ia32-msvc@4.62.4':
++    optional: true
++
++  '@rollup/rollup-win32-x64-gnu@4.62.4':
++    optional: true
++
++  '@rollup/rollup-win32-x64-msvc@4.62.4':
++    optional: true
++
+   '@sec-ant/readable-stream@0.4.1': {}
+ 
++  '@sentry/babel-plugin-component-annotate@5.3.0': {}
++
++  '@sentry/browser-utils@10.69.0':
++    dependencies:
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++
++  '@sentry/browser@10.69.0':
++    dependencies:
++      '@sentry/browser-utils': 10.69.0
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      '@sentry/feedback': 10.69.0
++      '@sentry/replay': 10.69.0
++      '@sentry/replay-canvas': 10.69.0
++
++  '@sentry/bundler-plugin-core@5.3.0(supports-color@8.1.1)':
++    dependencies:
++      '@babel/core': 7.29.7(supports-color@8.1.1)
++      '@sentry/babel-plugin-component-annotate': 5.3.0
++      '@sentry/cli': 2.58.6(supports-color@8.1.1)
++      dotenv: 16.6.1
++      find-up: 5.0.0
++      glob: 13.0.6
++      magic-string: 0.30.21
++    transitivePeerDependencies:
++      - encoding
++      - supports-color
++
++  '@sentry/bundler-plugins@10.69.0(rollup@4.62.4)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))':
++    dependencies:
++      '@babel/core': 7.29.7(supports-color@8.1.1)
++      '@sentry/cli': 2.58.6(supports-color@8.1.1)
++      '@sentry/core': 10.69.0
++      dotenv: 17.4.2
++      find-up: 5.0.0
++      glob: 13.0.6
++      magic-string: 0.30.21
++    optionalDependencies:
++      rollup: 4.62.4
++      webpack: 5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3)
++    transitivePeerDependencies:
++      - encoding
++      - supports-color
++
++  '@sentry/cli-darwin@2.58.6':
++    optional: true
++
++  '@sentry/cli-linux-arm64@2.58.6':
++    optional: true
++
++  '@sentry/cli-linux-arm@2.58.6':
++    optional: true
++
++  '@sentry/cli-linux-i686@2.58.6':
++    optional: true
++
++  '@sentry/cli-linux-x64@2.58.6':
++    optional: true
++
++  '@sentry/cli-win32-arm64@2.58.6':
++    optional: true
++
++  '@sentry/cli-win32-i686@2.58.6':
++    optional: true
++
++  '@sentry/cli-win32-x64@2.58.6':
++    optional: true
++
++  '@sentry/cli@2.58.6(supports-color@8.1.1)':
++    dependencies:
++      https-proxy-agent: 5.0.1(supports-color@8.1.1)
++      node-fetch: 2.7.0
++      progress: 2.0.3
++      proxy-from-env: 1.1.0
++      which: 2.0.2
++    optionalDependencies:
++      '@sentry/cli-darwin': 2.58.6
++      '@sentry/cli-linux-arm': 2.58.6
++      '@sentry/cli-linux-arm64': 2.58.6
++      '@sentry/cli-linux-i686': 2.58.6
++      '@sentry/cli-linux-x64': 2.58.6
++      '@sentry/cli-win32-arm64': 2.58.6
++      '@sentry/cli-win32-i686': 2.58.6
++      '@sentry/cli-win32-x64': 2.58.6
++    transitivePeerDependencies:
++      - encoding
++      - supports-color
++
++  '@sentry/conventions@0.16.0': {}
++
++  '@sentry/core@10.69.0':
++    dependencies:
++      '@sentry/conventions': 0.16.0
++
++  '@sentry/feedback@10.69.0':
++    dependencies:
++      '@sentry/core': 10.69.0
++
++  '@sentry/nestjs@10.69.0(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/core@11.1.28)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)':
++    dependencies:
++      '@nestjs/common': 11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1)
++      '@nestjs/core': 11.1.28(@nestjs/common@11.1.28(reflect-metadata@0.2.2)(rxjs@7.8.2)(supports-color@8.1.1))(@nestjs/platform-express@11.1.28)(reflect-metadata@0.2.2)(rxjs@7.8.2)
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      '@sentry/node': 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)
++      '@sentry/server-utils': 10.69.0(supports-color@8.1.1)
++    transitivePeerDependencies:
++      - '@opentelemetry/core'
++      - '@opentelemetry/exporter-trace-otlp-http'
++      - supports-color
++
++  '@sentry/nextjs@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))(next@16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react@19.2.8)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@rollup/plugin-commonjs': 28.0.1(rollup@4.62.4)
++      '@sentry/browser-utils': 10.69.0
++      '@sentry/bundler-plugin-core': 5.3.0(supports-color@8.1.1)
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      '@sentry/node': 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)
++      '@sentry/opentelemetry': 10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
++      '@sentry/react': 10.69.0(react@19.2.8)
++      '@sentry/server-utils': 10.69.0(supports-color@8.1.1)
++      '@sentry/vercel-edge': 10.69.0
++      '@sentry/webpack-plugin': 5.4.0(rollup@4.62.4)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))
++      next: 16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
++      rollup: 4.62.4
++      stacktrace-parser: 0.1.11
++    transitivePeerDependencies:
++      - '@opentelemetry/core'
++      - '@opentelemetry/exporter-trace-otlp-http'
++      - '@opentelemetry/sdk-trace-base'
++      - encoding
++      - react
++      - supports-color
++      - webpack
++
++  '@sentry/node-core@10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
++    dependencies:
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      '@sentry/opentelemetry': 10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
++      import-in-the-middle: 3.3.3
++    optionalDependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)
++      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
++
++  '@sentry/node-cpu-profiler@2.4.3':
++    dependencies:
++      detect-libc: 2.1.2
++      node-abi: 3.94.0
++
++  '@sentry/node@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/instrumentation': 0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1)
++      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      '@sentry/node-core': 10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/instrumentation@0.220.0(@opentelemetry/api@1.9.1)(supports-color@8.1.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
++      '@sentry/opentelemetry': 10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))
++      '@sentry/server-utils': 10.69.0(supports-color@8.1.1)
++      import-in-the-middle: 3.3.3
++    transitivePeerDependencies:
++      - '@opentelemetry/core'
++      - '@opentelemetry/exporter-trace-otlp-http'
++      - supports-color
++
++  '@sentry/opentelemetry@10.69.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.10.0(@opentelemetry/api@1.9.1))':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@opentelemetry/core': 2.10.0(@opentelemetry/api@1.9.1)
++      '@opentelemetry/sdk-trace-base': 2.10.0(@opentelemetry/api@1.9.1)
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++
++  '@sentry/profiling-node@10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)':
++    dependencies:
++      '@sentry/core': 10.69.0
++      '@sentry/node': 10.69.0(@opentelemetry/core@2.10.0(@opentelemetry/api@1.9.1))(supports-color@8.1.1)
++      '@sentry/node-cpu-profiler': 2.4.3
++    transitivePeerDependencies:
++      - '@opentelemetry/core'
++      - '@opentelemetry/exporter-trace-otlp-http'
++      - supports-color
++
++  '@sentry/react@10.69.0(react@19.2.8)':
++    dependencies:
++      '@sentry/browser': 10.69.0
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      react: 19.2.8
++
++  '@sentry/replay-canvas@10.69.0':
++    dependencies:
++      '@sentry/core': 10.69.0
++      '@sentry/replay': 10.69.0
++
++  '@sentry/replay@10.69.0':
++    dependencies:
++      '@sentry/browser-utils': 10.69.0
++      '@sentry/core': 10.69.0
++
++  '@sentry/server-utils@10.69.0(supports-color@8.1.1)':
++    dependencies:
++      '@apm-js-collab/code-transformer-bundler-plugins': 0.7.4
++      '@apm-js-collab/tracing-hooks': 0.13.0(supports-color@8.1.1)
++      '@sentry/conventions': 0.16.0
++      '@sentry/core': 10.69.0
++      meriyah: 6.1.4
++    transitivePeerDependencies:
++      - supports-color
++
++  '@sentry/vercel-edge@10.69.0':
++    dependencies:
++      '@opentelemetry/api': 1.9.1
++      '@sentry/core': 10.69.0
++
++  '@sentry/webpack-plugin@5.4.0(rollup@4.62.4)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))':
++    dependencies:
++      '@sentry/bundler-plugins': 10.69.0(rollup@4.62.4)(supports-color@8.1.1)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3))
++      webpack: 5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3)
++    transitivePeerDependencies:
++      - encoding
++      - rollup
++      - supports-color
++
+   '@sinclair/typebox@0.34.52': {}
+ 
+   '@sindresorhus/merge-streams@4.0.0': {}
+ 
+   '@sinonjs/commons@3.0.1':
+     dependencies:
+       type-detect: 4.0.8
+ 
+   '@sinonjs/fake-timers@15.4.0':
+     dependencies:
+@@ -5656,50 +6554,52 @@ snapshots:
+   '@supabase/realtime-js@2.111.0':
+     dependencies:
+       '@supabase/phoenix': 0.4.5
+       tslib: 2.8.1
+ 
+   '@supabase/realtime-js@2.112.1':
+     dependencies:
+       '@supabase/phoenix': 0.4.5
+       tslib: 2.8.1
+ 
+-  '@supabase/ssr@0.12.4(@supabase/supabase-js@2.112.1)':
++  '@supabase/ssr@0.12.4(@supabase/supabase-js@2.112.1(@opentelemetry/api@1.9.1))':
+     dependencies:
+-      '@supabase/supabase-js': 2.112.1
++      '@supabase/supabase-js': 2.112.1(@opentelemetry/api@1.9.1)
+       cookie: 1.1.1
+ 
+   '@supabase/storage-js@2.111.0':
+     dependencies:
+       iceberg-js: 0.8.1
+       tslib: 2.8.1
+ 
+   '@supabase/storage-js@2.112.1':
+     dependencies:
+       iceberg-js: 0.8.1
+       tslib: 2.8.1
+ 
+   '@supabase/supabase-js@2.111.0':
+     dependencies:
+       '@supabase/auth-js': 2.111.0
+       '@supabase/functions-js': 2.111.0
+       '@supabase/postgrest-js': 2.111.0
+       '@supabase/realtime-js': 2.111.0
+       '@supabase/storage-js': 2.111.0
+ 
+-  '@supabase/supabase-js@2.112.1':
++  '@supabase/supabase-js@2.112.1(@opentelemetry/api@1.9.1)':
+     dependencies:
+       '@supabase/auth-js': 2.112.1
+       '@supabase/functions-js': 2.112.1
+       '@supabase/postgrest-js': 2.112.1
+       '@supabase/realtime-js': 2.112.1
+       '@supabase/storage-js': 2.112.1
++    optionalDependencies:
++      '@opentelemetry/api': 1.9.1
+ 
+   '@swc/helpers@0.5.15':
+     dependencies:
+       tslib: 2.8.1
+ 
+   '@tailwindcss/node@4.3.3':
+     dependencies:
+       '@jridgewell/remapping': 2.3.5
+       enhanced-resolve: 5.24.5
+       jiti: 2.7.0
+@@ -6121,20 +7021,26 @@ snapshots:
+     dependencies:
+       mime-types: 3.0.2
+       negotiator: 1.0.0
+ 
+   acorn-import-phases@1.0.4(acorn@8.18.0):
+     dependencies:
+       acorn: 8.18.0
+ 
+   acorn@8.18.0: {}
+ 
++  agent-base@6.0.2(supports-color@8.1.1):
++    dependencies:
++      debug: 4.4.3(supports-color@8.1.1)
++    transitivePeerDependencies:
++      - supports-color
++
+   ajv-formats@2.1.1(ajv@8.20.0):
+     optionalDependencies:
+       ajv: 8.20.0
+ 
+   ajv-formats@3.0.1(ajv@8.18.0):
+     optionalDependencies:
+       ajv: 8.18.0
+ 
+   ajv-formats@3.0.1(ajv@8.20.0):
+     optionalDependencies:
+@@ -6204,20 +7110,22 @@ snapshots:
+   argparse@2.0.1: {}
+ 
+   array-timsort@1.0.3: {}
+ 
+   assertion-error@2.0.1: {}
+ 
+   ast-types@0.16.1:
+     dependencies:
+       tslib: 2.8.1
+ 
++  astring@1.9.0: {}
++
+   atomically@1.7.0: {}
+ 
+   babel-jest@30.4.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1):
+     dependencies:
+       '@babel/core': 7.29.7(supports-color@8.1.1)
+       '@jest/transform': 30.4.1(supports-color@8.1.1)
+       '@types/babel__core': 7.20.5
+       babel-plugin-istanbul: 7.0.1(supports-color@8.1.1)
+       babel-preset-jest: 30.4.0(@babel/core@7.29.7(supports-color@8.1.1))
+       chalk: 4.1.2
+@@ -6438,20 +7346,22 @@ snapshots:
+ 
+   commander@2.20.3: {}
+ 
+   commander@4.1.1: {}
+ 
+   comment-json@5.0.0:
+     dependencies:
+       array-timsort: 1.0.3
+       esprima: 4.0.1
+ 
++  commondir@1.0.1: {}
++
+   concat-map@0.0.1: {}
+ 
+   concat-stream@2.0.0:
+     dependencies:
+       buffer-from: 1.1.2
+       inherits: 2.0.4
+       readable-stream: 3.6.2
+       typedarray: 0.0.6
+ 
+   conf@10.2.0:
+@@ -6548,20 +7458,22 @@ snapshots:
+   detect-libc@2.1.2: {}
+ 
+   detect-newline@3.1.0: {}
+ 
+   diff@8.0.4: {}
+ 
+   dot-prop@6.0.1:
+     dependencies:
+       is-obj: 2.0.0
+ 
++  dotenv@16.6.1: {}
++
+   dotenv@17.4.2: {}
+ 
+   dunder-proto@1.0.1:
+     dependencies:
+       call-bind-apply-helpers: 1.0.2
+       es-errors: 1.3.0
+       gopd: 1.2.0
+ 
+   eastasianwidth@0.2.0: {}
+ 
+@@ -6644,28 +7556,34 @@ snapshots:
+ 
+   escape-string-regexp@2.0.0: {}
+ 
+   eslint-scope@5.1.1:
+     dependencies:
+       esrecurse: 4.3.0
+       estraverse: 4.3.0
+ 
+   esprima@4.0.1: {}
+ 
++  esquery@1.7.0:
++    dependencies:
++      estraverse: 5.3.0
++
+   esrecurse@4.3.0:
+     dependencies:
+       estraverse: 5.3.0
+ 
+   estraverse@4.3.0: {}
+ 
+   estraverse@5.3.0: {}
+ 
++  estree-walker@2.0.2: {}
++
+   estree-walker@3.0.3:
+     dependencies:
+       '@types/estree': 1.0.9
+ 
+   etag@1.8.1: {}
+ 
+   events@3.3.0: {}
+ 
+   eventsource-parser@3.1.0: {}
+ 
+@@ -6812,20 +7730,25 @@ snapshots:
+ 
+   find-up@3.0.0:
+     dependencies:
+       locate-path: 3.0.0
+ 
+   find-up@4.1.0:
+     dependencies:
+       locate-path: 5.0.0
+       path-exists: 4.0.0
+ 
++  find-up@5.0.0:
++    dependencies:
++      locate-path: 6.0.0
++      path-exists: 4.0.0
++
+   foreground-child@3.3.1:
+     dependencies:
+       cross-spawn: 7.0.6
+       signal-exit: 4.1.0
+ 
+   fork-ts-checker-webpack-plugin@9.1.0(typescript@5.9.3)(webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3)):
+     dependencies:
+       '@babel/code-frame': 7.29.7
+       chalk: 4.1.2
+       chokidar: 4.0.3
+@@ -6959,20 +7882,27 @@ snapshots:
+   html-escaper@2.0.2: {}
+ 
+   http-errors@2.0.1:
+     dependencies:
+       depd: 2.0.0
+       inherits: 2.0.4
+       setprototypeof: 1.2.0
+       statuses: 2.0.2
+       toidentifier: 1.0.1
+ 
++  https-proxy-agent@5.0.1(supports-color@8.1.1):
++    dependencies:
++      agent-base: 6.0.2(supports-color@8.1.1)
++      debug: 4.4.3(supports-color@8.1.1)
++    transitivePeerDependencies:
++      - supports-color
++
+   human-signals@2.1.0: {}
+ 
+   human-signals@8.0.1: {}
+ 
+   husky@9.1.7: {}
+ 
+   iceberg-js@0.8.1: {}
+ 
+   iconv-lite@0.7.3:
+     dependencies:
+@@ -6980,20 +7910,26 @@ snapshots:
+ 
+   ieee754@1.2.1: {}
+ 
+   ignore@5.3.2: {}
+ 
+   import-fresh@3.3.1:
+     dependencies:
+       parent-module: 1.0.1
+       resolve-from: 4.0.0
+ 
++  import-in-the-middle@3.3.3:
++    dependencies:
++      cjs-module-lexer: 2.2.0
++      es-module-lexer: 2.3.1
++      module-details-from-path: 1.0.4
++
+   import-local@3.2.0:
+     dependencies:
+       pkg-dir: 4.2.0
+       resolve-cwd: 3.0.0
+ 
+   imurmurhash@0.1.4: {}
+ 
+   inflight@1.0.6:
+     dependencies:
+       once: 1.4.0
+@@ -7034,20 +7970,24 @@ snapshots:
+   is-number@7.0.0: {}
+ 
+   is-obj@2.0.0: {}
+ 
+   is-obj@3.0.0: {}
+ 
+   is-plain-obj@4.1.0: {}
+ 
+   is-promise@4.0.0: {}
+ 
++  is-reference@1.2.1:
++    dependencies:
++      '@types/estree': 1.0.9
++
+   is-regexp@3.1.0: {}
+ 
+   is-stream@2.0.1: {}
+ 
+   is-stream@4.0.1: {}
+ 
+   is-unicode-supported@0.1.0: {}
+ 
+   is-unicode-supported@1.3.0: {}
+ 
+@@ -7594,20 +8534,24 @@ snapshots:
+ 
+   locate-path@3.0.0:
+     dependencies:
+       p-locate: 3.0.0
+       path-exists: 3.0.0
+ 
+   locate-path@5.0.0:
+     dependencies:
+       p-locate: 4.1.0
+ 
++  locate-path@6.0.0:
++    dependencies:
++      p-locate: 5.0.0
++
+   lodash.includes@4.3.0: {}
+ 
+   lodash.isboolean@3.0.3: {}
+ 
+   lodash.isinteger@4.0.4: {}
+ 
+   lodash.isnumber@3.0.3: {}
+ 
+   lodash.isplainobject@4.0.6: {}
+ 
+@@ -7668,20 +8612,22 @@ snapshots:
+   memfs@3.5.3:
+     dependencies:
+       fs-monkey: 1.1.0
+ 
+   merge-descriptors@2.0.0: {}
+ 
+   merge-stream@2.0.0: {}
+ 
+   merge2@1.4.1: {}
+ 
++  meriyah@6.1.4: {}
++
+   micromatch@4.0.8:
+     dependencies:
+       braces: 3.0.3
+       picomatch: 2.3.2
+ 
+   mime-db@1.52.0: {}
+ 
+   mime-db@1.54.0: {}
+ 
+   mime-types@2.1.35:
+@@ -7707,20 +8653,22 @@ snapshots:
+       brace-expansion: 1.1.18
+ 
+   minimatch@9.0.9:
+     dependencies:
+       brace-expansion: 2.1.4
+ 
+   minimist@1.2.8: {}
+ 
+   minipass@7.1.3: {}
+ 
++  module-details-from-path@1.0.4: {}
++
+   ms@2.1.3: {}
+ 
+   multer@2.2.0:
+     dependencies:
+       append-field: 1.0.0
+       busboy: 1.6.0
+       concat-stream: 2.0.0
+       type-is: 1.6.18
+ 
+   mute-stream@2.0.0: {}
+@@ -7728,51 +8676,60 @@ snapshots:
+   nanoid@3.3.16: {}
+ 
+   napi-postinstall@0.3.4: {}
+ 
+   natural-compare@1.4.0: {}
+ 
+   negotiator@1.0.0: {}
+ 
+   neo-async@2.6.2: {}
+ 
+-  next@16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
++  next@16.3.0(@babel/core@7.29.7(supports-color@8.1.1))(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+     dependencies:
+       '@next/env': 16.3.0
+       '@swc/helpers': 0.5.15
+       baseline-browser-mapping: 2.11.12
+       caniuse-lite: 1.0.30001806
+       postcss: 8.5.25
+       react: 19.2.8
+       react-dom: 19.2.8(react@19.2.8)
+       styled-jsx: 5.1.6(@babel/core@7.29.7(supports-color@8.1.1))(react@19.2.8)
+     optionalDependencies:
+       '@next/swc-darwin-arm64': 16.3.0
+       '@next/swc-darwin-x64': 16.3.0
+       '@next/swc-linux-arm64-gnu': 16.3.0
+       '@next/swc-linux-arm64-musl': 16.3.0
+       '@next/swc-linux-x64-gnu': 16.3.0
+       '@next/swc-linux-x64-musl': 16.3.0
+       '@next/swc-win32-arm64-msvc': 16.3.0
+       '@next/swc-win32-x64-msvc': 16.3.0
++      '@opentelemetry/api': 1.9.1
+       sharp: 0.35.3(@types/node@26.1.2)
+     transitivePeerDependencies:
+       - '@babel/core'
+       - '@types/node'
+       - babel-plugin-macros
+ 
++  node-abi@3.94.0:
++    dependencies:
++      semver: 7.8.5
++
+   node-abort-controller@3.1.1: {}
+ 
+   node-emoji@1.11.0:
+     dependencies:
+       lodash: 4.18.1
+ 
++  node-fetch@2.7.0:
++    dependencies:
++      whatwg-url: 5.0.0
++
+   node-int64@0.4.0: {}
+ 
+   node-releases@2.0.51: {}
+ 
+   normalize-path@3.0.0: {}
+ 
+   npm-run-path@4.0.1:
+     dependencies:
+       path-key: 3.1.1
+ 
+@@ -7853,20 +8810,24 @@ snapshots:
+       yocto-queue: 0.1.0
+ 
+   p-locate@3.0.0:
+     dependencies:
+       p-limit: 2.3.0
+ 
+   p-locate@4.1.0:
+     dependencies:
+       p-limit: 2.3.0
+ 
++  p-locate@5.0.0:
++    dependencies:
++      p-limit: 3.1.0
++
+   p-try@2.2.0: {}
+ 
+   package-json-from-dist@1.0.1: {}
+ 
+   parent-module@1.0.1:
+     dependencies:
+       callsites: 3.1.0
+ 
+   parse-json@5.2.0:
+     dependencies:
+@@ -7961,30 +8922,34 @@ snapshots:
+     dependencies:
+       '@jest/schemas': 30.4.1
+       ansi-styles: 5.2.0
+       react-is-18: react-is@18.3.1
+       react-is-19: react-is@19.2.8
+ 
+   pretty-ms@9.3.0:
+     dependencies:
+       parse-ms: 4.0.0
+ 
++  progress@2.0.3: {}
++
+   prompts@2.4.2:
+     dependencies:
+       kleur: 3.0.3
+       sisteransi: 1.0.5
+ 
+   proxy-addr@2.0.7:
+     dependencies:
+       forwarded: 0.2.0
+       ipaddr.js: 1.9.1
+ 
++  proxy-from-env@1.1.0: {}
++
+   punycode@2.3.1: {}
+ 
+   pure-rand@7.0.1: {}
+ 
+   qs@6.14.2:
+     dependencies:
+       side-channel: 1.1.1
+ 
+   qs@6.15.3:
+     dependencies:
+@@ -8028,20 +8993,27 @@ snapshots:
+       source-map: 0.6.1
+       tiny-invariant: 1.3.3
+       tslib: 2.8.1
+ 
+   reflect-metadata@0.2.2: {}
+ 
+   require-directory@2.1.1: {}
+ 
+   require-from-string@2.0.2: {}
+ 
++  require-in-the-middle@8.0.1(supports-color@8.1.1):
++    dependencies:
++      debug: 4.4.3(supports-color@8.1.1)
++      module-details-from-path: 1.0.4
++    transitivePeerDependencies:
++      - supports-color
++
+   reselect@5.2.0: {}
+ 
+   resolve-cwd@3.0.0:
+     dependencies:
+       resolve-from: 5.0.0
+ 
+   resolve-from@4.0.0: {}
+ 
+   resolve-from@5.0.0: {}
+ 
+@@ -8071,20 +9043,52 @@ snapshots:
+       '@rolldown/binding-linux-arm64-musl': 1.2.1
+       '@rolldown/binding-linux-ppc64-gnu': 1.2.1
+       '@rolldown/binding-linux-s390x-gnu': 1.2.1
+       '@rolldown/binding-linux-x64-gnu': 1.2.1
+       '@rolldown/binding-linux-x64-musl': 1.2.1
+       '@rolldown/binding-openharmony-arm64': 1.2.1
+       '@rolldown/binding-wasm32-wasi': 1.2.1
+       '@rolldown/binding-win32-arm64-msvc': 1.2.1
+       '@rolldown/binding-win32-x64-msvc': 1.2.1
+ 
++  rollup@4.62.4:
++    dependencies:
++      '@types/estree': 1.0.9
++    optionalDependencies:
++      '@napi-rs/lzma-linux-x64-gnu': 1.5.1
++      '@rollup/rollup-android-arm-eabi': 4.62.4
++      '@rollup/rollup-android-arm64': 4.62.4
++      '@rollup/rollup-darwin-arm64': 4.62.4
++      '@rollup/rollup-darwin-x64': 4.62.4
++      '@rollup/rollup-freebsd-arm64': 4.62.4
++      '@rollup/rollup-freebsd-x64': 4.62.4
++      '@rollup/rollup-linux-arm-gnueabihf': 4.62.4
++      '@rollup/rollup-linux-arm-musleabihf': 4.62.4
++      '@rollup/rollup-linux-arm64-gnu': 4.62.4
++      '@rollup/rollup-linux-arm64-musl': 4.62.4
++      '@rollup/rollup-linux-loong64-gnu': 4.62.4
++      '@rollup/rollup-linux-loong64-musl': 4.62.4
++      '@rollup/rollup-linux-ppc64-gnu': 4.62.4
++      '@rollup/rollup-linux-ppc64-musl': 4.62.4
++      '@rollup/rollup-linux-riscv64-gnu': 4.62.4
++      '@rollup/rollup-linux-riscv64-musl': 4.62.4
++      '@rollup/rollup-linux-s390x-gnu': 4.62.4
++      '@rollup/rollup-linux-x64-gnu': 4.62.4
++      '@rollup/rollup-linux-x64-musl': 4.62.4
++      '@rollup/rollup-openbsd-x64': 4.62.4
++      '@rollup/rollup-openharmony-arm64': 4.62.4
++      '@rollup/rollup-win32-arm64-msvc': 4.62.4
++      '@rollup/rollup-win32-ia32-msvc': 4.62.4
++      '@rollup/rollup-win32-x64-gnu': 4.62.4
++      '@rollup/rollup-win32-x64-msvc': 4.62.4
++      fsevents: 2.3.3
++
+   router@2.2.0(supports-color@8.1.1):
+     dependencies:
+       debug: 4.4.3(supports-color@8.1.1)
+       depd: 2.0.0
+       is-promise: 4.0.0
+       parseurl: 1.3.3
+       path-to-regexp: 8.4.2
+     transitivePeerDependencies:
+       - supports-color
+ 
+@@ -8114,20 +9118,22 @@ snapshots:
+       ajv: 6.15.0
+       ajv-keywords: 3.5.2(ajv@6.15.0)
+ 
+   schema-utils@4.3.3:
+     dependencies:
+       '@types/json-schema': 7.0.15
+       ajv: 8.20.0
+       ajv-formats: 2.1.1(ajv@8.20.0)
+       ajv-keywords: 5.1.0(ajv@8.20.0)
+ 
++  semifies@1.0.0: {}
++
+   semver@6.3.1: {}
+ 
+   semver@7.8.5: {}
+ 
+   send@1.2.1(supports-color@8.1.1):
+     dependencies:
+       debug: 4.4.3(supports-color@8.1.1)
+       encodeurl: 2.0.0
+       escape-html: 1.0.3
+       etag: 1.8.1
+@@ -8287,20 +9293,24 @@ snapshots:
+   source-map@0.7.4: {}
+ 
+   sprintf-js@1.0.3: {}
+ 
+   stack-utils@2.0.6:
+     dependencies:
+       escape-string-regexp: 2.0.0
+ 
+   stackback@0.0.2: {}
+ 
++  stacktrace-parser@0.1.11:
++    dependencies:
++      type-fest: 0.7.1
++
+   statuses@2.0.2: {}
+ 
+   std-env@4.2.0: {}
+ 
+   stdin-discarder@0.2.2: {}
+ 
+   streamsearch@1.1.0: {}
+ 
+   string-length@4.0.2:
+     dependencies:
+@@ -8432,20 +9442,22 @@ snapshots:
+       is-number: 7.0.0
+ 
+   toidentifier@1.0.1: {}
+ 
+   token-types@6.1.2:
+     dependencies:
+       '@borewit/text-codec': 0.2.2
+       '@tokenizer/token': 0.3.0
+       ieee754: 1.2.1
+ 
++  tr46@0.0.3: {}
++
+   ts-jest@29.4.12(@babel/core@7.29.7(supports-color@8.1.1))(@jest/transform@30.4.1(supports-color@8.1.1))(@jest/types@30.4.1)(babel-jest@30.4.1(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(esbuild@0.28.1)(jest-util@30.4.1)(jest@30.4.2(@types/node@26.1.2)(supports-color@8.1.1))(typescript@6.0.3):
+     dependencies:
+       bs-logger: 0.2.6
+       fast-json-stable-stringify: 2.1.0
+       handlebars: 4.7.9
+       jest: 30.4.2(@types/node@26.1.2)(supports-color@8.1.1)
+       json5: 2.2.3
+       lodash.memoize: 4.1.2
+       make-error: 1.3.6
+       semver: 7.8.5
+@@ -8485,20 +9497,22 @@ snapshots:
+       esbuild: 0.28.1
+     optionalDependencies:
+       fsevents: 2.3.3
+ 
+   tw-animate-css@1.4.0: {}
+ 
+   type-detect@4.0.8: {}
+ 
+   type-fest@0.21.3: {}
+ 
++  type-fest@0.7.1: {}
++
+   type-fest@4.41.0: {}
+ 
+   type-is@1.6.18:
+     dependencies:
+       media-typer: 0.3.0
+       mime-types: 2.1.35
+ 
+   type-is@2.1.0:
+     dependencies:
+       content-type: 2.0.0
+@@ -8593,21 +9607,21 @@ snapshots:
+       rolldown: 1.2.1
+       tinyglobby: 0.2.17
+     optionalDependencies:
+       '@types/node': 26.1.2
+       esbuild: 0.28.1
+       fsevents: 2.3.3
+       jiti: 2.7.0
+       terser: 5.49.0
+       tsx: 4.23.1
+ 
+-  vitest@4.1.10(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)):
++  vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@26.1.2)(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)):
+     dependencies:
+       '@vitest/expect': 4.1.10
+       '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1))
+       '@vitest/pretty-format': 4.1.10
+       '@vitest/runner': 4.1.10
+       '@vitest/snapshot': 4.1.10
+       '@vitest/spy': 4.1.10
+       '@vitest/utils': 4.1.10
+       es-module-lexer: 2.3.1
+       expect-type: 1.4.0
+@@ -8616,36 +9630,39 @@ snapshots:
+       pathe: 2.0.3
+       picomatch: 4.0.5
+       std-env: 4.2.0
+       tinybench: 2.9.0
+       tinyexec: 1.3.0
+       tinyglobby: 0.2.17
+       tinyrainbow: 3.1.1
+       vite: 8.2.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(tsx@4.23.1)
+       why-is-node-running: 2.3.0
+     optionalDependencies:
++      '@opentelemetry/api': 1.9.1
+       '@types/node': 26.1.2
+     transitivePeerDependencies:
+       - msw
+ 
+   walker@1.0.8:
+     dependencies:
+       makeerror: 1.0.12
+ 
+   watchpack@2.5.2:
+     dependencies:
+       graceful-fs: 4.2.11
+ 
+   wcwidth@1.0.1:
+     dependencies:
+       defaults: 1.0.4
+ 
++  webidl-conversions@3.0.1: {}
++
+   webpack-node-externals@3.0.0: {}
+ 
+   webpack-sources@3.5.1: {}
+ 
+   webpack@5.106.2(esbuild@0.28.1)(lightningcss@1.33.0)(postcss@8.5.25)(uglify-js@3.19.3):
+     dependencies:
+       '@types/eslint-scope': 3.7.7
+       '@types/estree': 1.0.9
+       '@types/json-schema': 7.0.15
+       '@webassemblyjs/ast': 1.14.1
+@@ -8676,20 +9693,25 @@ snapshots:
+       - '@swc/html'
+       - clean-css
+       - cssnano
+       - csso
+       - esbuild
+       - html-minifier-terser
+       - lightningcss
+       - postcss
+       - uglify-js
+ 
++  whatwg-url@5.0.0:
++    dependencies:
++      tr46: 0.0.3
++      webidl-conversions: 3.0.1
++
+   which@2.0.2:
+     dependencies:
+       isexe: 2.0.0
+ 
+   which@4.0.0:
+     dependencies:
+       isexe: 3.1.5
+ 
+   why-is-node-running@2.3.0:
+     dependencies:
+diff --git a/pnpm-workspace.yaml b/pnpm-workspace.yaml
+index a3cc7ae..64e193f 100644
+--- a/pnpm-workspace.yaml
++++ b/pnpm-workspace.yaml
+@@ -1,12 +1,14 @@
+ packages:
+   - "apps/*"
+   - "packages/*"
+ allowBuilds:
+   '@nestjs/core': true
+   esbuild: true
+   sharp: true
+   unrs-resolver: true
+   husky: true
++  '@sentry/node-cpu-profiler': true
++  '@sentry/cli': true
+ overrides:
+   postcss: ^8.5.23
+   sharp: ^0.35.0

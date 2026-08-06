@@ -1,0 +1,2182 @@
+# Review package: 91e2157..187e529
+
+## Commits
+187e529 style(web): Tailwind+shadcn restyle for inventory pages
+
+## Files changed
+ apps/web/app/(app)/kartu-stok/page.tsx             | 381 ++++++-------------
+ apps/web/app/(app)/products/page.tsx               | 412 +++++++++++----------
+ apps/web/app/(app)/stock-opname/[id]/page.tsx      | 127 ++++---
+ apps/web/app/(app)/stock-opname/new/page.tsx       | 152 ++++----
+ apps/web/app/(app)/stock-opname/page.tsx           | 102 ++---
+ .../web/app/(app)/stock/destructions/[id]/page.tsx | 128 +++----
+ .../stock/destructions/new/destruction-form.tsx    | 141 +++----
+ apps/web/app/(app)/stock/destructions/new/page.tsx |  30 +-
+ apps/web/app/(app)/stock/destructions/page.tsx     | 103 +++---
+ 9 files changed, 703 insertions(+), 873 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/(app)/kartu-stok/page.tsx b/apps/web/app/(app)/kartu-stok/page.tsx
+index 4048f00..5854051 100644
+--- a/apps/web/app/(app)/kartu-stok/page.tsx
++++ b/apps/web/app/(app)/kartu-stok/page.tsx
+@@ -1,46 +1,46 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+ import { getKartuStokRows } from './actions'
+ import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../../lib/kartu-stok'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ // Build a query string that preserves active filters and sets the view.
+ function viewQuery(
+   filters: { q?: string; date_from?: string; date_to?: string; regulatory_category?: string },
+   view: string
+ ): string {
+   const params = new URLSearchParams()
+   if (filters.q) params.set('q', filters.q)
+   if (filters.date_from) params.set('date_from', filters.date_from)
+   if (filters.date_to) params.set('date_to', filters.date_to)
+   if (filters.regulatory_category) params.set('regulatory_category', filters.regulatory_category)
+   params.set('view', view)
+   return params.toString()
+ }
+ 
+-function typeColor(type: string): string {
+-  switch (type) {
+-    case 'IN': return '#0d9488'
+-    case 'OUT': return '#ef4444'
+-    case 'ADJUSTMENT': return '#f59e0b'
+-    case 'VOID': return '#64748b'
+-    default: return '#64748b'
+-  }
++const typeBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  IN: 'default',
++  OUT: 'destructive',
++  ADJUSTMENT: 'outline',
++  VOID: 'secondary',
+ }
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString('id-ID', { dateStyle: 'medium', hour: '2-digit', minute: '2-digit' })
+ }
+ 
+ interface PageProps {
+@@ -72,51 +72,30 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
+         .eq('status', 'APPROVED')
+         .order('approved_at', { ascending: true })
+         .limit(1)
+       hasAnchor = !!data
+     }
+   }
+ 
+   // Empty state — no approved opname
+   if (!hasAnchor) {
+     return (
+-      <section>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Kartu Stok</h1>
+-        <div
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 32,
+-            textAlign: 'center',
+-          }}
+-        >
+-          <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>
++      <section className="space-y-6">
++        <h1 className="text-xl font-semibold text-slate-900">Kartu Stok</h1>
++        <div className="rounded-xl bg-card px-6 py-12 text-center ring-1 ring-foreground/10">
++          <p className="mb-4 text-sm text-slate-500">
+             No approved stock opname found for this store.
+           </p>
+-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 24 }}>
++          <p className="mb-6 text-xs text-slate-500">
+             Run an initial stock opname to seed the opening balance.
+           </p>
+-          <Link
+-            href="/stock-opname/new"
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 20px',
+-              borderRadius: 6,
+-              textDecoration: 'none',
+-              fontSize: 14,
+-              display: 'inline-block',
+-            }}
+-          >
+-            New Stock Opname
+-          </Link>
++          <Button render={<Link href="/stock-opname/new" />}>New Stock Opname</Button>
+         </div>
+       </section>
+     )
+   }
+ 
+   // Load data
+   const { rows: rawRows } = await getKartuStokRows(filters)
+   const rows = buildKartuStokRows(rawRows)
+ 
+   // Load products for display names
+@@ -140,306 +119,190 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
+       const byBatch: Record<string, typeof rows> = {}
+       for (const row of productRows) {
+         const key = row.batch_number || '(no batch)'
+         if (!byBatch[key]) byBatch[key] = []
+         byBatch[key].push(row)
+       }
+       batchesByProduct[productId] = byBatch
+     }
+   }
+ 
++  const selectClass =
++    'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
++
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Kartu Stok</h1>
+-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Kartu Stok</h1>
++        <span className="text-xs text-slate-500">
+           {rows.length} movement{rows.length !== 1 ? 's' : ''} found
+         </span>
+       </div>
+ 
+       {/* Filters */}
+       <form
+         method="GET"
+-        style={{
+-          display: 'flex',
+-          gap: 12,
+-          marginBottom: 20,
+-          flexWrap: 'wrap',
+-          alignItems: 'flex-end',
+-          background: 'var(--card)',
+-          padding: 16,
+-          borderRadius: 8,
+-          border: '1px solid var(--border)',
+-        }}
++        className="flex flex-wrap items-end gap-4 rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
+       >
+-        <div>
+-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Product</label>
+-          <input
++        <div className="grid gap-1.5">
++          <Label htmlFor="q">Product</Label>
++          <Input
++            id="q"
+             type="text"
+             name="q"
+             defaultValue={filters.q ?? ''}
+             placeholder="Search by product name or SKU"
+-            style={{
+-              padding: '6px 12px',
+-              borderRadius: 6,
+-              border: '1px solid var(--border)',
+-              fontSize: 14,
+-              background: 'var(--surface)',
+-              minWidth: 200,
+-            }}
++            className="min-w-48"
+           />
+         </div>
+-        <div>
+-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Date From</label>
+-          <input
+-            type="date"
+-            name="date_from"
+-            defaultValue={filters.date_from ?? ''}
+-            style={{
+-              padding: '6px 12px',
+-              borderRadius: 6,
+-              border: '1px solid var(--border)',
+-              fontSize: 14,
+-              background: 'var(--surface)',
+-            }}
+-          />
++        <div className="grid gap-1.5">
++          <Label htmlFor="date_from">Date From</Label>
++          <Input id="date_from" type="date" name="date_from" defaultValue={filters.date_from ?? ''} />
+         </div>
+-        <div>
+-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Date To</label>
+-          <input
+-            type="date"
+-            name="date_to"
+-            defaultValue={filters.date_to ?? ''}
+-            style={{
+-              padding: '6px 12px',
+-              borderRadius: 6,
+-              border: '1px solid var(--border)',
+-              fontSize: 14,
+-              background: 'var(--surface)',
+-            }}
+-          />
++        <div className="grid gap-1.5">
++          <Label htmlFor="date_to">Date To</Label>
++          <Input id="date_to" type="date" name="date_to" defaultValue={filters.date_to ?? ''} />
+         </div>
+-        {/* Regulatory category filter — requires products.regulatory_category column */}
+-        <div>
+-          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
++        <div className="grid gap-1.5">
++          <Label htmlFor="regulatory_category">Regulatory Category</Label>
+           <select
++            id="regulatory_category"
+             name="regulatory_category"
+             defaultValue={filters.regulatory_category ?? ''}
+-            style={{
+-              padding: '6px 12px',
+-              borderRadius: 6,
+-              border: '1px solid var(--border)',
+-              fontSize: 14,
+-              background: 'var(--surface)',
+-            }}
++            className={selectClass}
+           >
+             <option value="">All</option>
+             {REGULATORY_CATEGORIES.map((c) => (
+               <option key={c} value={c}>{c}</option>
+             ))}
+           </select>
+         </div>
+-        <div>
+-          <button
+-            type="submit"
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '6px 16px',
+-              borderRadius: 6,
+-              border: 'none',
+-              fontSize: 14,
+-              cursor: 'pointer',
+-            }}
+-          >
++        <div className="flex items-center gap-2">
++          <Button type="submit" variant="outline">
+             Filter
+-          </button>
+-        </div>
+-        {filters.q || filters.date_from || filters.date_to || filters.regulatory_category ? (
+-          <div>
+-            <a
+-              href="/kartu-stok"
+-              style={{
+-                color: 'var(--text-secondary)',
+-                fontSize: 13,
+-                textDecoration: 'none',
+-              }}
+-            >
++          </Button>
++          {filters.q || filters.date_from || filters.date_to || filters.regulatory_category ? (
++            <Link href="/kartu-stok" className="text-xs text-slate-500 hover:text-slate-700">
+               Clear
+-            </a>
+-          </div>
+-        ) : null}
++            </Link>
++          ) : null}
++        </div>
+       </form>
+ 
+       {/* View toggle: product-grouped (default) or batch-grouped */}
+-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+-        <a
+-          href={`/kartu-stok?${viewQuery(filters, 'product')}`}
+-          style={{
+-            padding: '6px 14px',
+-            borderRadius: 6,
+-            fontSize: 13,
+-            textDecoration: 'none',
+-            background: view === 'product' ? 'var(--primary)' : 'var(--card)',
+-            color: view === 'product' ? '#fff' : 'var(--text-secondary)',
+-            border: '1px solid var(--border)',
+-          }}
++      <div className="flex gap-2">
++        <Button
++          render={<Link href={`/kartu-stok?${viewQuery(filters, 'product')}`} />}
++          variant={view === 'product' ? 'default' : 'outline'}
++          size="sm"
+         >
+           By Product
+-        </a>
+-        <a
+-          href={`/kartu-stok?${viewQuery(filters, 'batch')}`}
+-          style={{
+-            padding: '6px 14px',
+-            borderRadius: 6,
+-            fontSize: 13,
+-            textDecoration: 'none',
+-            background: view === 'batch' ? 'var(--primary)' : 'var(--card)',
+-            color: view === 'batch' ? '#fff' : 'var(--text-secondary)',
+-            border: '1px solid var(--border)',
+-          }}
++        </Button>
++        <Button
++          render={<Link href={`/kartu-stok?${viewQuery(filters, 'batch')}`} />}
++          variant={view === 'batch' ? 'default' : 'outline'}
++          size="sm"
+         >
+           By Batch
+-        </a>
++        </Button>
+       </div>
+ 
+       {/* Table */}
+       {rows.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No movements found for the selected filters.</p>
++        <p className="text-sm text-slate-500">No movements found for the selected filters.</p>
+       ) : (
+-        <div style={{ background: 'var(--card)', borderRadius: 8, border: '1px solid var(--border)', overflow: 'hidden' }}>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+           {Object.entries(grouped).map(([productId, productRows]) => (
+-            <div key={productId} style={{ borderTop: '1px solid var(--border)' }}>
++            <div key={productId}>
+               {/* Product header */}
+-              <div
+-                style={{
+-                  padding: '10px 16px',
+-                  background: 'var(--surface)',
+-                  display: 'flex',
+-                  justifyContent: 'space-between',
+-                  alignItems: 'center',
+-                }}
+-              >
+-                <span style={{ fontWeight: 600, fontSize: 14 }}>
++              <div className="flex items-center justify-between bg-slate-50 px-4 py-2.5">
++                <span className="text-sm font-medium text-slate-900">
+                   {productMap.get(productId) ?? productId}
+                 </span>
+-                <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
++                <span className="text-xs text-slate-500">
+                   {productRows.length} row{productRows.length !== 1 ? 's' : ''}
+                 </span>
+               </div>
+ 
+               {/* Batch sub-groups (batch view) */}
+               {view === 'batch' && (
+                 <div>
+                   {Object.entries(batchesByProduct[productId] || {}).map(([batchKey, batchRows]) => (
+                     <div key={batchKey}>
+-                      <div
+-                        style={{
+-                          padding: '6px 16px',
+-                          background: 'var(--surface)',
+-                          fontSize: 12,
+-                          fontWeight: 600,
+-                          color: 'var(--text-secondary)',
+-                          borderTop: '1px solid var(--border)',
+-                        }}
+-                      >
++                      <div className="border-t border-border/60 bg-slate-50 px-4 py-1.5 text-xs font-medium text-slate-500">
+                         Batch: {batchKey}
+                       </div>
+-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+-                        <thead>
+-                          <tr style={{ background: 'var(--surface)' }}>
+-                            <th style={thStyle}>Date</th>
+-                            <th style={thStyle}>Type</th>
+-                            <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
+-                            <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
+-                          </tr>
+-                        </thead>
+-                        <tbody>
++                      <Table>
++                        <TableHeader className="bg-slate-50">
++                          <TableRow>
++                            <TableHead>Date</TableHead>
++                            <TableHead>Type</TableHead>
++                            <TableHead className="text-right">Qty</TableHead>
++                            <TableHead className="text-right">Balance</TableHead>
++                          </TableRow>
++                        </TableHeader>
++                        <TableBody>
+                           {batchRows.map((row, i) => (
+-                            <tr
+-                              key={`${row.source_id}-${i}`}
+-                              style={{ borderTop: '1px solid var(--border)' }}
+-                            >
+-                              <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
+-                              <td style={tdStyle}>
+-                                <span
+-                                  style={{
+-                                    background: typeColor(row.type),
+-                                    color: '#fff',
+-                                    fontSize: 11,
+-                                    fontWeight: 600,
+-                                    padding: '2px 8px',
+-                                    borderRadius: 4,
+-                                  }}
+-                                >
++                            <TableRow key={`${row.source_id}-${i}`} className="h-10">
++                              <TableCell>{parseDate(row.occurred_at)}</TableCell>
++                              <TableCell>
++                                <Badge variant={typeBadge[row.type] || 'secondary'}>
+                                   {formatKartuStokMovement(row.type)}
+-                                </span>
+-                              </td>
+-                              <td style={{ ...tdStyle, textAlign: 'right' }}>
++                                </Badge>
++                              </TableCell>
++                              <TableCell className="text-right tabular-nums">
+                                 {row.qty > 0 ? `+${row.qty}` : row.qty}
+-                              </td>
+-                              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
++                              </TableCell>
++                              <TableCell className="text-right font-medium tabular-nums">
+                                 {row.balance.toFixed(3)}
+-                              </td>
+-                            </tr>
++                              </TableCell>
++                            </TableRow>
+                           ))}
+-                        </tbody>
+-                      </table>
++                        </TableBody>
++                      </Table>
+                     </div>
+                   ))}
+                 </div>
+               )}
+ 
+               {/* Flat rows (product view) */}
+               {view !== 'batch' && (
+-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+-                  <thead>
+-                    <tr style={{ background: 'var(--surface)' }}>
+-                      <th style={thStyle}>Date</th>
+-                      <th style={thStyle}>Type</th>
+-                      <th style={thStyle}>Batch</th>
+-                      <th style={thStyle}>Expiry</th>
+-                      <th style={{ ...thStyle, textAlign: 'right' }}>Qty</th>
+-                      <th style={{ ...thStyle, textAlign: 'right' }}>Balance</th>
+-                    </tr>
+-                  </thead>
+-                  <tbody>
++                <Table>
++                  <TableHeader className="bg-slate-50">
++                    <TableRow>
++                      <TableHead>Date</TableHead>
++                      <TableHead>Type</TableHead>
++                      <TableHead>Batch</TableHead>
++                      <TableHead>Expiry</TableHead>
++                      <TableHead className="text-right">Qty</TableHead>
++                      <TableHead className="text-right">Balance</TableHead>
++                    </TableRow>
++                  </TableHeader>
++                  <TableBody>
+                     {productRows.map((row, i) => (
+-                      <tr
+-                        key={`${row.source_id}-${i}`}
+-                        style={{ borderTop: '1px solid var(--border)' }}
+-                      >
+-                        <td style={tdStyle}>{parseDate(row.occurred_at)}</td>
+-                        <td style={tdStyle}>
+-                          <span
+-                            style={{
+-                              background: typeColor(row.type),
+-                              color: '#fff',
+-                              fontSize: 11,
+-                              fontWeight: 600,
+-                              padding: '2px 8px',
+-                              borderRadius: 4,
+-                            }}
+-                          >
++                      <TableRow key={`${row.source_id}-${i}`} className="h-10">
++                        <TableCell>{parseDate(row.occurred_at)}</TableCell>
++                        <TableCell>
++                          <Badge variant={typeBadge[row.type] || 'secondary'}>
+                             {formatKartuStokMovement(row.type)}
+-                          </span>
+-                        </td>
+-                        <td style={tdStyle}>{row.batch_number || '-'}</td>
+-                        <td style={tdStyle}>{row.expiry_date ?? '-'}</td>
+-                        <td style={{ ...tdStyle, textAlign: 'right' }}>
++                          </Badge>
++                        </TableCell>
++                        <TableCell>{row.batch_number || '-'}</TableCell>
++                        <TableCell>{row.expiry_date ?? '-'}</TableCell>
++                        <TableCell className="text-right tabular-nums">
+                           {row.qty > 0 ? `+${row.qty}` : row.qty}
+-                        </td>
+-                        <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
++                        </TableCell>
++                        <TableCell className="text-right font-medium tabular-nums">
+                           {row.balance.toFixed(3)}
+-                        </td>
+-                      </tr>
++                        </TableCell>
++                      </TableRow>
+                     ))}
+-                  </tbody>
+-                </table>
++                  </TableBody>
++                </Table>
+               )}
+             </div>
+           ))}
+         </div>
+       )}
+     </section>
+   )
+ }
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/products/page.tsx b/apps/web/app/(app)/products/page.tsx
+index cdbed1b..8f12793 100644
+--- a/apps/web/app/(app)/products/page.tsx
++++ b/apps/web/app/(app)/products/page.tsx
+@@ -1,218 +1,254 @@
+ import { createClient } from '../../../utils/supabase/server'
+ import { getUserRole } from '../../../utils/auth'
+ import { createProduct, updateProduct } from './actions'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Card,
++  CardContent,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ const CATEGORIES = ['BEBAS', 'BEBAS_TERBATAS', 'KERAS', 'PSIKOTROPIKA', 'NARKOTIKA']
+ 
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
++const catClass: Record<string, string> = {
++  BEBAS: 'bg-teal-600 text-white border-teal-600',
++  BEBAS_TERBATAS: 'bg-amber-500 text-white border-amber-500',
++  KERAS: 'bg-red-500 text-white border-red-500',
++  PSIKOTROPIKA: 'bg-purple-500 text-white border-purple-500',
++  NARKOTIKA: 'bg-red-700 text-white border-red-700',
+ }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+ 
+-const fieldStyle: React.CSSProperties = {
+-  padding: '6px 12px',
+-  borderRadius: 6,
+-  border: '1px solid var(--border)',
+-  fontSize: 14,
+-  background: 'var(--surface)',
+-  width: '100%',
+-  boxSizing: 'border-box',
+-}
+-const boxStyle: React.CSSProperties = {
+-  background: 'var(--card)',
+-  padding: 16,
+-  border: '1px solid var(--border)',
+-  borderRadius: 8,
+-  marginBottom: 20,
+-}
+-
+-function catColor(cat: string) {
+-  switch (cat) {
+-    case 'BEBAS': return '#0d9488'
+-    case 'BEBAS_TERBATAS': return '#f59e0b'
+-    case 'KERAS': return '#ef4444'
+-    case 'PSIKOTROPIKA': return '#8b5cf6'
+-    case 'NARKOTIKA': return '#dc2626'
+-    default: return '#64748b'
+-  }
+-}
+-const catBadge = (cat: string) => ({
+-  background: catColor(cat),
+-  color: '#fff',
+-  fontSize: 11,
+-  fontWeight: 600,
+-  padding: '2px 8px',
+-  borderRadius: 4,
+-})
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+ 
+ export default async function ProductsPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   const canEdit = role === 'OWNER' || role === 'PHARMACIST' || role === 'INVENTORY'
+ 
+   const { data: products } = await supabase
+     .from('products')
+     .select('*')
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Products</h1>
++    <section className="space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">Products</h1>
+ 
+       {canEdit ? (
+-        <div style={boxStyle}>
+-          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Product</h2>
+-          <form action={createProduct} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-              <input name="name" required style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SKU</label>
+-              <input name="sku" required style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Base Unit</label>
+-              <input name="base_unit" required placeholder="tablet / ml" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Category</label>
+-              <input name="category" placeholder="e.g. Analgesic" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Min Stock</label>
+-              <input name="min_stock_level" type="number" defaultValue={0} style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Rack</label>
+-              <input name="rack_location" placeholder="A-2" style={fieldStyle} />
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
+-              <select name="regulatory_category" defaultValue="BEBAS" style={fieldStyle}>
+-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+-              </select>
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Fractional</label>
+-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+-                <input type="checkbox" name="allow_fractional" />
+-                Allow decimals
+-              </label>
+-            </div>
+-            <div>
+-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
+-              <input name="kfa_code" placeholder="e.g. 93000515" style={fieldStyle} />
+-              <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0' }}>SATUSEHAT: products without KFA are skipped from submission.</p>
+-            </div>
+-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+-              <button
+-                type="submit"
+-                style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}
+-              >
+-                Add Product
+-              </button>
+-            </div>
+-          </form>
+-        </div>
++        <Card>
++          <CardHeader>
++            <CardTitle className="text-base font-medium text-slate-900">New Product</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <form
++              action={createProduct}
++              className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4"
++            >
++              <div className="grid gap-1.5">
++                <Label htmlFor="name">Name</Label>
++                <Input id="name" name="name" required />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="sku">SKU</Label>
++                <Input id="sku" name="sku" required />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="base_unit">Base Unit</Label>
++                <Input id="base_unit" name="base_unit" required placeholder="tablet / ml" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="category">Category</Label>
++                <Input id="category" name="category" placeholder="e.g. Analgesic" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="min_stock_level">Min Stock</Label>
++                <Input id="min_stock_level" name="min_stock_level" type="number" defaultValue={0} />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="rack_location">Rack</Label>
++                <Input id="rack_location" name="rack_location" placeholder="A-2" />
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="regulatory_category">Regulatory Category</Label>
++                <select name="regulatory_category" defaultValue="BEBAS" className={selectClass}>
++                  {CATEGORIES.map((c) => (
++                    <option key={c} value={c}>{c}</option>
++                  ))}
++                </select>
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="kfa_code">KFA Code</Label>
++                <Input id="kfa_code" name="kfa_code" placeholder="e.g. 93000515" />
++                <p className="text-xs text-slate-500">
++                  SATUSEHAT: products without KFA are skipped from submission.
++                </p>
++              </div>
++              <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
++                <Label htmlFor="allow_fractional" className="flex items-center gap-2 text-sm">
++                  <input
++                    id="allow_fractional"
++                    type="checkbox"
++                    name="allow_fractional"
++                    className="size-4 rounded border-slate-300"
++                  />
++                  Allow decimals
++                </Label>
++                <Button type="submit" className="ml-auto">
++                  Add Product
++                </Button>
++              </div>
++            </form>
++          </CardContent>
++        </Card>
+       ) : null}
+ 
+       {!products || products.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No products yet</p>
++        <p className="text-sm text-slate-500">No products yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Name / SKU</th>
+-              <th style={thStyle}>Category</th>
+-              <th style={thStyle}>Base Unit</th>
+-              <th style={thStyle}>Min Stock</th>
+-              <th style={thStyle}>Rack</th>
+-              <th style={thStyle}>Fractional</th>
+-              <th style={thStyle}>KFA</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {products.map((p: any) => (
+-              <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <div style={{ fontWeight: 600 }}>{p.name}</div>
+-                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{p.sku}</div>
+-                </td>
+-                <td style={tdStyle}><span style={catBadge(p.regulatory_category)}>{p.regulatory_category}</span></td>
+-                <td style={tdStyle}>{p.base_unit}</td>
+-                <td style={tdStyle}>{p.min_stock_level}</td>
+-                <td style={tdStyle}>{p.rack_location || '-'}</td>
+-                <td style={tdStyle}>{p.allow_fractional ? 'Yes' : 'No'}</td>
+-                <td style={tdStyle}>{p.kfa_code || <span style={{ color: '#d97706' }}>none</span>}</td>
+-                {canEdit ? (
+-                  <td style={tdStyle}>
+-                    <details>
+-                      <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
+-                      <form action={updateProduct} style={{ display: 'grid', gap: 10, padding: '12px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
+-                        <input type="hidden" name="id" value={p.id} />
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
+-                          <input name="name" required defaultValue={p.name} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>SKU</label>
+-                          <input name="sku" required defaultValue={p.sku} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Base Unit</label>
+-                          <input name="base_unit" required defaultValue={p.base_unit} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Category</label>
+-                          <input name="category" defaultValue={p.category} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Min Stock</label>
+-                          <input name="min_stock_level" type="number" defaultValue={p.min_stock_level} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Rack</label>
+-                          <input name="rack_location" defaultValue={p.rack_location ?? ''} style={fieldStyle} />
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Regulatory Category</label>
+-                          <select name="regulatory_category" defaultValue={p.regulatory_category} style={fieldStyle}>
+-                            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+-                          </select>
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Fractional</label>
+-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
+-                            <input type="checkbox" name="allow_fractional" defaultChecked={p.allow_fractional} />
+-                            Allow decimals
+-                          </label>
+-                        </div>
+-                        <div>
+-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>KFA Code</label>
+-                          <input name="kfa_code" defaultValue={p.kfa_code ?? ''} placeholder="e.g. 93000515" style={fieldStyle} />
+-                        </div>
+-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+-                          <button
+-                            type="submit"
+-                            style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}
+-                          >
+-                            Save
+-                          </button>
+-                        </div>
+-                      </form>
+-                    </details>
+-                  </td>
+-                ) : null}
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Name / SKU</TableHead>
++                <TableHead>Category</TableHead>
++                <TableHead>Base Unit</TableHead>
++                <TableHead>Min Stock</TableHead>
++                <TableHead>Rack</TableHead>
++                <TableHead>Fractional</TableHead>
++                <TableHead>KFA</TableHead>
++                {canEdit ? <TableHead></TableHead> : null}
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {products.map((p: any) => (
++                <TableRow key={p.id} className="h-10">
++                  <TableCell>
++                    <div className="font-medium text-slate-900">{p.name}</div>
++                    <div className="text-xs text-slate-500">{p.sku}</div>
++                  </TableCell>
++                  <TableCell>
++                    <Badge variant="outline" className={catClass[p.regulatory_category] || ''}>
++                      {p.regulatory_category}
++                    </Badge>
++                  </TableCell>
++                  <TableCell>{p.base_unit}</TableCell>
++                  <TableCell>{p.min_stock_level}</TableCell>
++                  <TableCell>{p.rack_location || '-'}</TableCell>
++                  <TableCell>{p.allow_fractional ? 'Yes' : 'No'}</TableCell>
++                  <TableCell>
++                    {p.kfa_code || <span className="text-amber-600">none</span>}
++                  </TableCell>
++                  {canEdit ? (
++                    <TableCell>
++                      <details>
++                        <summary className="cursor-pointer text-sm text-primary">
++                          Edit
++                        </summary>
++                        <form
++                          action={updateProduct}
++                          className="grid gap-x-4 gap-y-3 py-3 sm:grid-cols-2 lg:grid-cols-4"
++                        >
++                          <input type="hidden" name="id" value={p.id} />
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`name-${p.id}`}>Name</Label>
++                            <Input id={`name-${p.id}`} name="name" required defaultValue={p.name} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`sku-${p.id}`}>SKU</Label>
++                            <Input id={`sku-${p.id}`} name="sku" required defaultValue={p.sku} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`base_unit-${p.id}`}>Base Unit</Label>
++                            <Input
++                              id={`base_unit-${p.id}`}
++                              name="base_unit"
++                              required
++                              defaultValue={p.base_unit}
++                            />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`category-${p.id}`}>Category</Label>
++                            <Input id={`category-${p.id}`} name="category" defaultValue={p.category} />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`min_stock_level-${p.id}`}>Min Stock</Label>
++                            <Input
++                              id={`min_stock_level-${p.id}`}
++                              name="min_stock_level"
++                              type="number"
++                              defaultValue={p.min_stock_level}
++                            />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`rack_location-${p.id}`}>Rack</Label>
++                            <Input
++                              id={`rack_location-${p.id}`}
++                              name="rack_location"
++                              defaultValue={p.rack_location ?? ''}
++                            />
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`regulatory_category-${p.id}`}>Regulatory Category</Label>
++                            <select
++                              name="regulatory_category"
++                              defaultValue={p.regulatory_category}
++                              className={selectClass}
++                            >
++                              {CATEGORIES.map((c) => (
++                                <option key={c} value={c}>{c}</option>
++                              ))}
++                            </select>
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`fractional-${p.id}`}>Fractional</Label>
++                            <label className="flex items-center gap-2">
++                              <input
++                                id={`fractional-${p.id}`}
++                                type="checkbox"
++                                name="allow_fractional"
++                                defaultChecked={p.allow_fractional}
++                                className="size-4 rounded border-slate-300"
++                              />
++                              Allow decimals
++                            </label>
++                          </div>
++                          <div className="grid gap-1.5">
++                            <Label htmlFor={`kfa_code-${p.id}`}>KFA Code</Label>
++                            <Input
++                              id={`kfa_code-${p.id}`}
++                              name="kfa_code"
++                              defaultValue={p.kfa_code ?? ''}
++                              placeholder="e.g. 93000515"
++                            />
++                          </div>
++                          <div className="flex items-end">
++                            <Button type="submit" variant="outline">
++                              Save
++                            </Button>
++                          </div>
++                        </form>
++                      </details>
++                    </TableCell>
++                  ) : null}
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock-opname/[id]/page.tsx b/apps/web/app/(app)/stock-opname/[id]/page.tsx
+index 13dfd37..19d6e60 100644
+--- a/apps/web/app/(app)/stock-opname/[id]/page.tsx
++++ b/apps/web/app/(app)/stock-opname/[id]/page.tsx
+@@ -1,36 +1,39 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { getUserRole, canApproveOpname } from '../../../../utils/auth'
+-
+-const statusColors: Record<string, string> = {
+-  DRAFT: '#64748b',
+-  PENDING_APPROVAL: '#f59e0b',
+-  APPROVED: '#0d9488',
+-  CANCELLED: '#ef4444',
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  DRAFT: 'secondary',
++  PENDING_APPROVAL: 'outline',
++  APPROVED: 'default',
++  CANCELLED: 'destructive',
+ }
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+-function badgeStyle(color: string): React.CSSProperties {
+-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
+-}
+-
+-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)' }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-
+ async function submitStockOpname(formData: FormData) {
+   'use server'
+   const id = formData.get('id') as string
+   const supabase = await createClient()
+   const { data: op } = await supabase.from('stock_opnames').select('status').eq('id', id).single()
+   if (!op || op.status !== 'DRAFT') redirect(`/stock-opname/${id}`)
+   await supabase.from('stock_opnames').update({ status: 'PENDING_APPROVAL' }).eq('id', id)
+   redirect(`/stock-opname/${id}`)
+ }
+ 
+@@ -81,90 +84,92 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
+     .from('stock_opnames')
+     .select('*')
+     .eq('id', id)
+     .single()
+   const { data: items } = await supabase
+     .from('stock_opname_items')
+     .select('*, products (name, sku), product_batches (batch_number, expiry_date)')
+     .eq('opname_id', id)
+ 
+   if (!op) {
+-    return <p style={{ color: 'var(--danger)' }}>Stock opname not found</p>
++    return <p className="text-sm text-destructive">Stock opname not found</p>
+   }
+ 
+   return (
+-    <section>
+-      <Link href="/stock-opname" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Stock Opname
+-      </Link>
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: '0' }}>{op.opname_number}</h1>
+-        <span style={badgeStyle(statusColors[op.status] || '#64748b')}>{op.status}</span>
+-        <span style={{ color: 'var(--text-secondary)', fontSize: 14 }}>{op.type}</span>
++    <section className="space-y-6">
++      <div>
++        <Link href="/stock-opname" className="mb-4 inline-block text-sm text-primary hover:underline">
++          Back to Stock Opname
++        </Link>
++        <div className="flex items-center gap-3">
++          <h1 className="text-xl font-semibold text-slate-900">{op.opname_number}</h1>
++          <Badge variant={statusVariant[op.status] || 'secondary'}>{op.status}</Badge>
++          <span className="text-sm text-slate-500">{op.type}</span>
++        </div>
++        <p className="mt-1 text-sm text-slate-500">
++          Created: {parseDate(op.created_at)} • Approved: {op.approved_at ? parseDate(op.approved_at) : '-'}
++        </p>
+       </div>
+-      <p style={{ color: 'var(--text-secondary)' }}>
+-        Created: {parseDate(op.created_at)} • Approved: {op.approved_at ? parseDate(op.approved_at) : '-'}
+-      </p>
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>Batch</th>
+-            <th style={thStyle}>Expiry</th>
+-            <th style={thStyle}>System</th>
+-            <th style={thStyle}>Physical</th>
+-            <th style={thStyle}>Variance</th>
+-            <th style={thStyle}>Reason</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>{it.products?.name || it.product_id}</td>
+-              <td style={tdStyle}>{it.product_batches?.batch_number || '-'}</td>
+-              <td style={tdStyle}>{it.product_batches?.expiry_date ? parseDate(it.product_batches.expiry_date) : '-'}</td>
+-              <td style={tdStyle}>{Number(it.system_qty_base).toFixed(3)}</td>
+-              <td style={tdStyle}>{Number(it.physical_qty_base).toFixed(3)}</td>
+-              <td style={tdStyle}>{Number(it.variance_qty_base).toFixed(3)}</td>
+-              <td style={tdStyle}>{it.reason}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++        <Table>
++          <TableHeader className="bg-slate-50">
++            <TableRow>
++              <TableHead>Product</TableHead>
++              <TableHead>Batch</TableHead>
++              <TableHead>Expiry</TableHead>
++              <TableHead className="text-right">System</TableHead>
++              <TableHead className="text-right">Physical</TableHead>
++              <TableHead className="text-right">Variance</TableHead>
++              <TableHead>Reason</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {(items || []).map((it: any) => (
++              <TableRow key={it.id} className="h-10">
++                <TableCell>{it.products?.name || it.product_id}</TableCell>
++                <TableCell>{it.product_batches?.batch_number || '-'}</TableCell>
++                <TableCell>
++                  {it.product_batches?.expiry_date ? parseDate(it.product_batches.expiry_date) : '-'}
++                </TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.system_qty_base).toFixed(3)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.physical_qty_base).toFixed(3)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.variance_qty_base).toFixed(3)}</TableCell>
++                <TableCell>{it.reason}</TableCell>
++              </TableRow>
++            ))}
++          </TableBody>
++        </Table>
++      </div>
+ 
+-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
++      <div className="flex gap-2">
+         {op.status === 'DRAFT' && (
+           <>
+             <form action={submitStockOpname}>
+               <input type="hidden" name="id" value={op.id} />
+-              <button type="submit" style={btnStyle('var(--primary)')}>Submit for Approval</button>
++              <Button type="submit">Submit for Approval</Button>
+             </form>
+             <form action={cancelStockOpname}>
+               <input type="hidden" name="id" value={op.id} />
+-              <button type="submit" style={btnStyle('#ef4444')}>Cancel</button>
++              <Button type="submit" variant="destructive">Cancel</Button>
+             </form>
+           </>
+         )}
+         {op.status === 'PENDING_APPROVAL' && canApproveOpname(role) && (
+           <>
+             <form action={approveStockOpname}>
+               <input type="hidden" name="id" value={op.id} />
+-              <button type="submit" style={btnStyle('var(--primary)')}>Approve</button>
++              <Button type="submit">Approve</Button>
+             </form>
+             <form action={cancelStockOpname}>
+               <input type="hidden" name="id" value={op.id} />
+-              <button type="submit" style={btnStyle('#ef4444')}>Cancel</button>
++              <Button type="submit" variant="destructive">Cancel</Button>
+             </form>
+           </>
+         )}
+         {op.status === 'PENDING_APPROVAL' && !canApproveOpname(role) && (
+-          <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Waiting for owner or pharmacist approval.</p>
++          <p className="text-sm text-slate-500">Waiting for owner or pharmacist approval.</p>
+         )}
+       </div>
+     </section>
+   )
+-}
+-
+-function btnStyle(bg: string): React.CSSProperties {
+-  return { background: bg, color: '#fff', padding: '8px 16px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14 }
+ }
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock-opname/new/page.tsx b/apps/web/app/(app)/stock-opname/new/page.tsx
+index f79069e..c637599 100644
+--- a/apps/web/app/(app)/stock-opname/new/page.tsx
++++ b/apps/web/app/(app)/stock-opname/new/page.tsx
+@@ -1,15 +1,29 @@
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ const opnameReasons = ['DAMAGE', 'EXPIRED', 'LOST', 'COUNT_ERROR', 'MISC']
+ 
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
++
+ async function createStockOpname(formData: FormData) {
+   'use server'
+   const type = (formData.get('type') as string) || 'FULL_STORE'
+   const opnameNumber = `SON-${Date.now()}`
+   const batchIds = formData.getAll('batch_id') as string[]
+   const physicalQtys = formData.getAll('physical_qty') as string[]
+   const reasons = formData.getAll('reason') as string[]
+ 
+   const supabase = await createClient()
+   const {
+@@ -61,109 +75,87 @@ async function createStockOpname(formData: FormData) {
+ }
+ 
+ export default async function NewStockOpnamePage() {
+   const supabase = await createClient()
+   const { data: batches } = await supabase
+     .from('product_batches')
+     .select('id, batch_number, expiry_date, current_qty, products (name, sku)')
+     .order('product_id', { ascending: true })
+ 
+   if (!batches || batches.length === 0) {
+-    return <p style={{ color: 'var(--text-secondary)' }}>No batches in stock to count.</p>
++    return <p className="text-sm text-slate-500">No batches in stock to count.</p>
+   }
+ 
+   return (
+-    <section>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Stock Opname</h1>
++    <section className="space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">New Stock Opname</h1>
+       <form
+         action={createStockOpname}
+-        style={{
+-          background: 'var(--card)',
+-          padding: 16,
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-        }}
++        className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
+       >
+-        <label style={{ display: 'block', fontSize: 12, marginBottom: 8 }}>
+-          Opname type
++        <div className="grid gap-1.5">
++          <Label htmlFor="type">Opname type</Label>
+           <select
++            id="type"
+             name="type"
+-            style={{
+-              display: 'block',
+-              marginTop: 4,
+-              padding: '8px 12px',
+-              border: '1px solid var(--border)',
+-              borderRadius: 6,
+-              fontSize: 14,
+-              background: '#fff',
+-            }}
++            className={`${selectClass} max-w-64`}
+             defaultValue="FULL_STORE"
+           >
+             <option value="FULL_STORE">Full Store</option>
+             <option value="RACK_BASED">Rack Based</option>
+             <option value="AD_HOC_SINGLE">Ad Hoc Single</option>
+           </select>
+-        </label>
++        </div>
+ 
+-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Product</th>
+-              <th style={thStyle}>Batch</th>
+-              <th style={thStyle}>Expiry</th>
+-              <th style={thStyle}>System</th>
+-              <th style={thStyle}>Physical</th>
+-              <th style={thStyle}>Reason</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {batches.map((b: any) => (
+-              <tr key={b.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>{b.products?.name || b.sku}</td>
+-                <td style={tdStyle}>{b.batch_number}</td>
+-                <td style={tdStyle}>{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '-'}</td>
+-                <td style={tdStyle}>{Number(b.current_qty).toFixed(3)}</td>
+-                <td style={tdStyle}>
+-                  <input type="hidden" name="batch_id" value={b.id} />
+-                  <input
+-                    type="number"
+-                    step="0.001"
+-                    name="physical_qty"
+-                    style={inputStyle}
+-                    defaultValue={Number(b.current_qty)}
+-                  />
+-                </td>
+-                <td style={tdStyle}>
+-                  <select name="reason" style={inputStyle} defaultValue="MISC">
+-                    {opnameReasons.map((r) => (
+-                      <option key={r} value={r}>
+-                        {r}
+-                      </option>
+-                    ))}
+-                  </select>
+-                </td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
+-        <button
+-          type="submit"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-            marginTop: 16,
+-          }}
+-        >
++        <div className="mt-6 overflow-x-auto">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Product</TableHead>
++                <TableHead>Batch</TableHead>
++                <TableHead>Expiry</TableHead>
++                <TableHead className="text-right">System</TableHead>
++                <TableHead>Physical</TableHead>
++                <TableHead>Reason</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {batches.map((b: any) => (
++                <TableRow key={b.id} className="h-10">
++                  <TableCell>{b.products?.name || b.sku}</TableCell>
++                  <TableCell>{b.batch_number}</TableCell>
++                  <TableCell>
++                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '-'}
++                  </TableCell>
++                  <TableCell className="text-right tabular-nums">
++                    {Number(b.current_qty).toFixed(3)}
++                  </TableCell>
++                  <TableCell className="w-36">
++                    <input type="hidden" name="batch_id" value={b.id} />
++                    <Input
++                      type="number"
++                      step="0.001"
++                      name="physical_qty"
++                      defaultValue={Number(b.current_qty)}
++                    />
++                  </TableCell>
++                  <TableCell className="w-36">
++                    <select name="reason" className={selectClass} defaultValue="MISC">
++                      {opnameReasons.map((r) => (
++                        <option key={r} value={r}>
++                          {r}
++                        </option>
++                      ))}
++                    </select>
++                  </TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
++        <Button type="submit" className="mt-6">
+           Save Draft
+-        </button>
++        </Button>
+       </form>
+     </section>
+   )
+-}
+-
+-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)' }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, background: '#fff' }
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock-opname/page.tsx b/apps/web/app/(app)/stock-opname/page.tsx
+index e2e7f91..6e5a9bc 100644
+--- a/apps/web/app/(app)/stock-opname/page.tsx
++++ b/apps/web/app/(app)/stock-opname/page.tsx
+@@ -1,79 +1,79 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+-const statusColors: Record<string, string> = {
+-  DRAFT: '#64748b',
+-  PENDING_APPROVAL: '#f59e0b',
+-  APPROVED: '#0d9488',
+-  CANCELLED: '#ef4444',
++const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  DRAFT: 'secondary',
++  PENDING_APPROVAL: 'outline',
++  APPROVED: 'default',
++  CANCELLED: 'destructive',
+ }
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+-function badgeStyle(color: string): React.CSSProperties {
+-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
+-}
+-
+-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)' }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-
+ export default async function StockOpnamePage() {
+   const supabase = await createClient()
+   const { data: opnames, error } = await supabase
+     .from('stock_opnames')
+     .select('*, stock_opname_items (id)')
+     .order('created_at', { ascending: false })
+ 
+-  if (error) return <p style={{ color: 'var(--danger)' }}>Stock opname unavailable</p>
++  if (error) return <p className="text-sm text-destructive">Stock opname unavailable</p>
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Stock Opname</h1>
+-        <Link
+-          href="/stock-opname/new"
+-          style={{ background: 'var(--primary)', color: '#fff', padding: '8px 16px', borderRadius: 6, textDecoration: 'none', fontSize: 14 }}
+-        >
+-          New Opname
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Stock Opname</h1>
++        <Button render={<Link href="/stock-opname/new" />}>New Opname</Button>
+       </div>
+       {!opnames || opnames.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No stock opname sessions yet</p>
++        <p className="text-sm text-slate-500">No stock opname sessions yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Number</th>
+-              <th style={thStyle}>Type</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Items</th>
+-              <th style={thStyle}>Created At</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {opnames.map((op: any) => (
+-              <tr key={op.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/stock-opname/${op.id}`} style={{ color: 'var(--primary)' }}>
+-                    {op.opname_number}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>{op.type}</td>
+-                <td style={tdStyle}>
+-                  <span style={badgeStyle(statusColors[op.status] || '#64748b')}>{op.status}</span>
+-                </td>
+-                <td style={tdStyle}>{(op.stock_opname_items || []).length}</td>
+-                <td style={tdStyle}>{parseDate(op.created_at)}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Number</TableHead>
++                <TableHead>Type</TableHead>
++                <TableHead>Status</TableHead>
++                <TableHead>Items</TableHead>
++                <TableHead>Created At</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {opnames.map((op: any) => (
++                <TableRow key={op.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/stock-opname/${op.id}`} className="text-sm text-primary hover:underline">
++                      {op.opname_number}
++                    </Link>
++                  </TableCell>
++                  <TableCell>{op.type}</TableCell>
++                  <TableCell>
++                    <Badge variant={statusVariant[op.status] || 'secondary'}>{op.status}</Badge>
++                  </TableCell>
++                  <TableCell>{(op.stock_opname_items || []).length}</TableCell>
++                  <TableCell>{parseDate(op.created_at)}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock/destructions/[id]/page.tsx b/apps/web/app/(app)/stock/destructions/[id]/page.tsx
+index b0813ea..445c6ef 100644
+--- a/apps/web/app/(app)/stock/destructions/[id]/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/[id]/page.tsx
+@@ -1,115 +1,105 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../../utils/auth'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function DestructionDetailPage({
+   params,
+ }: {
+   params: Promise<{ id: string }>
+ }) {
+   const { id } = await params
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner or pharmacist (APJ) only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner or pharmacist (APJ) only.</p>
+   }
+ 
+   const { data: destruction } = await supabase
+     .from('stock_destructions')
+     .select('*')
+     .eq('id', id)
+     .single()
+-  if (!destruction) return <p style={{ color: 'var(--danger)' }}>Destruction not found.</p>
++  if (!destruction) return <p className="text-sm text-destructive">Destruction not found.</p>
+ 
+   const { data: items } = await supabase
+     .from('stock_destruction_items')
+     .select('*, products (name, sku)')
+     .eq('stock_destruction_id', id)
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <Link
+-        href="/stock/destructions"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Pemusnahan
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{destruction.bap_number}</h1>
++    <section className="mx-auto max-w-4xl space-y-6">
++      <div>
++        <Link
++          href="/stock/destructions"
++          className="mb-4 inline-block text-sm text-primary hover:underline"
++        >
++          Back to Pemusnahan
++        </Link>
++        <h1 className="text-xl font-semibold text-slate-900">{destruction.bap_number}</h1>
++      </div>
+ 
+-      <div
+-        style={{
+-          background: 'var(--card)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-          padding: 16,
+-          display: 'grid',
+-          gridTemplateColumns: '1fr 1fr',
+-          gap: 8,
+-          marginBottom: 16,
+-        }}
+-      >
+-        <p style={{ margin: 0, fontSize: 14 }}>
+-          BAP Date: <strong>{parseDate(destruction.bap_date)}</strong>
++      <div className="grid gap-3 rounded-xl bg-card px-4 py-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
++        <p className="m-0">
++          BAP Date: <strong className="text-slate-900">{parseDate(destruction.bap_date)}</strong>
+         </p>
+-        <p style={{ margin: 0, fontSize: 14 }}>
+-          Reason: <strong>{destruction.reason}</strong>
++        <p className="m-0">
++          Reason: <strong className="text-slate-900">{destruction.reason}</strong>
+         </p>
+-        <p style={{ margin: 0, fontSize: 14 }}>
+-          Witnesses: <strong>{destruction.witness_names}</strong>
++        <p className="m-0">
++          Witnesses: <strong className="text-slate-900">{destruction.witness_names}</strong>
+         </p>
+-        <p style={{ margin: 0, fontSize: 14 }}>
+-          Recorded By: <strong>{destruction.created_by || '-'}</strong>
++        <p className="m-0">
++          Recorded By: <strong className="text-slate-900">{destruction.created_by || '-'}</strong>
+         </p>
+         {destruction.notes ? (
+-          <p style={{ margin: 0, fontSize: 14 }}>
+-            Notes: <strong>{destruction.notes}</strong>
++          <p className="m-0">
++            Notes: <strong className="text-slate-900">{destruction.notes}</strong>
+           </p>
+         ) : null}
+       </div>
+ 
+-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>Batch</th>
+-            <th style={thStyle}>Expiry</th>
+-            <th style={thStyle}>Qty Destroyed</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((item: any) => (
+-            <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>
+-                {item.products?.name || '-'} ({item.products?.sku || '-'})
+-              </td>
+-              <td style={tdStyle}>{item.batch_number}</td>
+-              <td style={tdStyle}>{parseDate(item.expiry_date)}</td>
+-              <td style={tdStyle}>{item.qty_destroyed}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div>
++        <h2 className="mb-3 text-base font-medium text-slate-900">Items</h2>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Product</TableHead>
++                <TableHead>Batch</TableHead>
++                <TableHead>Expiry</TableHead>
++                <TableHead className="text-right">Qty Destroyed</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {(items || []).map((item: any) => (
++                <TableRow key={item.id} className="h-10">
++                  <TableCell>
++                    {item.products?.name || '-'} ({item.products?.sku || '-'})
++                  </TableCell>
++                  <TableCell>{item.batch_number}</TableCell>
++                  <TableCell>{parseDate(item.expiry_date)}</TableCell>
++                  <TableCell className="text-right tabular-nums">{item.qty_destroyed}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
++      </div>
+     </section>
+   )
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock/destructions/new/destruction-form.tsx b/apps/web/app/(app)/stock/destructions/new/destruction-form.tsx
+index 6554025..f134e29 100644
+--- a/apps/web/app/(app)/stock/destructions/new/destruction-form.tsx
++++ b/apps/web/app/(app)/stock/destructions/new/destruction-form.tsx
+@@ -1,14 +1,17 @@
+ 'use client'
+ 
+ import { useState } from 'react'
+ import { createDestruction } from './actions'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ export interface DestructionBatch {
+   id: string
+   product_id: string
+   batch_number: string
+   expiry_date: string | null
+   current_qty: number
+ }
+ 
+ export interface DestructionProduct {
+@@ -16,28 +19,22 @@ export interface DestructionProduct {
+   name: string
+   sku: string
+ }
+ 
+ interface ItemRow {
+   productId: string
+   batchId: string
+   qty: string
+ }
+ 
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+ 
+ export function DestructionForm({
+   products,
+   batches,
+ }: {
+   products: DestructionProduct[]
+   batches: DestructionBatch[]
+ }) {
+   const [rows, setRows] = useState<ItemRow[]>([{ productId: '', batchId: '', qty: '' }])
+ 
+@@ -53,167 +50,127 @@ export function DestructionForm({
+     setRows((prev) => prev.filter((_, i) => i !== index))
+   }
+ 
+   function batchesFor(productId: string): DestructionBatch[] {
+     return batches.filter((b) => b.product_id === productId)
+   }
+ 
+   return (
+     <form
+       action={createDestruction}
+-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
++      className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
+     >
+-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>BAP Number</label>
+-          <input name="bap_number" required placeholder="BAP-2608-001" style={inputStyle} />
++      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
++        <div className="grid gap-1.5">
++          <Label htmlFor="bap_number">BAP Number</Label>
++          <Input id="bap_number" name="bap_number" required placeholder="BAP-2608-001" />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>BAP Date</label>
+-          <input name="bap_date" type="date" required style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="bap_date">BAP Date</Label>
++          <Input id="bap_date" name="bap_date" type="date" required />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Witness Names</label>
+-          <input
++        <div className="grid gap-1.5">
++          <Label htmlFor="witness_names">Witness Names</Label>
++          <Input
++            id="witness_names"
+             name="witness_names"
+             required
+             placeholder="Names of BPOM/Dinkes witnesses"
+-            style={inputStyle}
+           />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Reason</label>
+-          <select name="reason" required style={inputStyle} defaultValue="">
++        <div className="grid gap-1.5">
++          <Label htmlFor="reason">Reason</Label>
++          <select name="reason" required className={selectClass} defaultValue="">
+             <option value="" disabled>
+               Select reason
+             </option>
+             <option value="EXPIRED">Expired</option>
+             <option value="DAMAGED">Damaged</option>
+           </select>
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Notes</label>
+-          <input name="notes" placeholder="Optional" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="notes">Notes</Label>
++          <Input id="notes" name="notes" placeholder="Optional" />
+         </div>
+       </div>
+ 
+-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-      <div style={{ display: 'grid', gap: 12 }}>
++      <h2 className="mt-6 mb-3 text-base font-medium text-slate-900">Items</h2>
++      <div className="grid gap-3">
+         {rows.map((row, index) => (
+           <div
+             key={index}
+-            style={{
+-              border: '1px solid var(--border)',
+-              borderRadius: 6,
+-              padding: 12,
+-              display: 'grid',
+-              gridTemplateColumns: '2fr 1.5fr 1fr auto',
+-              gap: 8,
+-              alignItems: 'end',
+-            }}
++            className="grid items-end gap-x-3 gap-y-2 rounded-lg border border-border/60 p-3 sm:grid-cols-[2fr_1.5fr_1fr_auto]"
+           >
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
++            <div className="grid gap-1.5">
++              <Label htmlFor={`product-${index}`}>Product</Label>
+               <select
++                id={`product-${index}`}
+                 value={row.productId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
+               >
+                 <option value="" disabled>
+                   Select product
+                 </option>
+                 {products.map((p) => (
+                   <option key={p.id} value={p.id}>
+                     {p.name} ({p.sku})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
++            <div className="grid gap-1.5">
++              <Label htmlFor={`batch-${index}`}>Batch</Label>
+               <select
++                id={`batch-${index}`}
+                 name="batch_id"
+                 value={row.batchId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 disabled={!row.productId}
+                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
+               >
+                 <option value="" disabled>
+                   Select batch
+                 </option>
+                 {batchesFor(row.productId).map((b) => (
+                   <option key={b.id} value={b.id}>
+                     {b.batch_number} (ED {b.expiry_date ? String(b.expiry_date).slice(0, 10) : '-'}, qty {Number(b.current_qty)})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty Destroyed</label>
+-              <input
++            <div className="grid gap-1.5">
++              <Label htmlFor={`qty-${index}`}>Qty Destroyed</Label>
++              <Input
++                id={`qty-${index}`}
+                 name="qty_destroyed"
+                 type="number"
+                 step="0.001"
+                 min="0.001"
+                 required
+                 value={row.qty}
+-                style={inputStyle}
+                 onChange={(e) => updateRow(index, { qty: e.target.value })}
+               />
+             </div>
+             <div>
+-              <button
+-                type="button"
+-                onClick={() => removeRow(index)}
+-                style={{
+-                  background: 'transparent',
+-                  color: 'var(--danger)',
+-                  border: '1px solid var(--border)',
+-                  borderRadius: 6,
+-                  padding: '8px 10px',
+-                  cursor: 'pointer',
+-                }}
+-              >
++              <Button type="button" variant="outline" onClick={() => removeRow(index)}>
+                 Remove
+-              </button>
++              </Button>
+             </div>
+             <input type="hidden" name="product_id" value={row.productId} />
+           </div>
+         ))}
+       </div>
+ 
+-      <button
+-        type="button"
+-        onClick={addRow}
+-        style={{
+-          marginTop: 12,
+-          background: 'transparent',
+-          color: 'var(--primary)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 6,
+-          padding: '8px 16px',
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Add Item
+-      </button>
+-
+-      <button
+-        type="submit"
+-        style={{
+-          marginTop: 16,
+-          marginLeft: 12,
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '8px 16px',
+-          border: 'none',
+-          borderRadius: 6,
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Create Destruction
+-      </button>
++      <div className="mt-4 flex gap-2">
++        <Button type="button" variant="outline" onClick={addRow}>
++          Add Item
++        </Button>
++        <Button type="submit">
++          Create Destruction
++        </Button>
++      </div>
+     </form>
+   )
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock/destructions/new/page.tsx b/apps/web/app/(app)/stock/destructions/new/page.tsx
+index b713c90..4f2befc 100644
+--- a/apps/web/app/(app)/stock/destructions/new/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/new/page.tsx
+@@ -1,38 +1,40 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../../utils/auth'
+ import { DestructionForm } from './destruction-form'
+ 
+ export default async function NewDestructionPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner or pharmacist (APJ) only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner or pharmacist (APJ) only.</p>
+   }
+ 
+   const [{ data: products }, { data: batches }] = await Promise.all([
+     supabase.from('products').select('id, name, sku').order('name', { ascending: true }),
+     supabase
+       .from('product_batches')
+       .select('id, product_id, batch_number, expiry_date, current_qty')
+       .gt('current_qty', 0)
+       .order('batch_number', { ascending: true }),
+   ])
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <Link
+-        href="/stock/destructions"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Pemusnahan
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Destruction</h1>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+-        A destruction is a formal legal event. The BAP fields are required, and
+-        destroyed stock leaves the batch immediately.
+-      </p>
++    <section className="mx-auto max-w-4xl space-y-6">
++      <div>
++        <Link
++          href="/stock/destructions"
++          className="mb-4 inline-block text-sm text-primary hover:underline"
++        >
++          Back to Pemusnahan
++        </Link>
++        <h1 className="text-xl font-semibold text-slate-900">New Destruction</h1>
++        <p className="mt-1 text-sm text-slate-500">
++          A destruction is a formal legal event. The BAP fields are required, and
++          destroyed stock leaves the batch immediately.
++        </p>
++      </div>
+       <DestructionForm products={products || []} batches={batches || []} />
+     </section>
+   )
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/stock/destructions/page.tsx b/apps/web/app/(app)/stock/destructions/page.tsx
+index 1c755cf..01c80aa 100644
+--- a/apps/web/app/(app)/stock/destructions/page.tsx
++++ b/apps/web/app/(app)/stock/destructions/page.tsx
+@@ -1,89 +1,74 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../utils/auth'
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-  textAlign: 'left',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function DestructionsPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (role !== 'OWNER' && role !== 'PHARMACIST') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner or pharmacist (APJ) only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner or pharmacist (APJ) only.</p>
+   }
+ 
+   const { data: destructions } = await supabase
+     .from('stock_destructions')
+     .select('id, bap_number, bap_date, reason, witness_names, created_by, created_at')
+     .order('created_at', { ascending: false })
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Pemusnahan</h1>
+-        <Link
+-          href="/stock/destructions/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-            fontWeight: 500,
+-          }}
+-        >
+-          New Destruction
+-        </Link>
++    <section className="mx-auto max-w-4xl space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Pemusnahan</h1>
++        <Button render={<Link href="/stock/destructions/new" />}>New Destruction</Button>
+       </div>
+ 
+       {(destructions || []).length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>No destruction records yet.</p>
++        <p className="text-sm text-slate-500">No destruction records yet.</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>BAP Number</th>
+-              <th style={thStyle}>BAP Date</th>
+-              <th style={thStyle}>Reason</th>
+-              <th style={thStyle}>Witnesses</th>
+-              <th style={thStyle}>Recorded By</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {(destructions || []).map((d: any) => (
+-              <tr key={d.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/stock/destructions/${d.id}`} style={{ color: 'var(--primary)' }}>
+-                    {d.bap_number}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>{parseDate(d.bap_date)}</td>
+-                <td style={tdStyle}>{d.reason}</td>
+-                <td style={tdStyle}>{d.witness_names}</td>
+-                <td style={tdStyle}>{d.created_by || '-'}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>BAP Number</TableHead>
++                <TableHead>BAP Date</TableHead>
++                <TableHead>Reason</TableHead>
++                <TableHead>Witnesses</TableHead>
++                <TableHead>Recorded By</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {(destructions || []).map((d: any) => (
++                <TableRow key={d.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/stock/destructions/${d.id}`} className="text-sm text-primary hover:underline">
++                      {d.bap_number}
++                    </Link>
++                  </TableCell>
++                  <TableCell>{parseDate(d.bap_date)}</TableCell>
++                  <TableCell>{d.reason}</TableCell>
++                  <TableCell>{d.witness_names}</TableCell>
++                  <TableCell>{d.created_by || '-'}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+-}
++}
+\ No newline at end of file

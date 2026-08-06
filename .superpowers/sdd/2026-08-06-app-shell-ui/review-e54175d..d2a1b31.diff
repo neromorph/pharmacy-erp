@@ -1,0 +1,505 @@
+# Review package: e54175d..d2a1b31
+
+## Commits
+d2a1b31 feat(ui): app shell (sidebar, header, shift dot, redesigned login)
+
+## Files changed
+ apps/web/app/(app)/layout.tsx            |  37 ++++++++---
+ apps/web/app/(auth)/layout.tsx           |  10 ++-
+ apps/web/app/(auth)/login/page.tsx       |  70 +++++++++++++++-----
+ apps/web/components/brand/Logo.tsx       |  13 ++++
+ apps/web/components/shell/Sidebar.tsx    |  23 +++++++
+ apps/web/components/shell/SidebarNav.tsx | 110 +++++++++++++++++++++++++++++++
+ apps/web/components/shell/TopHeader.tsx  |  75 +++++++++++++++++++++
+ apps/web/components/shell/nav-map.ts     |  58 ++++++++++++++++
+ apps/web/components/shell/shift.ts       |  19 ++++++
+ 9 files changed, 387 insertions(+), 28 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/(app)/layout.tsx b/apps/web/app/(app)/layout.tsx
+index 641ad70..7fa2224 100644
+--- a/apps/web/app/(app)/layout.tsx
++++ b/apps/web/app/(app)/layout.tsx
+@@ -1,12 +1,33 @@
+-// App shell: left sidebar + top header + main content.
+-// The real sidebar content lands in Task 2; this establishes the grid.
+-export default function AppLayout({ children }: { children: React.ReactNode }) {
++import { createClient } from '@/utils/supabase/server'
++import { Sidebar } from '@/components/shell/Sidebar'
++import { TopHeader } from '@/components/shell/TopHeader'
++import { getOpenShift } from '@/components/shell/shift'
++
++// App shell: fixed sidebar (desktop), sticky header, main content.
++export default async function AppLayout({ children }: { children: React.ReactNode }) {
++  const supabase = await createClient()
++  const {
++    data: { user },
++  } = await supabase.auth.getUser()
++  const shift = await getOpenShift()
++  const tenant = await supabase.from('tenants').select('name').limit(1).maybeSingle()
++
+   return (
+-    <div className="flex min-h-screen">
+-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:block" />
+-      <div className="flex min-w-0 flex-1 flex-col">
+-        <main className="flex-1 bg-slate-50 p-6">{children}</main>
++    <div className="min-h-screen bg-slate-50">
++      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col border-r bg-white">
++        <Sidebar />
++      </div>
++      <div className="flex flex-col md:pl-64">
++        <TopHeader
++          user={{
++            email: user?.email ?? null,
++            role: (user?.app_metadata?.role as string | undefined) ?? null,
++          }}
++          tenant={{ name: tenant?.data?.name ?? null }}
++          shift={shift}
++        />
++        <main className="flex-1 p-6">{children}</main>
+       </div>
+     </div>
+   )
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(auth)/layout.tsx b/apps/web/app/(auth)/layout.tsx
+index 02b3788..91b36d5 100644
+--- a/apps/web/app/(auth)/layout.tsx
++++ b/apps/web/app/(auth)/layout.tsx
+@@ -1,4 +1,10 @@
+ // Auth shell: blank canvas, no app chrome, centered content area.
+ export default function AuthLayout({ children }: { children: React.ReactNode }) {
+-  return <div className="min-h-screen bg-slate-50">{children}</div>
+-}
++  return (
++    <div className="flex min-h-screen justify-center bg-slate-50 px-4">
++      <div className="mx-auto flex w-full max-w-md flex-col justify-center py-12">
++        {children}
++      </div>
++    </div>
++  )
++}
+\ No newline at end of file
+diff --git a/apps/web/app/(auth)/login/page.tsx b/apps/web/app/(auth)/login/page.tsx
+index dc1f7bf..630f3bb 100644
+--- a/apps/web/app/(auth)/login/page.tsx
++++ b/apps/web/app/(auth)/login/page.tsx
+@@ -1,24 +1,58 @@
+ import { login } from './actions'
++import { Logo } from '@/components/brand/Logo'
++import { Button } from '@/components/ui/button'
++import {
++  Card,
++  CardContent,
++  CardDescription,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++
++interface LoginPageProps {
++  searchParams: Promise<{ error?: string }>
++}
++
++export default async function LoginPage({ searchParams }: LoginPageProps) {
++  const { error } = await searchParams
+ 
+-export default function LoginPage() {
+   return (
+-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Pharmacy ERP</h1>
+-        <form action={login} className="flex flex-col gap-4">
+-          <label className="flex flex-col gap-1 text-sm text-slate-500">
+-            Email
+-            <input name="email" type="email" required className="rounded border border-slate-200 p-2 text-slate-900 focus:border-teal-600 focus:outline-none" />
+-          </label>
+-          <label className="flex flex-col gap-1 text-sm text-slate-500">
+-            Password
+-            <input name="password" type="password" required className="rounded border border-slate-200 p-2 text-slate-900 focus:border-teal-600 focus:outline-none" />
+-          </label>
+-          <button type="submit" className="mt-2 rounded bg-teal-600 p-2 font-medium text-white hover:bg-teal-700">
+-            Sign In
+-          </button>
+-        </form>
++    <div className="flex flex-col gap-6">
++      <div className="flex flex-col items-center gap-2 text-center">
++        <Logo name="Pharmacy ERP" />
++        <p className="text-sm text-slate-500">Point of Sale · Stock · Compliance</p>
+       </div>
++
++      <Card className="w-full">
++        <CardHeader>
++          <CardTitle className="text-lg">Sign in</CardTitle>
++          <CardDescription>Use your branch account to continue.</CardDescription>
++        </CardHeader>
++        <CardContent>
++          <form action={login} className="flex flex-col gap-4">
++            <div className="grid gap-1.5">
++              <Label htmlFor="email">Email</Label>
++              <Input id="email" name="email" type="email" autoComplete="email" required />
++            </div>
++            <div className="grid gap-1.5">
++              <Label htmlFor="password">Password</Label>
++              <Input
++                id="password"
++                name="password"
++                type="password"
++                autoComplete="current-password"
++                required
++              />
++            </div>
++            {error && <p className="text-sm text-destructive">{error}</p>}
++            <Button type="submit" className="mt-1 w-full">
++              Sign In
++            </Button>
++          </form>
++        </CardContent>
++      </Card>
+     </div>
+   )
+-}
++}
+\ No newline at end of file
+diff --git a/apps/web/components/brand/Logo.tsx b/apps/web/components/brand/Logo.tsx
+new file mode 100644
+index 0000000..32ff090
+--- /dev/null
++++ b/apps/web/components/brand/Logo.tsx
+@@ -0,0 +1,13 @@
++import { Pill } from 'lucide-react'
++
++// Compact brand mark: teal rounded square with pill icon + name text.
++export function Logo({ name = 'Pharmacy ERP' }: { name?: string }) {
++  return (
++    <div className="flex items-center gap-2.5">
++      <div className="grid size-8 place-items-center rounded-md bg-primary text-white">
++        <Pill className="size-5" />
++      </div>
++      <span className="truncate font-semibold text-slate-900">{name}</span>
++    </div>
++  )
++}
+\ No newline at end of file
+diff --git a/apps/web/components/shell/Sidebar.tsx b/apps/web/components/shell/Sidebar.tsx
+new file mode 100644
+index 0000000..cf5c7a5
+--- /dev/null
++++ b/apps/web/components/shell/Sidebar.tsx
+@@ -0,0 +1,23 @@
++import { createClient } from '@/utils/supabase/server'
++import { Logo } from '@/components/brand/Logo'
++import { SidebarNav } from './SidebarNav'
++
++// Desktop sidebar: brand top, nav middle, tenant name footer.
++export async function Sidebar() {
++  const supabase = await createClient()
++  const { data } = await supabase.from('tenants').select('name').limit(1).maybeSingle()
++
++  return (
++    <>
++      <div className="flex h-14 shrink-0 items-center border-b border-slate-200 px-4">
++        <Logo />
++      </div>
++      <SidebarNav />
++      <div className="shrink-0 border-t border-slate-200 px-4 py-3">
++        <p className="truncate text-xs text-slate-500">
++          {data?.name ?? 'Pharmacy ERP'}
++        </p>
++      </div>
++    </>
++  )
++}
+\ No newline at end of file
+diff --git a/apps/web/components/shell/SidebarNav.tsx b/apps/web/components/shell/SidebarNav.tsx
+new file mode 100644
+index 0000000..286b92c
+--- /dev/null
++++ b/apps/web/components/shell/SidebarNav.tsx
+@@ -0,0 +1,110 @@
++'use client'
++
++import Link from 'next/link'
++import { usePathname } from 'next/navigation'
++import {
++  ClipboardCheck,
++  Clock,
++  FileText,
++  LayoutDashboard,
++  Package,
++  ScrollText,
++  Settings,
++  ShieldCheck,
++  ShoppingCart,
++  Stethoscope,
++  Trash2,
++  Truck,
++  Undo2,
++  Users,
++  Wallet,
++  type LucideIcon,
++} from 'lucide-react'
++
++import { cn } from '@/lib/utils'
++import { NAV_GROUPS, type NavItem } from './nav-map'
++
++// Map each nav href to its icon. Unknown links fall back to a dot.
++const ICONS: Record<string, LucideIcon> = {
++  '/': LayoutDashboard,
++  '/sales': ShoppingCart,
++  '/shifts': Clock,
++  '/products': Package,
++  '/kartu-stok': ScrollText,
++  '/stock-opname': ClipboardCheck,
++  '/stock/destructions': Trash2,
++  '/suppliers': Truck,
++  '/procurement': FileText,
++  '/procurement/returns': Undo2,
++  '/finance/payables': Wallet,
++  '/reports/sipnap': ShieldCheck,
++  '/doctors': Stethoscope,
++  '/patients': Users,
++  '/settings': Settings,
++}
++
++function isActive(pathname: string, href: string): boolean {
++  if (href === '/') return pathname === '/'
++  return pathname === href || pathname.startsWith(`${href}/`)
++}
++
++function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
++  const Icon = ICONS[item.href] ?? Dot
++  const active = isActive(pathname, item.href)
++
++  if (item.primary) {
++    return (
++      <Link
++        href={item.href}
++        className={cn(
++          'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white',
++          'bg-primary hover:bg-primary-hover',
++          active && 'ring-2 ring-primary-hover ring-offset-1'
++        )}
++      >
++        <Icon className="size-4" />
++        {item.label}
++      </Link>
++    )
++  }
++
++  return (
++    <Link
++      href={item.href}
++      className={cn(
++        'flex items-center gap-2 rounded-md px-3 py-2 text-sm',
++        active
++          ? 'border-l-2 border-primary bg-primary/5 font-medium text-primary'
++          : 'text-slate-700 hover:bg-slate-100'
++      )}
++    >
++      <Icon className="size-4" />
++      {item.label}
++    </Link>
++  )
++}
++
++// Renders the approved 7-group nav map. Shared by desktop sidebar and mobile sheet.
++export function SidebarNav() {
++  const pathname = usePathname()
++  return (
++    <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
++      {NAV_GROUPS.map((group) => (
++        <div key={group.title}>
++          <div className="px-3 pt-4 pb-1.5 text-xs font-semibold tracking-wider text-slate-500 uppercase">
++            {group.title}
++          </div>
++          <div className="space-y-0.5">
++            {group.items.map((item) => (
++              <NavLink key={item.href} item={item} pathname={pathname} />
++            ))}
++          </div>
++        </div>
++      ))}
++    </nav>
++  )
++}
++
++function Dot(props: { className?: string }) {
++  return <span className={cn('size-1.5 rounded-full bg-slate-300', props.className)} />
++}
+\ No newline at end of file
+diff --git a/apps/web/components/shell/TopHeader.tsx b/apps/web/components/shell/TopHeader.tsx
+new file mode 100644
+index 0000000..d58ba75
+--- /dev/null
++++ b/apps/web/components/shell/TopHeader.tsx
+@@ -0,0 +1,75 @@
++import { Menu } from 'lucide-react'
++
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Sheet,
++  SheetContent,
++  SheetTitle,
++  SheetTrigger,
++} from '@/components/ui/sheet'
++import { SidebarNav } from './SidebarNav'
++import type { ShiftStatus } from './shift'
++
++interface TopHeaderProps {
++  user: { email: string | null; role: string | null }
++  tenant: { name: string | null }
++  shift: ShiftStatus
++}
++
++function formatTime(iso: string | null): string | null {
++  if (!iso) return null
++  const d = new Date(iso)
++  if (Number.isNaN(d.getTime())) return null
++  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
++}
++
++// Sticky top bar: mobile nav trigger, tenant, shift status dot, role, avatar.
++export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
++  const initial = user.email?.charAt(0).toUpperCase() ?? 'U'
++  const opened = formatTime(shift.openedAt)
++
++  return (
++    <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-6">
++      <Sheet>
++        <SheetTrigger
++          render={<Button variant="ghost" size="icon" aria-label="Open menu" />}
++          className="md:hidden"
++        >
++          <Menu className="size-5" />
++        </SheetTrigger>
++        <SheetContent side="left" className="w-72 p-0">
++          <SheetTitle className="sr-only">Navigation</SheetTitle>
++          <SidebarNav />
++        </SheetContent>
++      </Sheet>
++
++      <div className="hidden md:block md:flex-1">
++        <p className="truncate text-sm font-medium text-slate-900">
++          {tenant.name ?? 'Pharmacy ERP'}
++        </p>
++      </div>
++
++      <div className="flex flex-1 items-center justify-end gap-3 md:flex-none">
++        <div className="flex items-center gap-2" title={shift.open ? 'Shift open' : 'No open shift'}>
++          <span
++            className={
++              shift.open
++                ? 'size-2 animate-pulse rounded-full bg-emerald-500'
++                : 'size-2 rounded-full bg-slate-300'
++            }
++          />
++          <span className="hidden text-xs text-slate-500 sm:inline">
++            {shift.open ? `Shift open · ${opened ?? ''}` : 'No open shift'}
++          </span>
++        </div>
++
++        {user.role && <Badge variant="secondary">{user.role}</Badge>}
++
++        <div className="grid size-7 place-items-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
++          {initial}
++        </div>
++      </div>
++    </header>
++  )
++}
+\ No newline at end of file
+diff --git a/apps/web/components/shell/nav-map.ts b/apps/web/components/shell/nav-map.ts
+new file mode 100644
+index 0000000..f082f0c
+--- /dev/null
++++ b/apps/web/components/shell/nav-map.ts
+@@ -0,0 +1,58 @@
++export interface NavItem {
++  label: string
++  href: string
++  primary?: boolean
++}
++
++export interface NavGroup {
++  title: string
++  items: NavItem[]
++}
++
++// Approved navigation map: 7 groups, fixed order.
++export const NAV_GROUPS: NavGroup[] = [
++  {
++    title: 'Operations',
++    items: [
++      { label: 'Dashboard', href: '/' },
++      { label: 'Sales', href: '/sales', primary: true },
++      { label: 'Shifts', href: '/shifts' },
++    ],
++  },
++  {
++    title: 'Inventory',
++    items: [
++      { label: 'Products', href: '/products' },
++      { label: 'Kartu Stok', href: '/kartu-stok' },
++      { label: 'Stock Opname', href: '/stock-opname' },
++      { label: 'Pemusnahan', href: '/stock/destructions' },
++    ],
++  },
++  {
++    title: 'Procurement',
++    items: [
++      { label: 'Suppliers', href: '/suppliers' },
++      { label: 'Purchase Orders', href: '/procurement' },
++      { label: 'Returns', href: '/procurement/returns' },
++    ],
++  },
++  {
++    title: 'Finance',
++    items: [{ label: 'Payables', href: '/finance/payables' }],
++  },
++  {
++    title: 'Compliance',
++    items: [{ label: 'SIPNAP', href: '/reports/sipnap' }],
++  },
++  {
++    title: 'Master Data',
++    items: [
++      { label: 'Doctors', href: '/doctors' },
++      { label: 'Patients', href: '/patients' },
++    ],
++  },
++  {
++    title: 'System',
++    items: [{ label: 'Settings', href: '/settings' }],
++  },
++]
+\ No newline at end of file
+diff --git a/apps/web/components/shell/shift.ts b/apps/web/components/shell/shift.ts
+new file mode 100644
+index 0000000..7096bb9
+--- /dev/null
++++ b/apps/web/components/shell/shift.ts
+@@ -0,0 +1,19 @@
++import { createClient } from '@/utils/supabase/server'
++
++export interface ShiftStatus {
++  open: boolean
++  openedAt: string | null
++}
++
++// Return the currently open shift's status for the shift-aware dot in the header.
++export async function getOpenShift(): Promise<ShiftStatus> {
++  const supabase = await createClient()
++  const { data } = await supabase
++    .from('shifts')
++    .select('status, opened_at')
++    .eq('status', 'OPEN')
++    .order('opened_at', { ascending: false })
++    .limit(1)
++    .maybeSingle()
++  return { open: !!data, openedAt: data?.opened_at ?? null }
++}
+\ No newline at end of file

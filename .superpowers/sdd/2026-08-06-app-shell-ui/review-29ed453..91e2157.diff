@@ -1,0 +1,2574 @@
+# Review package: 29ed453..91e2157
+
+## Commits
+91e2157 style(web): Tailwind+shadcn restyle for operations pages
+
+## Files changed
+ apps/web/app/(app)/page.tsx                   |  68 ++--
+ apps/web/app/(app)/sales/[id]/page.tsx        | 473 +++++++++++---------------
+ apps/web/app/(app)/sales/new/cart-builder.tsx | 243 ++++++-------
+ apps/web/app/(app)/sales/new/page.tsx         | 165 ++++-----
+ apps/web/app/(app)/sales/page.tsx             | 121 +++----
+ apps/web/app/(app)/shifts/[id]/page.tsx       | 367 ++++++++++----------
+ apps/web/app/(app)/shifts/new/page.tsx        | 125 ++++---
+ apps/web/app/(app)/shifts/page.tsx            | 222 ++++++------
+ 8 files changed, 806 insertions(+), 978 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/(app)/page.tsx b/apps/web/app/(app)/page.tsx
+index d4ec285..5292aff 100644
+--- a/apps/web/app/(app)/page.tsx
++++ b/apps/web/app/(app)/page.tsx
+@@ -1,11 +1,19 @@
++import { Banknote, AlertTriangle, CalendarClock } from 'lucide-react'
+ import { createClient } from '../../utils/supabase/server'
++import {
++  Card,
++  CardAction,
++  CardContent,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
+ 
+ const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' })
+ 
+ export default async function HomePage() {
+   const supabase = await createClient()
+   const { data, error } = await supabase.rpc('get_dashboard_kpis')
+ 
+   let dailySales: number | null = null
+   let lowStockCount: number | null = null
+   let nearExpiryCount: number | null = null
+@@ -25,73 +33,53 @@ export default async function HomePage() {
+       nearExpiryCount = Number(parsed.near_expiry_count) || 0
+     }
+   }
+ 
+   const available = dailySales !== null && lowStockCount !== null && nearExpiryCount !== null
+ 
+   const cards = [
+     {
+       label: 'Daily Sales',
+       value: available ? currency.format(dailySales!) : '—',
+-      accent: 'var(--success)',
++      Icon: Banknote,
+     },
+     {
+       label: 'Low Stock',
+       value: available ? String(lowStockCount!) : '—',
+-      accent: 'var(--warning)',
++      Icon: AlertTriangle,
+     },
+     {
+       label: 'Near Expiry',
+       value: available ? String(nearExpiryCount!) : '—',
+-      accent: 'var(--danger)',
++      Icon: CalendarClock,
+     },
+   ]
+ 
+   return (
+-    <section>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Dashboard</h1>
++    <section className="space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+       {!available ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>
++        <p className="text-sm text-slate-500">
+           Dashboard unavailable{error ? `: ${error.message}` : ''}
+         </p>
+       ) : (
+-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
++        <div className="grid gap-4 sm:grid-cols-3">
+           {cards.map((card) => (
+-            <div
+-              key={card.label}
+-              style={{
+-                flex: '1 1 200px',
+-                background: 'var(--card)',
+-                border: `1px solid var(--border)`,
+-                borderRadius: 8,
+-                padding: '16px 20px',
+-              }}
+-            >
+-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
+-                {card.label}
+-              </p>
+-              <p
+-                style={{
+-                  margin: '8px 0 0',
+-                  fontSize: 28,
+-                  fontWeight: 600,
+-                  color: 'var(--text-primary)',
+-                }}
+-              >
+-                {card.value}
+-              </p>
+-              <div
+-                style={{
+-                  marginTop: 12,
+-                  height: 3,
+-                  borderRadius: 2,
+-                  background: card.accent,
+-                  width: 48,
+-                }}
+-              />
+-            </div>
++            <Card key={card.label}>
++              <CardHeader>
++                <CardTitle className="text-sm text-slate-500">{card.label}</CardTitle>
++                <CardAction>
++                  <card.Icon className="size-5 text-slate-400" aria-hidden />
++                </CardAction>
++              </CardHeader>
++              <CardContent>
++                <p className="text-2xl font-semibold tabular-nums text-slate-900">
++                  {card.value}
++                </p>
++              </CardContent>
++            </Card>
+           ))}
+         </div>
+       )}
+     </section>
+   )
+ }
+diff --git a/apps/web/app/(app)/sales/[id]/page.tsx b/apps/web/app/(app)/sales/[id]/page.tsx
+index c15b97e..0315e74 100644
+--- a/apps/web/app/(app)/sales/[id]/page.tsx
++++ b/apps/web/app/(app)/sales/[id]/page.tsx
+@@ -1,25 +1,49 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
+-import { statusColors, parseDate } from '../status'
++import { parseDate } from '../status'
+ import { getUserRole, canVoidSale } from '../../../../utils/auth'
+ import { listOpenShift } from '../../shifts/actions'
+ import { perProductQuantities, sumEmbalase } from '../../../../lib/compound'
+ import { updateSaleClinicalInfo } from './actions'
+ import { retrySatusehatSubmission } from './satusehat-actions'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Card,
++  CardContent,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const satusehatStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  PENDING: 'outline',
++  SENT: 'default',
++  FAILED: 'destructive',
++  SKIPPED: 'secondary',
++}
+ 
+-const satusehatStatusColor: Record<string, string> = {
+-  PENDING: '#d97706',
+-  SENT: '#16a34a',
+-  FAILED: '#dc2626',
+-  SKIPPED: '#64748b',
++const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  DRAFT: 'outline',
++  PAID: 'default',
++  VOID: 'destructive',
+ }
+ 
+ async function voidSaleAction(formData: FormData) {
+   'use server'
+   const id = formData.get('sale_id') as string
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!canVoidSale(role)) redirect(`/sales/${id}`)
+ 
+   const { data: sale } = await supabase
+@@ -217,349 +241,260 @@ export default async function SaleDetailPage({
+   ])
+ 
+   // SATUSEHAT submission row for this sale (RLS scopes it to the tenant).
+   const { data: satusehatSubmission } = await supabase
+     .from('satusehat_submissions')
+     .select('status, last_error, sent_at')
+     .eq('sale_id', id)
+     .maybeSingle()
+ 
+   if (!sale) {
+-    return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
++    return <p className="text-sm text-destructive">Sale not found</p>
+   }
+ 
+   // Shift gate: draft sale with no shift cannot be paid — keep read-only.
+   const shiftMissing = sale.status === 'DRAFT' && !sale.shift_id
+ 
+   // Pay only if a shift is open.
+   const canPay = sale.status === 'DRAFT' && !!openShift
+ 
+   return (
+-    <section>
+-      <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Sales
+-      </Link>
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: '0' }}>{sale.sale_number}</h1>
+-        <span style={badgeStyle(statusColors[sale.status] || '#64748b')}>{sale.status}</span>
+-        <span style={badgeStyle(sale.sale_type === 'RESEP' ? '#8b5cf6' : '#0d9488')}>{sale.sale_type}</span>
++    <section className="space-y-6">
++      <div>
++        <Link href="/sales" className="inline-block text-sm text-primary hover:underline">
++          Back to Sales
++        </Link>
++      </div>
++      <div className="flex items-center gap-3">
++        <h1 className="text-xl font-semibold text-slate-900">{sale.sale_number}</h1>
++        <Badge variant={saleStatusVariant[sale.status] || 'secondary'}>{sale.status}</Badge>
++        <Badge
++          variant={sale.sale_type === 'RESEP' ? 'outline' : sale.sale_type === 'BPJS' ? 'default' : 'secondary'}
++          className={sale.sale_type === 'BPJS' ? 'bg-emerald-500 text-white' : ''}
++        >
++          {sale.sale_type}
++        </Badge>
+       </div>
+-      <p style={{ color: 'var(--text-secondary)' }}>Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
++      <p className="text-sm text-slate-500">Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
+       {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
+-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
++        <p className="text-sm text-slate-500">
+           {sale.sale_type === 'BPJS' && (
+-            <span style={{ background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 3, marginRight: 6 }}>
+-              BPJS / JKN
+-            </span>
++            <Badge className="mr-1.5 bg-emerald-500 text-white">BPJS / JKN</Badge>
+           )}
+           Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
+           {sale.patients?.name || '-'}
+           {sale.sale_type === 'BPJS' && sale.patients?.bpjs_number && (
+             <> · No. Peserta: {sale.patients.bpjs_number}</>
+           )}
+         </p>
+       )}
+       {sale.sale_type === 'SARANA' && (
+-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+-          Facility: {sale.patients?.name || '-'}
+-        </p>
++        <p className="text-sm text-slate-500">Facility: {sale.patients?.name || '-'}</p>
+       )}
+ 
+       {satusehatSubmission && (
+-        <div
+-          style={{
+-            marginTop: 16,
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 12,
+-            maxWidth: 480,
+-          }}
+-        >
+-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+-            <span style={badgeStyle(satusehatStatusColor[satusehatSubmission.status] || '#64748b')}>
+-              SATUSEHAT: {satusehatSubmission.status}
+-            </span>
+-            {satusehatSubmission.sent_at && (
+-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+-                Sent: {parseDate(satusehatSubmission.sent_at)}
+-              </span>
++        <Card className="max-w-lg">
++          <CardHeader>
++            <CardTitle className="flex items-center gap-2 text-sm">
++              <Badge variant={satusehatStatusVariant[satusehatSubmission.status] || 'secondary'}>
++                SATUSEHAT: {satusehatSubmission.status}
++              </Badge>
++              {satusehatSubmission.sent_at && (
++                <span className="text-xs text-slate-500">
++                  Sent: {parseDate(satusehatSubmission.sent_at)}
++                </span>
++              )}
++            </CardTitle>
++          </CardHeader>
++          <CardContent className="space-y-2">
++            {satusehatSubmission.last_error && (
++              <p className="text-xs text-slate-500">{satusehatSubmission.last_error}</p>
+             )}
+-          </div>
+-          {satusehatSubmission.last_error && (
+-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
+-              {satusehatSubmission.last_error}
+-            </p>
+-          )}
+-          {satusehatSubmission.status === 'FAILED' &&
+-            (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
+-              <form action={retrySatusehatSubmission.bind(null, sale.id)} style={{ marginTop: 8 }}>
+-                <button
+-                  type="submit"
+-                  style={{
+-                    background: 'transparent',
+-                    color: 'var(--primary)',
+-                    padding: '4px 12px',
+-                    borderRadius: 6,
+-                    border: '1px solid var(--border)',
+-                    fontSize: 13,
+-                    cursor: 'pointer',
+-                  }}
+-                >
+-                  Retry
+-                </button>
+-              </form>
+-            )}
+-        </div>
++            {satusehatSubmission.status === 'FAILED' &&
++              (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
++                <form action={retrySatusehatSubmission.bind(null, sale.id)}>
++                  <Button type="submit" variant="outline" size="sm">
++                    Retry
++                  </Button>
++                </form>
++              )}
++          </CardContent>
++        </Card>
+       )}
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>Batch</th>
+-            <th style={thStyle}>Expiry</th>
+-            <th style={thStyle}>Qty</th>
+-            <th style={thStyle}>Unit Price</th>
+-            <th style={thStyle}>Line Total</th>
+-          </tr>
+-        </thead>
+-        <tbody>
++      <Table>
++        <TableHeader className="sticky top-14 z-10 bg-slate-50">
++          <TableRow>
++            <TableHead>Product</TableHead>
++            <TableHead>Batch</TableHead>
++            <TableHead>Expiry</TableHead>
++            <TableHead className="text-right">Qty</TableHead>
++            <TableHead className="text-right">Unit Price</TableHead>
++            <TableHead className="text-right">Line Total</TableHead>
++          </TableRow>
++        </TableHeader>
++        <TableBody>
+           {(sale.sale_items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)', background: it.parent_item_id ? '#f8fafc' : undefined }}>
+-              <td style={{ ...tdStyle, paddingLeft: it.parent_item_id ? 28 : 12 }}>
++            <TableRow
++              key={it.id}
++              className={`h-10 ${it.parent_item_id ? 'bg-slate-50' : ''}`}
++            >
++              <TableCell className={it.parent_item_id ? 'pl-7' : ''}>
+                 {it.parent_item_id ? '↳ ' : ''}
+                 {it.item_name || it.products?.name || it.product_id}
+-              </td>
+-              <td style={tdStyle}>{it.batch_number || '-'}</td>
+-              <td style={tdStyle}>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</td>
+-              <td style={tdStyle}>{it.qty_sold}</td>
+-              <td style={tdStyle}>
++              </TableCell>
++              <TableCell>{it.batch_number || '-'}</TableCell>
++              <TableCell>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</TableCell>
++              <TableCell className="text-right tabular-nums">{it.qty_sold}</TableCell>
++              <TableCell className="text-right tabular-nums">
+                 {Number(it.unit_price).toFixed(2)}
+                 {it.embalase_amount && Number(it.embalase_amount) > 0 ? ` + emb ${Number(it.embalase_amount).toFixed(2)}` : ''}
+-              </td>
+-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
+-            </tr>
++              </TableCell>
++              <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
++            </TableRow>
+           ))}
+-        </tbody>
+-      </table>
++        </TableBody>
++      </Table>
+ 
+-      <div style={{ marginTop: 16, textAlign: 'right' }}>
+-        <p style={{ margin: 0, fontSize: 14 }}>
++      <div className="text-right">
++        <p className="text-sm text-slate-900">
+           Subtotal: {Number(sale.subtotal).toFixed(2)}
+           {Number(sale.embalase_amount || 0) > 0 && (
+             <> • Emb: {Number(sale.embalase_amount).toFixed(2)}</>
+           )}
+           {Number(sale.tuslah_amount || 0) > 0 && (
+             <> • Tuslah: {Number(sale.tuslah_amount).toFixed(2)}</>
+           )}
+         </p>
+-        <p style={{ margin: 0, fontSize: 14 }}>
+-          Grand Total: <strong>{Number(sale.grand_total).toFixed(2)}</strong>
++        <p className="text-sm">
++          Grand Total: <strong className="tabular-nums">{Number(sale.grand_total).toFixed(2)}</strong>
+         </p>
+         {sale.status === 'PAID' && (
+-          <p style={{ margin: 4, fontSize: 14, color: 'var(--text-secondary)' }}>
++          <p className="mt-1 text-sm tabular-nums text-slate-500">
+             Paid: {Number(sale.paid_amount).toFixed(2)} • Change: {Number(sale.change_amount).toFixed(2)}
+           </p>
+         )}
+       </div>
+ 
+       {sale.status === 'DRAFT' && canPay && (
+-        <form
+-          action={paySale}
+-          style={{
+-            background: 'var(--card)',
+-            padding: 16,
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            marginTop: 16,
+-            maxWidth: 360,
+-          }}
+-        >
+-          <input type="hidden" name="sale_id" value={sale.id} />
+-          <div style={{ marginBottom: 12 }}>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Payment method</label>
+-            <select name="payment_method" required style={inputStyle}>
+-              {paymentMethods.map((m) => (
+-                <option key={m} value={m}>
+-                  {m}
+-                </option>
+-              ))}
+-            </select>
+-          </div>
+-          <div style={{ marginBottom: 12 }}>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Paid amount</label>
+-            <input name="paid_amount" type="number" step="0.01" min="0" required style={inputStyle} />
+-          </div>
+-          <button
+-            type="submit"
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
+-            Complete Sale (Paid)
+-          </button>
+-        </form>
++        <Card className="max-w-sm">
++          <CardHeader>
++            <CardTitle className="text-sm">Complete Sale</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <form action={paySale} className="grid gap-3">
++              <input type="hidden" name="sale_id" value={sale.id} />
++              <div className="grid gap-1.5">
++                <Label htmlFor="payment_method">Payment method</Label>
++                <select
++                  id="payment_method"
++                  name="payment_method"
++                  required
++                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
++                >
++                  {paymentMethods.map((m) => (
++                    <option key={m} value={m}>
++                      {m}
++                    </option>
++                  ))}
++                </select>
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="paid_amount">Paid amount</Label>
++                <Input
++                  id="paid_amount"
++                  name="paid_amount"
++                  type="number"
++                  step="0.01"
++                  min="0"
++                  required
++                />
++              </div>
++              <Button type="submit" className="w-fit">
++                Complete Sale (Paid)
++              </Button>
++            </form>
++          </CardContent>
++        </Card>
+       )}
+ 
+       {(shiftMissing || (sale.status === 'DRAFT' && !canPay)) && (
+-        <div
+-          style={{
+-            marginTop: 16,
+-            background: '#fef2f2',
+-            border: '1px solid #fca5a5',
+-            borderRadius: 8,
+-            padding: 16,
+-            display: 'flex',
+-            alignItems: 'center',
+-            gap: 12,
+-          }}
+-        >
+-          <span style={{ fontSize: 14, color: '#ef4444' }}>
++        <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
++          <span className="text-sm text-red-600">
+             Cannot pay: {shiftMissing ? 'this draft sale has no associated shift.' : 'no open shift.'}
+           </span>
+-          <a
++          <Link
+             href="/shifts/new"
+-            style={{
+-              color: 'var(--primary)',
+-              fontSize: 13,
+-              whiteSpace: 'nowrap',
+-              textDecoration: 'none',
+-              fontWeight: 500,
+-            }}
++            className="whitespace-nowrap text-sm font-medium text-primary hover:underline"
+           >
+             Open Shift →
+-          </a>
++          </Link>
+         </div>
+       )}
+ 
+       {sale.status === 'PAID' && (
+-        <div style={{ marginTop: 16 }}>
+-          <Link
+-            href={`/receipts/${sale.id}`}
+-            style={{
+-              display: 'inline-block',
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              borderRadius: 6,
+-              textDecoration: 'none',
+-              fontSize: 14,
+-            }}
+-          >
+-            Cetak Struk
+-          </Link>
++        <div>
++          <Button render={<Link href={`/receipts/${sale.id}`} />}>Cetak Struk</Button>
+         </div>
+       )}
+ 
+       {sale.status === 'PAID' && (sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && canVoidSale(userRole) && (
+-        <form
+-          action={updateSaleClinicalInfo}
+-          style={{
+-            background: 'var(--card)',
+-            padding: 16,
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            marginTop: 16,
+-            maxWidth: 480,
+-          }}
+-        >
+-          <h3 style={{ fontSize: 14, margin: '0 0 8px' }}>Edit Prescription Info</h3>
+-          <input type="hidden" name="sale_id" value={sale.id} />
+-          <div style={{ marginBottom: 12 }}>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Doctor</label>
+-            <select name="doctor_id" defaultValue={sale.doctor_id || ''} style={inputStyle}>
+-              <option value="">-</option>
+-              {(doctorListRes.data || []).map((d: any) => (
+-                <option key={d.id} value={d.id}>
+-                  {d.name}
+-                  {d.sip_number ? ` (${d.sip_number})` : ''}
+-                </option>
+-              ))}
+-            </select>
+-          </div>
+-          <div style={{ marginBottom: 12 }}>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Patient</label>
+-            <select name="patient_id" defaultValue={sale.patient_id || ''} style={inputStyle}>
+-              <option value="">-</option>
+-              {(patientListRes.data || []).map((p: any) => (
+-                <option key={p.id} value={p.id}>
+-                  {p.name}
+-                  {p.address ? ` (${p.address})` : ''}
+-                </option>
+-              ))}
+-            </select>
+-          </div>
+-          <button
+-            type="submit"
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
+-            Save
+-          </button>
+-        </form>
++        <Card className="max-w-lg">
++          <CardHeader>
++            <CardTitle className="text-sm">Edit Prescription Info</CardTitle>
++          </CardHeader>
++          <CardContent>
++            <form action={updateSaleClinicalInfo} className="grid gap-3">
++              <input type="hidden" name="sale_id" value={sale.id} />
++              <div className="grid gap-1.5">
++                <Label htmlFor="doctor_id">Doctor</Label>
++                <select
++                  id="doctor_id"
++                  name="doctor_id"
++                  defaultValue={sale.doctor_id || ''}
++                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
++                >
++                  <option value="">-</option>
++                  {(doctorListRes.data || []).map((d: any) => (
++                    <option key={d.id} value={d.id}>
++                      {d.name}
++                      {d.sip_number ? ` (${d.sip_number})` : ''}
++                    </option>
++                  ))}
++                </select>
++              </div>
++              <div className="grid gap-1.5">
++                <Label htmlFor="patient_id">Patient</Label>
++                <select
++                  id="patient_id"
++                  name="patient_id"
++                  defaultValue={sale.patient_id || ''}
++                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
++                >
++                  <option value="">-</option>
++                  {(patientListRes.data || []).map((p: any) => (
++                    <option key={p.id} value={p.id}>
++                      {p.name}
++                      {p.address ? ` (${p.address})` : ''}
++                    </option>
++                  ))}
++                </select>
++              </div>
++              <Button type="submit" className="w-fit">
++                Save
++              </Button>
++            </form>
++          </CardContent>
++        </Card>
+       )}
+ 
+       {sale.status === 'PAID' && canVoidSale(userRole) && (
+-        <form action={voidSaleAction} style={{ marginTop: 16 }}>
++        <form action={voidSaleAction}>
+           <input type="hidden" name="sale_id" value={sale.id} />
+-          <button
+-            type="submit"
+-            style={{
+-              background: 'var(--danger, #ef4444)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
++          <Button type="submit" variant="destructive">
+             Void Sale
+-          </button>
++          </Button>
+         </form>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/sales/new/cart-builder.tsx b/apps/web/app/(app)/sales/new/cart-builder.tsx
+index b4bb05a..665fd17 100644
+--- a/apps/web/app/(app)/sales/new/cart-builder.tsx
++++ b/apps/web/app/(app)/sales/new/cart-builder.tsx
+@@ -4,20 +4,21 @@ import { useMemo, useState } from 'react'
+ import { lookupIhsForPatient } from './ihs-actions'
+ import { createDraftSale } from './actions'
+ import {
+   requiresAddress,
+   requiresResep,
+   computeSaleTotals,
+   ingredientTotalQty,
+   isBpjsCheckoutBlocked,
+   RegulatoryCategory,
+ } from '../../../../lib/cart'
++import { Button } from '@/components/ui/button'
+ 
+ interface ProductLite {
+   id: string
+   name: string
+   sku: string
+   base_unit: string
+   allow_fractional: boolean
+   regulatory_category: RegulatoryCategory
+ }
+ 
+@@ -33,35 +34,24 @@ interface Line {
+   product_id?: string
+   qty?: string
+   unit_price?: string
+   name?: string
+   dosage_count?: string
+   price?: string
+   embalase?: string
+   ingredients?: IngredientRow[]
+ }
+ 
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-  boxSizing: 'border-box',
+-}
+-const miniLabel: React.CSSProperties = {
+-  fontSize: 11,
+-  color: 'var(--text-secondary)',
+-  display: 'block',
+-  marginBottom: 2,
+-}
++// Shared compact field styling (matches shadcn Input look).
++const fieldCls =
++  'h-9 w-full min-w-0 rounded-md border border-input bg-background px-2.5 py-1 text-sm placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50'
++const labelCls = 'mb-0.5 block text-xs text-slate-500'
+ 
+ function emptyLine(kind: 'item' | 'racikan'): Line {
+   return kind === 'item'
+     ? { kind, product_id: '', qty: '', unit_price: '' }
+     : { kind, name: '', dosage_count: '', price: '', embalase: '', ingredients: [{ product_id: '', per_dose: '' }] }
+ }
+ 
+ export function CartBuilder({
+   products,
+   doctors,
+@@ -210,401 +200,388 @@ export function CartBuilder({
+     createDraftSale(formData)
+   }
+ 
+   return (
+     <form
+       action={createDraftSale}
+       onSubmit={(e) => {
+         e.preventDefault()
+         submit(new FormData(e.currentTarget))
+       }}
+-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
++      className="rounded-xl bg-card py-4 ring-1 ring-foreground/10"
+     >
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+-        <h2 style={{ fontSize: 14, margin: 0 }}>Items</h2>
+-        <div style={{ display: 'flex', gap: 8 }}>
+-          <button type="button" onClick={() => setLines((ls) => [...ls, emptyLine('item')])} style={addBtnStyle}>
++      <div className="flex items-center justify-between px-4 pb-3">
++        <h2 className="text-sm font-medium text-slate-900">Items</h2>
++        <div className="flex gap-2">
++          <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, emptyLine('item')])}>
+             + Item
+-          </button>
+-          <button type="button" onClick={() => setLines((ls) => [...ls, emptyLine('racikan')])} style={addBtnStyle}>
++          </Button>
++          <Button type="button" variant="outline" size="sm" onClick={() => setLines((ls) => [...ls, emptyLine('racikan')])}>
+             + Racikan
+-          </button>
++          </Button>
+         </div>
+       </div>
+ 
+-      <div style={{ display: 'grid', gap: 12 }}>
++      <div className="grid gap-3 px-4">
+         {lines.map((line, idx) => (
+-          <div key={idx} style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12 }}>
++          <div key={idx} className="rounded-lg border border-border p-3">
+             {line.kind === 'item' ? (
+-              <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 0.7fr 0.9fr auto', gap: 8 }}>
++              <div className="grid grid-cols-[2.2fr_0.7fr_0.9fr_auto] gap-2">
+                 <div>
+-                  <label style={miniLabel}>Product</label>
++                  <label className={labelCls}>Product</label>
+                   <select
+                     value={line.product_id}
+                     onChange={(e) => updateLine(idx, { product_id: e.target.value })}
+                     required
+-                    style={inputStyle}
++                    className={fieldCls}
+                   >
+                     <option value="">Select…</option>
+                     {products.map((p) => (
+                       <option key={p.id} value={p.id}>
+                         {p.name} ({p.sku}) — {p.regulatory_category}
+                       </option>
+                     ))}
+                   </select>
+                 </div>
+                 <div>
+-                  <label style={miniLabel}>Qty</label>
++                  <label className={labelCls}>Qty</label>
+                   <input
+                     type="number"
+                     value={line.qty}
+                     onChange={(e) => updateLine(idx, { qty: e.target.value })}
+                     required
+                     min="0"
+                     step={
+                       line.product_id && !productById.get(line.product_id)?.allow_fractional
+                         ? '1'
+                         : '0.001'
+                     }
+                     placeholder="Qty"
+-                    style={inputStyle}
++                    className={fieldCls}
+                   />
+                 </div>
+                 <div>
+-                  <label style={miniLabel}>Price</label>
++                  <label className={labelCls}>Price</label>
+                   <input
+                     type="number"
+                     value={line.unit_price}
+                     onChange={(e) => updateLine(idx, { unit_price: e.target.value })}
+                     required
+                     min="0"
+                     step="0.01"
+                     placeholder="Price"
+-                    style={inputStyle}
++                    className={fieldCls}
+                   />
+                 </div>
+-                <button type="button" onClick={() => removeLine(idx)} style={removeBtnStyle}>×</button>
++                <Button
++                  type="button"
++                  variant="ghost"
++                  size="sm"
++                  className="self-end text-destructive"
++                  onClick={() => removeLine(idx)}
++                >
++                  ×
++                </Button>
+               </div>
+             ) : (
+               <div>
+-                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.7fr 0.9fr 0.8fr auto', gap: 8, marginBottom: 10 }}>
++                <div className="mb-2.5 grid grid-cols-[1.4fr_0.7fr_0.9fr_0.8fr_auto] gap-2">
+                   <div>
+-                    <label style={miniLabel}>Compound name</label>
++                    <label className={labelCls}>Compound name</label>
+                     <input
+                       value={line.name}
+                       onChange={(e) => updateLine(idx, { name: e.target.value })}
+                       required
+                       placeholder="Racikan Batuk Anak"
+-                      style={inputStyle}
++                      className={fieldCls}
+                     />
+                   </div>
+                   <div>
+-                    <label style={miniLabel}>Dosage count</label>
++                    <label className={labelCls}>Dosage count</label>
+                     <input
+                       type="number"
+                       value={line.dosage_count}
+                       onChange={(e) => updateLine(idx, { dosage_count: e.target.value })}
+                       required
+                       min="1"
+                       step="1"
+                       placeholder="10 kapsul"
+-                      style={inputStyle}
++                      className={fieldCls}
+                     />
+                   </div>
+                   <div>
+-                    <label style={miniLabel}>Price (total)</label>
++                    <label className={labelCls}>Price (total)</label>
+                     <input
+                       type="number"
+                       value={line.price}
+                       onChange={(e) => updateLine(idx, { price: e.target.value })}
+                       required
+                       min="0"
+                       step="0.01"
+                       placeholder="50000"
+-                      style={inputStyle}
++                      className={fieldCls}
+                     />
+                   </div>
+                   <div>
+-                    <label style={miniLabel}>Embalase</label>
++                    <label className={labelCls}>Embalase</label>
+                     <input
+                       type="number"
+                       value={effectiveType === 'BPJS' ? '0' : (line.embalase ?? '')}
+                       onChange={(e) => { if (effectiveType !== 'BPJS') updateLine(idx, { embalase: e.target.value }) }}
+                       disabled={effectiveType === 'BPJS'}
+                       min="0"
+                       step="0.01"
+                       placeholder="3000"
+-                      style={inputStyle}
++                      className={fieldCls}
+                     />
+                   </div>
+-                  <button type="button" onClick={() => removeLine(idx)} style={removeBtnStyle}>×</button>
++                  <Button
++                    type="button"
++                    variant="ghost"
++                    size="sm"
++                    className="self-end text-destructive"
++                    onClick={() => removeLine(idx)}
++                  >
++                    ×
++                  </Button>
+                 </div>
+ 
+-                <label style={{ ...miniLabel, marginBottom: 4 }}>Ingredients (per dose)</label>
++                <label className={`${labelCls} mb-1`}>Ingredients (per dose)</label>
+                 {(line.ingredients || []).map((ing, ingIdx) => {
+                   const totalQty = ingredientTotalQty(
+                     Number(ing.per_dose || 0),
+                     Number(line.dosage_count || 0)
+                   )
+                   return (
+-                    <div key={ingIdx} style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 1fr auto', gap: 8, marginBottom: 6 }}>
++                    <div key={ingIdx} className="mb-1.5 grid grid-cols-[2fr_0.8fr_1fr_auto] gap-2">
+                       <select
+                         value={ing.product_id}
+                         onChange={(e) => {
+                           const ings = [...(line.ingredients || [])]
+                           ings[ingIdx] = { ...ings[ingIdx], product_id: e.target.value }
+                           updateLine(idx, { ingredients: ings })
+                         }}
+-                        style={inputStyle}
++                        className={fieldCls}
+                       >
+                         <option value="">Ingredient…</option>
+                         {products.map((p) => (
+                           <option key={p.id} value={p.id}>
+                             {p.name} ({p.sku})
+                           </option>
+                         ))}
+                       </select>
+                       <input
+                         type="number"
+                         value={ing.per_dose}
+                         onChange={(e) => {
+                           const ings = [...(line.ingredients || [])]
+                           ings[ingIdx] = { ...ings[ingIdx], per_dose: e.target.value }
+                           updateLine(idx, { ingredients: ings })
+                         }}
+                         required
+                         min="0"
+                         step="0.001"
+                         placeholder="per dose (0.5)"
+-                        style={inputStyle}
++                        className={fieldCls}
+                       />
+-                      <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
++                      <div className="flex items-center text-xs text-slate-500">
+                         total: {totalQty}
+                       </div>
+-                      <button
++                      <Button
+                         type="button"
++                        variant="ghost"
++                        size="sm"
++                        className="text-destructive"
+                         onClick={() => {
+                           const ings = (line.ingredients || []).filter((_, i) => i !== ingIdx)
+                           updateLine(idx, { ingredients: ings })
+                         }}
+-                        style={removeBtnStyle}
+                       >
+                         ×
+-                      </button>
++                      </Button>
+                     </div>
+                   )
+                 })}
+-                <button type="button" onClick={() => addIngredient(idx)} style={addBtnStyle}>
++                <Button type="button" variant="outline" size="sm" onClick={() => addIngredient(idx)}>
+                   + Ingredient
+-                </button>
++                </Button>
+               </div>
+             )}
+           </div>
+         ))}
+       </div>
+ 
+       {/* Sale type + fees */}
+-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 16 }}>
++      <div className="mt-4 grid grid-cols-3 gap-3 px-4">
+         <div>
+-          <label style={miniLabel}>Sale type</label>
++          <label className={labelCls}>Sale type</label>
+           <select
+             value={effectiveType}
+             disabled={forcedResep}
+             onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'BPJS' | 'SARANA')}
+-            style={inputStyle}
++            className={fieldCls}
+           >
+             <option value="OTC">OTC</option>
+             <option value="RESEP">Resep</option>
+             <option value="BPJS">BPJS / JKN</option>
+             <option value="SARANA">Sarana (facility)</option>
+           </select>
+           {effectiveType === 'BPJS' && (
+-            <span style={{ background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }}>
++            <span className="mt-1 inline-block rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+               BPJS — Tuslah &amp; Embalase waived (SE 031/XI/2014)
+             </span>
+           )}
+           {forcedResep && (
+-            <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
++            <div className="mt-1 text-[11px] text-red-600">
+               Forced RESEP — cart contains KERAS/narcotic item.
+             </div>
+           )}
+         </div>
+         <div>
+-          <label style={miniLabel}>Tuslah</label>
++          <label className={labelCls}>Tuslah</label>
+           <input
+             type="number"
+             value={effectiveType === 'BPJS' ? '0' : tuslah}
+             onChange={(e) => { if (effectiveType !== 'BPJS') setTuslah(e.target.value) }}
+             disabled={effectiveType === 'BPJS'}
+             min="0"
+             step="0.01"
+             placeholder="0"
+-            style={inputStyle}
++            className={fieldCls}
+           />
+         </div>
+-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+-          <div style={{ textAlign: 'right' }}>
+-            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
++        <div className="flex items-end justify-end">
++          <div className="text-right">
++            <div className="text-xs text-slate-500">
+               Subtotal {totals.subtotal.toFixed(2)} + Embalase {totals.embalaseTotal.toFixed(2)} + Tuslah{' '}
+               {Number(tuslah || 0).toFixed(2)}
+             </div>
+-            <div style={{ fontSize: 18, fontWeight: 700 }}>Rp {totals.grandTotal.toFixed(2)}</div>
++            <div className="text-lg font-bold tabular-nums text-slate-900">
++              Rp {totals.grandTotal.toFixed(2)}
++            </div>
+           </div>
+         </div>
+       </div>
+ 
+       {/* Prescription metadata — only for RESEP and BPJS sales */}
+       {(effectiveType === 'RESEP' || effectiveType === 'BPJS') ? (
+-        <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginTop: 16 }}>
+-          <h3 style={{ fontSize: 13, margin: '0 0 10px' }}>Prescription ({hardGate ? 'hard gate — address required' : 'doctor + patient'})</h3>
+-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
++        <div className="mx-4 mt-4 rounded-lg border border-border p-3">
++          <h3 className="mb-2.5 text-sm font-medium text-slate-900">
++            Prescription ({hardGate ? 'hard gate — address required' : 'doctor + patient'})
++          </h3>
++          <div className="grid grid-cols-2 gap-3">
+             <div>
+-              <label style={miniLabel}>Doctor</label>
+-              <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} style={inputStyle}>
++              <label className={labelCls}>Doctor</label>
++              <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={fieldCls}>
+                 <option value="">— pick existing —</option>
+                 {doctors.map((d) => (
+                   <option key={d.id} value={d.id}>
+                     {d.name}{d.sip_number ? ` (${d.sip_number})` : ''}
+                   </option>
+                 ))}
+               </select>
+-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
++              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                 <input
+                   value={doctorName}
+                   onChange={(e) => setDoctorName(e.target.value)}
+                   placeholder="or new doctor name"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+                 <input
+                   value={doctorSip}
+                   onChange={(e) => setDoctorSip(e.target.value)}
+                   placeholder="SIP number"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+               </div>
+             </div>
+             <div>
+-              <label style={miniLabel}>Patient</label>
+-              <select value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} style={inputStyle}>
++              <label className={labelCls}>Patient</label>
++              <select value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} className={fieldCls}>
+                 <option value="">— pick existing —</option>
+                 {patients.map((p) => (
+                   <option key={p.id} value={p.id}>
+                     {p.name}
+                   </option>
+                 ))}
+               </select>
+-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
++              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                 <input
+                   value={patientName}
+                   onChange={(e) => setPatientName(e.target.value)}
+                   placeholder="or new patient name"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+                 <input
+                   value={patientPhone}
+                   onChange={(e) => setPatientPhone(e.target.value)}
+                   placeholder="phone"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+               </div>
+               {hardGate ? (
+                 <input
+                   value={patientAddress}
+                   onChange={(e) => setPatientAddress(e.target.value)}
+                   placeholder="Patient address (required)"
+-                  style={{ ...inputStyle, marginTop: 6 }}
++                  className={`${fieldCls} mt-1.5`}
+                 />
+               ) : null}
+               {ihsStatus ? (
+-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 6 }}>{ihsStatus}</p>
++                <p className="mt-1.5 text-xs text-slate-500">{ihsStatus}</p>
+               ) : null}
+             </div>
+           </div>
+         </div>
+       ) : null}
+ 
+       {/* Facility metadata — only for SARANA sales */}
+       {effectiveType === 'SARANA' ? (
+-        <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginTop: 16 }}>
+-          <h3 style={{ fontSize: 13, margin: '0 0 10px' }}>Facility (B2B transfer)</h3>
+-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
++        <div className="mx-4 mt-4 rounded-lg border border-border p-3">
++          <h3 className="mb-2.5 text-sm font-medium text-slate-900">Facility (B2B transfer)</h3>
++          <div className="grid grid-cols-2 gap-3">
+             <div>
+-              <label style={miniLabel}>Facility</label>
+-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={inputStyle}>
++              <label className={labelCls}>Facility</label>
++              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={fieldCls}>
+                 <option value="">— pick existing —</option>
+                 {patients.map((p) => (
+                   <option key={p.id} value={p.id}>
+                     {p.name}
+                   </option>
+                 ))}
+               </select>
+-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
++              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                 <input
+                   value={patientName}
+                   onChange={(e) => setPatientName(e.target.value)}
+                   placeholder="or new facility name"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+                 <input
+                   value={patientPhone}
+                   onChange={(e) => setPatientPhone(e.target.value)}
+                   placeholder="phone"
+-                  style={inputStyle}
++                  className={fieldCls}
+                 />
+               </div>
+             </div>
+           </div>
+         </div>
+       ) : null}
+ 
+       {error && (
+-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginTop: 12 }}>
+-          {error}
+-        </p>
++        <p className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+       )}
+ 
+-      <button
+-        type="submit"
+-        disabled={bpjsBlocked}
+-        style={{
+-          marginTop: 16,
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '8px 16px',
+-          border: 'none',
+-          borderRadius: 6,
+-          cursor: bpjsBlocked ? 'not-allowed' : 'pointer',
+-          fontSize: 14,
+-          fontWeight: 500,
+-          opacity: bpjsBlocked ? 0.5 : 1,
+-        }}
+-      >
+-        Create Draft Sale
+-      </button>
+-      {bpjsBlocked && (
+-        <p style={{ color: '#ef4444', fontSize: 12, marginTop: 4 }}>
+-          Patient is missing No. Peserta BPJS — update the patient record first.
+-        </p>
+-      )}
++      <div className="px-4 pt-4">
++        <Button type="submit" disabled={bpjsBlocked}>
++          Create Draft Sale
++        </Button>
++        {bpjsBlocked && (
++          <p className="mt-1 text-xs text-red-600">
++            Patient is missing No. Peserta BPJS — update the patient record first.
++          </p>
++        )}
++      </div>
+     </form>
+   )
+ }
+-
+-const addBtnStyle: React.CSSProperties = {
+-  background: 'transparent',
+-  color: 'var(--primary)',
+-  border: '1px solid var(--primary)',
+-  borderRadius: 6,
+-  padding: '4px 10px',
+-  fontSize: 12,
+-  cursor: 'pointer',
+-}
+-
+-const removeBtnStyle: React.CSSProperties = {
+-  background: 'transparent',
+-  color: '#ef4444',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  padding: '4px 10px',
+-  fontSize: 14,
+-  cursor: 'pointer',
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/sales/new/page.tsx b/apps/web/app/(app)/sales/new/page.tsx
+index d1abb51..f34f36e 100644
+--- a/apps/web/app/(app)/sales/new/page.tsx
++++ b/apps/web/app/(app)/sales/new/page.tsx
+@@ -1,72 +1,40 @@
+ import Link from 'next/link'
++import { CircleAlert } from 'lucide-react'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { requireOpenShift } from '../../shifts/actions'
+ import { ShiftRow } from '@pharmacy/domain'
+ import { CartBuilder } from './cart-builder'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ // POS blocked when no shift is open.
+ async function PosBlock() {
+   return (
+-    <div
+-      style={{
+-        display: 'flex',
+-        flexDirection: 'column',
+-        alignItems: 'center',
+-        justifyContent: 'center',
+-        minHeight: 320,
+-        background: 'var(--card)',
+-        border: '1px solid var(--border)',
+-        borderRadius: 8,
+-        padding: 32,
+-        textAlign: 'center',
+-      }}
+-    >
+-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}>
+-        <circle cx="12" cy="12" r="10" />
+-        <line x1="12" y1="8" x2="12" y2="12" />
+-        <line x1="12" y1="16" x2="12.01" y2="16" />
+-      </svg>
+-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>No Open Shift</h2>
+-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '0 0 20px' }}>
++    <div className="flex min-h-80 flex-col items-center justify-center rounded-xl bg-card px-8 py-8 text-center ring-1 ring-foreground/10">
++      <CircleAlert className="mb-4 size-12 text-slate-400" aria-hidden />
++      <h2 className="mb-2 text-base font-semibold text-slate-900">No Open Shift</h2>
++      <p className="mb-5 text-sm text-slate-500">
+         Open a shift before you can start a sale.
+       </p>
+-      <Link
+-        href="/shifts/new"
+-        style={{
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '10px 20px',
+-          borderRadius: 6,
+-          textDecoration: 'none',
+-          fontSize: 14,
+-          fontWeight: 500,
+-        }}
+-      >
+-        Open Shift
+-      </Link>
++      <Button render={<Link href="/shifts/new" />}>Open Shift</Button>
+     </div>
+   )
+ }
+ 
+-const miniTh: React.CSSProperties = {
+-  padding: '6px 8px',
+-  fontSize: 11,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const miniTd: React.CSSProperties = {
+-  padding: '6px 8px',
+-  fontSize: 12,
+-}
+-
+ function parseDate(value: string | null): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function NewSalePage({
+   searchParams,
+ }: {
+@@ -74,25 +42,27 @@ export default async function NewSalePage({
+ }) {
+   const params = await searchParams
+   const error = params.error
+ 
+   // Hard block: require open shift before POS is accessible.
+   let openShiftData: ShiftRow | null = null
+   try {
+     openShiftData = await requireOpenShift()
+   } catch {
+     return (
+-      <section style={{ maxWidth: 480 }}>
+-        <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-          Back to Sales
+-        </Link>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Sale</h1>
++      <section className="mx-auto max-w-md space-y-6">
++        <div>
++          <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
++            Back to Sales
++          </Link>
++          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
++        </div>
+         <PosBlock />
+       </section>
+     )
+   }
+ 
+   // Non-null here: requireOpenShift throws or we returned above.
+   const openShift = openShiftData as ShiftRow
+ 
+   const supabase = await createClient()
+   const { data: products } = await supabase
+@@ -108,66 +78,71 @@ export default async function NewSalePage({
+     .select('product_id, batch_number, expiry_date, current_qty')
+     .gt('current_qty', 0)
+ 
+   const stockByProduct: Record<string, { batch_number: string; expiry_date: string | null; current_qty: number }[]> = {}
+   for (const b of batches || []) {
+     if (!stockByProduct[b.product_id]) stockByProduct[b.product_id] = []
+     stockByProduct[b.product_id].push(b)
+   }
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Sales
+-      </Link>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>New Sale</h1>
+-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+-          Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
+-        </span>
++    <section className="mx-auto max-w-3xl space-y-6">
++      <div>
++        <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
++          Back to Sales
++        </Link>
++        <div className="flex items-center justify-between">
++          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
++          <span className="text-xs text-slate-500">
++            Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
++          </span>
++        </div>
+       </div>
+ 
+       {error && (
+-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+-          {error}
+-        </p>
++        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+       )}
+ 
+       <CartBuilder
+         products={products || []}
+         doctors={doctorRes.data || []}
+         patients={patientRes.data || []}
+       />
+ 
+-      <h2 style={{ fontSize: 14, margin: '20px 0 8px' }}>Available stock (FEFO)</h2>
+-      {(products || []).length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>No products yet</p>
+-      ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={miniTh}>Product</th>
+-              <th style={miniTh}>Batch</th>
+-              <th style={miniTh}>Expiry</th>
+-              <th style={miniTh}>Qty</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {(products || []).map((p: any) => {
+-              const stock = stockByProduct[p.id] || []
+-              return stock.length === 0 ? null : (
+-                stock.map((b) => (
+-                  <tr key={`${p.id}-${b.batch_number}`} style={{ borderTop: '1px solid var(--border)' }}>
+-                    <td style={miniTd}>{p.name}</td>
+-                    <td style={miniTd}>{b.batch_number}</td>
+-                    <td style={miniTd}>{b.expiry_date ? parseDate(b.expiry_date) : '-'}</td>
+-                    <td style={miniTd}>{b.current_qty}</td>
+-                  </tr>
+-                ))
+-              )
+-            })}
+-          </tbody>
+-        </table>
+-      )}
++      <div className="space-y-3">
++        <h2 className="text-sm font-medium text-slate-900">Available stock (FEFO)</h2>
++        {(products || []).length === 0 ? (
++          <p className="text-sm text-slate-500">No products yet</p>
++        ) : (
++          <Table>
++            <TableHeader className="sticky top-14 z-10 bg-slate-50">
++              <TableRow>
++                <TableHead>Product</TableHead>
++                <TableHead>Batch</TableHead>
++                <TableHead>Expiry</TableHead>
++                <TableHead className="text-right">Qty</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {(products || []).map((p: any) => {
++                const stock = stockByProduct[p.id] || []
++                return stock.length === 0 ? null : (
++                  stock.map((b) => (
++                    <TableRow
++                      key={`${p.id}-${b.batch_number}`}
++                      className="h-10 cursor-pointer hover:bg-slate-50"
++                    >
++                      <TableCell>{p.name}</TableCell>
++                      <TableCell>{b.batch_number}</TableCell>
++                      <TableCell>{b.expiry_date ? parseDate(b.expiry_date) : '-'}</TableCell>
++                      <TableCell className="text-right tabular-nums">{b.current_qty}</TableCell>
++                    </TableRow>
++                  ))
++                )
++              })}
++            </TableBody>
++          </Table>
++        )}
++      </div>
+     </section>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/apps/web/app/(app)/sales/page.tsx b/apps/web/app/(app)/sales/page.tsx
+index 29b3107..335c9ac 100644
+--- a/apps/web/app/(app)/sales/page.tsx
++++ b/apps/web/app/(app)/sales/page.tsx
+@@ -1,89 +1,76 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+-import { statusColors, parseDate } from './status'
++import { parseDate } from './status'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++// Status badge variants follow the approved pill mapping:
++// DRAFT outline, PAID default (teal), VOID destructive.
++const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  DRAFT: 'outline',
++  PAID: 'default',
++  VOID: 'destructive',
++}
+ 
+ export default async function SalesPage() {
+   const supabase = await createClient()
+   const { data: sales } = await supabase
+     .from('sales')
+     .select('*, sale_items (*)')
+     .order('created_at', { ascending: false })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Sales</h1>
+-        <Link
+-          href="/sales/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-          }}
+-        >
+-          New Sale
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Sales</h1>
++        <Button render={<Link href="/sales/new" />}>New Sale</Button>
+       </div>
+       {!sales || sales.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No sales yet</p>
++        <p className="text-sm text-slate-500">No sales yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Sale Number</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Items</th>
+-              <th style={thStyle}>Grand Total</th>
+-              <th style={thStyle}>Paid</th>
+-              <th style={thStyle}>Sold At</th>
+-            </tr>
+-          </thead>
+-          <tbody>
++        <Table>
++          <TableHeader className="sticky top-14 z-10 bg-slate-50">
++            <TableRow>
++              <TableHead>Sale Number</TableHead>
++              <TableHead>Status</TableHead>
++              <TableHead>Items</TableHead>
++              <TableHead className="text-right">Grand Total</TableHead>
++              <TableHead className="text-right">Paid</TableHead>
++              <TableHead>Sold At</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
+             {sales.map((s: any) => (
+-              <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/sales/${s.id}`} style={{ color: 'var(--primary)' }}>
++              <TableRow key={s.id} className="h-10">
++                <TableCell>
++                  <Link href={`/sales/${s.id}`} className="text-primary">
+                     {s.sale_number}
+                   </Link>
+-                </td>
+-                <td style={tdStyle}>
+-                  <span style={badgeStyle(statusColors[s.status] || '#64748b')}>{s.status}</span>
+-                </td>
+-                <td style={tdStyle}>{s.sale_items?.length ?? 0}</td>
+-                <td style={tdStyle}>{Number(s.grand_total).toFixed(2)}</td>
+-                <td style={tdStyle}>{Number(s.paid_amount).toFixed(2)}</td>
+-                <td style={tdStyle}>{parseDate(s.sold_at || s.created_at)}</td>
+-              </tr>
++                </TableCell>
++                <TableCell>
++                  <Badge variant={statusVariant[s.status] || 'secondary'}>{s.status}</Badge>
++                </TableCell>
++                <TableCell>{s.sale_items?.length ?? 0}</TableCell>
++                <TableCell className="text-right tabular-nums">
++                  {Number(s.grand_total).toFixed(2)}
++                </TableCell>
++                <TableCell className="text-right tabular-nums">
++                  {Number(s.paid_amount).toFixed(2)}
++                </TableCell>
++                <TableCell>{parseDate(s.sold_at || s.created_at)}</TableCell>
++              </TableRow>
+             ))}
+-          </tbody>
+-        </table>
++          </TableBody>
++        </Table>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/shifts/[id]/page.tsx b/apps/web/app/(app)/shifts/[id]/page.tsx
+index e602f5a..1919f9f 100644
+--- a/apps/web/app/(app)/shifts/[id]/page.tsx
++++ b/apps/web/app/(app)/shifts/[id]/page.tsx
+@@ -1,37 +1,54 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { closeShift, forceCloseShift } from '../actions'
+ import { getUserRole } from '../../../../utils/auth'
+ import { canForceCloseShift } from '../../../../lib/shifts'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Card,
++  CardContent,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
+ }
+ 
+-const statusColors: Record<string, string> = {
+-  OPEN: '#10b981',
+-  CLOSED: '#64748b',
+-  FORCE_CLOSED: '#ef4444',
++const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  OPEN: 'default',
++  CLOSED: 'secondary',
++  FORCE_CLOSED: 'destructive',
+ }
+ 
+-function badgeStyle(color: string): React.CSSProperties {
+-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
++const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  DRAFT: 'outline',
++  PAID: 'default',
++  VOID: 'destructive',
+ }
+ 
+-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)', textAlign: 'left' }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-
+ async function handleClose(formData: FormData) {
+   'use server'
+   const shiftId = formData.get('shift_id') as string
+   const closingCash = Number(formData.get('closing_cash') || 0)
+   try {
+     await closeShift(shiftId, closingCash)
+   } catch (e: any) {
+     redirect(`/shifts/${shiftId}?error=${encodeURIComponent(e.message)}`)
+     return
+   }
+@@ -55,24 +72,26 @@ export default async function ShiftDetailPage({
+   params,
+   searchParams,
+ }: {
+   params: Promise<{ id: string }>
+   searchParams: Promise<{ error?: string }>
+ }) {
+   const { id } = await params
+   const sp = await searchParams
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+-  const { data: { user } } = await supabase.auth.getUser()
++  const {
++    data: { user },
++  } = await supabase.auth.getUser()
+ 
+   const { data: shift } = await supabase.from('shifts').select('*').eq('id', id).single()
+-  if (!shift) return <p style={{ color: 'var(--danger)' }}>Shift not found</p>
++  if (!shift) return <p className="text-sm text-destructive">Shift not found</p>
+ 
+   const { data: sales } = await supabase
+     .from('sales')
+     .select('id, sale_number, status, grand_total, paid_amount, sold_at, created_at')
+     .eq('shift_id', id)
+     .order('created_at', { ascending: true })
+ 
+   const { count: draftCount } = await supabase
+     .from('sales')
+     .select('*', { count: 'exact', head: true })
+@@ -96,223 +115,189 @@ export default async function ShiftDetailPage({
+     .eq('sales.shift_id', id)
+   const cashTotal = (cashPayments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0)
+   const expectedClosing = opening + cashTotal
+   const cashVariance = closing !== null ? closing - expectedClosing : null
+ 
+   const isOwner = canForceCloseShift(role)
+   const isOwnShift = shift.user_id === user?.id
+   const canClose = shift.status === 'OPEN' && isOwnShift
+   const canForce = shift.status === 'OPEN' && isOwner
+ 
+-  return (
+-    <section>
+-      <Link href="/shifts" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Shifts
+-      </Link>
++  const stats = [
++    { label: 'Opening Cash', value: opening.toFixed(2) },
++    { label: 'Total Sales Received', value: totalPaid.toFixed(2) },
++    closing !== null
++      ? { label: 'Closing Cash', value: closing.toFixed(2) }
++      : { label: 'Expected Closing', value: expectedClosing.toFixed(2) },
++  ]
+ 
+-      {sp.error && (
+-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+-          {sp.error}
+-        </p>
+-      )}
++  return (
++    <section className="space-y-6">
++      <div>
++        <Link href="/shifts" className="mb-4 inline-block text-sm text-primary hover:underline">
++          Back to Shifts
++        </Link>
++        {sp.error && (
++          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{sp.error}</p>
++        )}
++      </div>
+ 
+       {/* Header */}
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Shift</h1>
+-        <span style={badgeStyle(statusColors[shift.status] || '#64748b')}>{shift.status}</span>
++      <div className="flex items-center gap-3">
++        <h1 className="text-xl font-semibold text-slate-900">Shift</h1>
++        <Badge variant={statusVariant[shift.status] || 'secondary'}>{shift.status}</Badge>
+       </div>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: 13 }}>
++      <p className="text-sm text-slate-500">
+         Opened: {parseDate(shift.opened_at)}
+         {shift.closed_at && ` · Closed: ${parseDate(shift.closed_at)}`}
+       </p>
+ 
+-      {/* Cash summary card */}
+-      <div
+-        style={{
+-          background: 'var(--card)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-          padding: 16,
+-          marginBottom: 16,
+-          display: 'grid',
+-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+-          gap: 16,
+-        }}
+-      >
+-        <div>
+-          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Opening Cash</p>
+-          <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 600 }}>{opening.toFixed(2)}</p>
+-        </div>
+-        <div>
+-          <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Total Sales Received</p>
+-          <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 600 }}>{totalPaid.toFixed(2)}</p>
+-        </div>
+-        {closing !== null ? (
+-          <>
+-            <div>
+-              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Closing Cash</p>
+-              <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 600 }}>{closing.toFixed(2)}</p>
+-            </div>
+-            <div>
+-              <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Cash Variance</p>
+-              <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 600, color: cashVariance !== null && cashVariance !== 0 ? 'var(--danger, #ef4444)' : 'inherit' }}>
+-                {cashVariance !== null ? (cashVariance >= 0 ? '+' : '') + cashVariance.toFixed(2) : '-'}
+-              </p>
+-            </div>
+-          </>
+-        ) : (
+-          <div>
+-            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Expected Closing</p>
+-            <p style={{ margin: '4px 0 0', fontSize: 18, fontWeight: 600 }}>{expectedClosing.toFixed(2)}</p>
+-          </div>
+-        )}
++      {/* Cash summary */}
++      <div className="grid gap-4 sm:grid-cols-3">
++        {stats.map((s) => (
++          <Card key={s.label}>
++            <CardHeader>
++              <CardTitle className="text-xs uppercase tracking-wide text-slate-500">
++                {s.label}
++              </CardTitle>
++            </CardHeader>
++            <CardContent>
++              <p className="text-lg font-semibold tabular-nums text-slate-900">{s.value}</p>
++            </CardContent>
++          </Card>
++        ))}
+       </div>
+ 
+-      {shift.notes && (
+-        <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
+-          Notes: {shift.notes}
++      {closing !== null && (
++        <p
++          className={`text-sm tabular-nums ${
++            cashVariance !== null && cashVariance !== 0 ? 'text-destructive' : 'text-slate-500'
++          }`}
++        >
++          Cash Variance: {cashVariance !== null ? (cashVariance >= 0 ? '+' : '') + cashVariance.toFixed(2) : '-'}
+         </p>
+       )}
+ 
++      {shift.notes && <p className="text-sm text-slate-500">Notes: {shift.notes}</p>}
++
+       {/* Sale list */}
+-      <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>
+-        Sales ({sales?.length ?? 0})
+-        {draftCount != null && draftCount > 0 && (
+-          <span style={{ color: '#f59e0b', fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+-            ({draftCount} draft — must be completed or cancelled before close)
+-          </span>
++      <div className="space-y-3">
++        <h2 className="text-base font-medium text-slate-900">
++          Sales ({sales?.length ?? 0})
++          {draftCount != null && draftCount > 0 && (
++            <span className="ml-2 text-sm font-normal text-amber-600">
++              ({draftCount} draft — must be completed or cancelled before close)
++            </span>
++          )}
++        </h2>
++        {sales && sales.length > 0 ? (
++          <Table>
++            <TableHeader className="sticky top-14 z-10 bg-slate-50">
++              <TableRow>
++                <TableHead>Sale Number</TableHead>
++                <TableHead>Status</TableHead>
++                <TableHead className="text-right">Grand Total</TableHead>
++                <TableHead className="text-right">Paid</TableHead>
++                <TableHead>Time</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {sales.map((s) => (
++                <TableRow key={s.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/sales/${s.id}`} className="text-primary">
++                      {s.sale_number}
++                    </Link>
++                  </TableCell>
++                  <TableCell>
++                    <Badge variant={saleStatusVariant[s.status as string] || 'secondary'}>
++                      {s.status}
++                    </Badge>
++                  </TableCell>
++                  <TableCell className="text-right tabular-nums">
++                    {Number(s.grand_total).toFixed(2)}
++                  </TableCell>
++                  <TableCell className="text-right tabular-nums">
++                    {Number(s.paid_amount || 0).toFixed(2)}
++                  </TableCell>
++                  <TableCell>{parseDate(s.sold_at || s.created_at)}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        ) : (
++          <p className="text-sm text-slate-500">No sales in this shift</p>
+         )}
+-      </h2>
+-      {sales && sales.length > 0 ? (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginBottom: 16 }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Sale Number</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Grand Total</th>
+-              <th style={thStyle}>Paid</th>
+-              <th style={thStyle}>Time</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {sales.map((s) => (
+-              <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/sales/${s.id}`} style={{ color: 'var(--primary)' }}>
+-                    {s.sale_number}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>
+-                  <span style={badgeStyle({ DRAFT: '#64748b', PAID: '#10b981', VOID: '#ef4444' }[s.status as string] || '#64748b')}>
+-                    {s.status}
+-                  </span>
+-                </td>
+-                <td style={tdStyle}>{Number(s.grand_total).toFixed(2)}</td>
+-                <td style={tdStyle}>{Number(s.paid_amount || 0).toFixed(2)}</td>
+-                <td style={tdStyle}>{parseDate(s.sold_at || s.created_at)}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
+-      ) : (
+-        <p style={{ color: 'var(--text-secondary)', marginBottom: 16 }}>No sales in this shift</p>
+-      )}
++      </div>
+ 
+       {/* Close / force-close form — only when shift is OPEN */}
+       {shift.status === 'OPEN' && (
+-        <div
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 16,
+-          }}
+-        >
+-          <h2 style={{ fontSize: 14, margin: '0 0 12px' }}>Close Shift</h2>
+-
+-          {draftCount != null && draftCount > 0 && (
+-            <p style={{ color: '#f59e0b', fontSize: 13, marginBottom: 12 }}>
+-              Cannot close: {draftCount} draft sale(s) exist. Complete or cancel all draft sales first.
+-            </p>
+-          )}
+-
+-          {canClose && (
+-            <form action={handleClose} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+-              <input type="hidden" name="shift_id" value={shift.id} />
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Closing Cash</label>
+-                <input
+-                  name="closing_cash"
+-                  type="number"
+-                  step="0.01"
+-                  min="0"
+-                  required
+-                  placeholder={expectedClosing.toFixed(2)}
+-                  style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, width: 160 }}
+-                />
+-              </div>
+-              <button
+-                type="submit"
+-                disabled={!!(draftCount != null && draftCount > 0)}
+-                style={{
+-                  background: 'var(--primary)',
+-                  color: '#fff',
+-                  padding: '8px 16px',
+-                  border: 'none',
+-                  borderRadius: 6,
+-                  cursor: 'pointer',
+-                  fontSize: 14,
+-                  opacity: draftCount != null && draftCount > 0 ? 0.5 : 1,
+-                }}
+-              >
+-                Close Shift
+-              </button>
+-            </form>
+-          )}
+-
+-          {canForce && !isOwnShift && (
+-            <>
+-              <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 8 }}>
+-                This shift belongs to another user. Use force-close as owner.
++        <Card>
++          <CardHeader>
++            <CardTitle>Close Shift</CardTitle>
++          </CardHeader>
++          <CardContent className="space-y-4">
++            {draftCount != null && draftCount > 0 && (
++              <p className="text-sm text-amber-600">
++                Cannot close: {draftCount} draft sale(s) exist. Complete or cancel all draft sales
++                first.
+               </p>
+-              <form action={handleForceClose} style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
++            )}
++
++            {canClose && (
++              <form action={handleClose} className="flex items-end gap-3">
+                 <input type="hidden" name="shift_id" value={shift.id} />
+-                <div>
+-                  <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Closing Cash</label>
+-                  <input
++                <div className="grid gap-1.5">
++                  <Label htmlFor="closing_cash">Closing Cash</Label>
++                  <Input
++                    id="closing_cash"
+                     name="closing_cash"
+                     type="number"
+                     step="0.01"
+                     min="0"
+                     required
+                     placeholder={expectedClosing.toFixed(2)}
+-                    style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 14, width: 160 }}
++                    className="w-40"
+                   />
+                 </div>
+-                <button
+-                  type="submit"
+-                  style={{
+-                    background: '#ef4444',
+-                    color: '#fff',
+-                    padding: '8px 16px',
+-                    border: 'none',
+-                    borderRadius: 6,
+-                    cursor: 'pointer',
+-                    fontSize: 14,
+-                  }}
+-                >
+-                  Force Close (Owner)
+-                </button>
++                <Button type="submit" disabled={!!(draftCount != null && draftCount > 0)}>
++                  Close Shift
++                </Button>
+               </form>
+-            </>
+-          )}
++            )}
+ 
+-          {shift.status === 'OPEN' && !canClose && !canForce && (
+-            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+-              You cannot close this shift.
+-            </p>
+-          )}
+-        </div>
++            {canForce && !isOwnShift && (
++              <>
++                <p className="text-sm text-slate-500">
++                  This shift belongs to another user. Use force-close as owner.
++                </p>
++                <form action={handleForceClose} className="flex items-end gap-3">
++                  <input type="hidden" name="shift_id" value={shift.id} />
++                  <div className="grid gap-1.5">
++                    <Label htmlFor="force_closing_cash">Closing Cash</Label>
++                    <Input
++                      id="force_closing_cash"
++                      name="closing_cash"
++                      type="number"
++                      step="0.01"
++                      min="0"
++                      required
++                      placeholder={expectedClosing.toFixed(2)}
++                      className="w-40"
++                    />
++                  </div>
++                  <Button type="submit" variant="destructive">
++                    Force Close (Owner)
++                  </Button>
++                </form>
++              </>
++            )}
++
++            {shift.status === 'OPEN' && !canClose && !canForce && (
++              <p className="text-sm text-slate-500">You cannot close this shift.</p>
++            )}
++          </CardContent>
++        </Card>
+       )}
+     </section>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/apps/web/app/(app)/shifts/new/page.tsx b/apps/web/app/(app)/shifts/new/page.tsx
+index 07dd915..8d3287c 100644
+--- a/apps/web/app/(app)/shifts/new/page.tsx
++++ b/apps/web/app/(app)/shifts/new/page.tsx
+@@ -1,88 +1,77 @@
+ import Link from 'next/link'
+ import { openShift } from '../actions'
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+-
+-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }
++import { Button } from '@/components/ui/button'
++import {
++  Card,
++  CardContent,
++  CardDescription,
++  CardHeader,
++  CardTitle,
++} from '@/components/ui/card'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
++import { Textarea } from '@/components/ui/textarea'
+ 
+ export default async function NewShiftPage({
+   searchParams,
+ }: {
+   searchParams: Promise<{ error?: string }>
+ }) {
+   const params = await searchParams
+   const error = params.error
+ 
+   return (
+-    <section style={{ maxWidth: 480 }}>
+-      <Link href="/shifts" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Shifts
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Open Shift</h1>
++    <section className="mx-auto max-w-md space-y-6">
++      <div>
++        <Link href="/shifts" className="mb-4 inline-block text-sm text-primary hover:underline">
++          Back to Shifts
++        </Link>
++        <h1 className="text-xl font-semibold text-slate-900">Open Shift</h1>
++      </div>
+ 
+       {error && (
+-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
+-          {error}
+-        </p>
++        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+       )}
+ 
+-      <form
+-        action={openShift}
+-        style={{
+-          background: 'var(--card)',
+-          padding: 16,
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-        }}
+-      >
+-        <div style={{ marginBottom: 16 }}>
+-          <label style={labelStyle}>Opening Cash *</label>
+-          <input
+-            name="opening_cash"
+-            type="number"
+-            step="0.01"
+-            min="0"
+-            required
+-            placeholder="0.00"
+-            style={inputStyle}
+-          />
+-          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-secondary)' }}>
+-            Cash in drawer at shift start. Numeric, non-negative.
+-          </p>
+-        </div>
++      <Card>
++        <CardHeader>
++          <CardTitle>Shift Details</CardTitle>
++          <CardDescription>Enter the cash in the drawer at shift start.</CardDescription>
++        </CardHeader>
++        <CardContent>
++          <form action={openShift} className="grid gap-4">
++            <div className="grid gap-1.5">
++              <Label htmlFor="opening_cash">Opening Cash *</Label>
++              <Input
++                id="opening_cash"
++                name="opening_cash"
++                type="number"
++                step="0.01"
++                min="0"
++                required
++                placeholder="0.00"
++              />
++              <p className="text-xs text-slate-500">
++                Cash in drawer at shift start. Numeric, non-negative.
++              </p>
++            </div>
+ 
+-        <div style={{ marginBottom: 16 }}>
+-          <label style={labelStyle}>Notes</label>
+-          <textarea
+-            name="notes"
+-            rows={3}
+-            placeholder="Optional notes for this shift"
+-            style={{ ...inputStyle, resize: 'vertical' }}
+-          />
+-        </div>
++            <div className="grid gap-1.5">
++              <Label htmlFor="notes">Notes</Label>
++              <Textarea
++                id="notes"
++                name="notes"
++                rows={3}
++                placeholder="Optional notes for this shift"
++              />
++            </div>
+ 
+-        <button
+-          type="submit"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-            fontSize: 14,
+-          }}
+-        >
+-          Start Shift
+-        </button>
+-      </form>
++            <Button type="submit" className="w-fit">
++              Start Shift
++            </Button>
++          </form>
++        </CardContent>
++      </Card>
+     </section>
+   )
+-}
+\ No newline at end of file
++}
+diff --git a/apps/web/app/(app)/shifts/page.tsx b/apps/web/app/(app)/shifts/page.tsx
+index 7bac3a2..a1d019a 100644
+--- a/apps/web/app/(app)/shifts/page.tsx
++++ b/apps/web/app/(app)/shifts/page.tsx
+@@ -1,158 +1,150 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+ import { listOpenShift } from './actions'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ // ASD-STE100: shared utility for date display
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
+ }
+ 
+-const statusColors: Record<string, string> = {
+-  OPEN: '#10b981',
+-  CLOSED: '#64748b',
+-  FORCE_CLOSED: '#ef4444',
++const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
++  OPEN: 'default',
++  CLOSED: 'secondary',
++  FORCE_CLOSED: 'destructive',
+ }
+ 
+-function badgeStyle(color: string): React.CSSProperties {
+-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
+-}
+-
+-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)', textAlign: 'left' }
+-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
+-
+ export default async function ShiftsPage() {
+   const supabase = await createClient()
+-  const { data: { user } } = await supabase.auth.getUser()
++  const {
++    data: { user },
++  } = await supabase.auth.getUser()
+ 
+   const currentShift = await listOpenShift()
+ 
+   // Past shifts for this user
+   let pastShifts: any[] = []
+   if (user) {
+     const { data } = await supabase
+       .from('shifts')
+       .select('*')
+       .eq('user_id', user.id)
+       .neq('status', 'OPEN')
+       .order('closed_at', { ascending: false })
+     pastShifts = data || []
+   }
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Shifts</h1>
+-        {!currentShift && (
+-          <Link
+-            href="/shifts/new"
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              borderRadius: 6,
+-              textDecoration: 'none',
+-              fontSize: 14,
+-            }}
+-          >
+-            Open Shift
+-          </Link>
+-        )}
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Shifts</h1>
++        {!currentShift && <Button render={<Link href="/shifts/new" />}>Open Shift</Button>}
+       </div>
+ 
+       {/* Current open shift */}
+       {currentShift && (
+-        <div
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid #10b981',
+-            borderRadius: 8,
+-            padding: 16,
+-            marginBottom: 24,
+-          }}
+-        >
+-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+-            <h2 style={{ margin: 0, fontSize: 16 }}>Open Shift</h2>
+-            <span style={badgeStyle(statusColors['OPEN'])}>OPEN</span>
++        <div className="rounded-xl bg-card py-4 ring-1 ring-emerald-500/50">
++          <div className="flex items-center gap-2 px-4 pb-1">
++            <h2 className="text-base font-medium text-slate-900">Open Shift</h2>
++            <Badge variant="default">OPEN</Badge>
++          </div>
++          <div className="space-y-1 px-4 text-sm text-slate-500">
++            <p>
++              Cashier: <strong className="text-slate-900">{currentShift.cashier_name || user?.email || '-'}</strong>
++            </p>
++            <p>Opened: {parseDate(currentShift.opened_at)}</p>
++            <p className="text-slate-900">
++              Opening Cash: <strong>{Number(currentShift.opening_cash).toFixed(2)}</strong>
++            </p>
++            <p>{currentShift.notes || 'No notes'}</p>
++          </div>
++          <div className="px-4 pt-2">
++            <Link
++              href={`/shifts/${currentShift.id}`}
++              className="text-sm font-medium text-primary hover:underline"
++            >
++              View &amp; Close Shift →
++            </Link>
+           </div>
+-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
+-            Cashier: <strong>{currentShift.cashier_name || user?.email || '-'}</strong>
+-          </p>
+-          <p style={{ margin: '4px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
+-            Opened: {parseDate(currentShift.opened_at)}
+-          </p>
+-          <p style={{ margin: '4px 0', fontSize: 14 }}>
+-            Opening Cash: <strong>{Number(currentShift.opening_cash).toFixed(2)}</strong>
+-          </p>
+-          <p style={{ margin: '4px 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+-            {currentShift.notes || 'No notes'}
+-          </p>
+-          <Link
+-            href={`/shifts/${currentShift.id}`}
+-            style={{ color: 'var(--primary)', fontSize: 13, display: 'inline-block', marginTop: 8 }}
+-          >
+-            View &amp; Close Shift →
+-          </Link>
+         </div>
+       )}
+ 
+       {/* Past shifts */}
+-      <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>Shift History</h2>
+-      {pastShifts.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No past shifts</p>
+-      ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Cashier</th>
+-              <th style={thStyle}>Opened</th>
+-              <th style={thStyle}>Closed</th>
+-              <th style={thStyle}>Opening Cash</th>
+-              <th style={thStyle}>Closing Cash</th>
+-              <th style={thStyle}>Variance</th>
+-              <th style={thStyle}>Notes</th>
+-              <th style={thStyle}></th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {pastShifts.map((shift) => {
+-              const opening = Number(shift.opening_cash)
+-              const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
+-              const variance = closing !== null ? closing - opening : null
+-              return (
+-                <tr key={shift.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                  <td style={tdStyle}>
+-                    <span style={badgeStyle(statusColors[shift.status] || '#64748b')}>{shift.status}</span>
+-                  </td>
+-                  <td style={tdStyle}>{shift.cashier_name || '—'}</td>
+-                  <td style={tdStyle}>{parseDate(shift.opened_at)}</td>
+-                  <td style={tdStyle}>{shift.closed_at ? parseDate(shift.closed_at) : '-'}</td>
+-                  <td style={tdStyle}>{opening.toFixed(2)}</td>
+-                  <td style={tdStyle}>{closing !== null ? closing.toFixed(2) : '-'}</td>
+-                  <td style={tdStyle}>
+-                    {variance !== null ? (
+-                      <span style={{ color: variance < 0 ? 'var(--danger, #ef4444)' : 'inherit' }}>
+-                        {variance >= 0 ? '+' : ''}{variance.toFixed(2)}
+-                      </span>
+-                    ) : (
+-                      '-'
+-                    )}
+-                  </td>
+-                  <td style={tdStyle}>{shift.notes || '-'}</td>
+-                  <td style={tdStyle}>
+-                    <Link href={`/shifts/${shift.id}`} style={{ color: 'var(--primary)', fontSize: 13 }}>
+-                      View
+-                    </Link>
+-                  </td>
+-                </tr>
+-              )
+-            })}
+-          </tbody>
+-        </table>
+-      )}
++      <div className="space-y-3">
++        <h2 className="text-base font-medium text-slate-900">Shift History</h2>
++        {pastShifts.length === 0 ? (
++          <p className="text-sm text-slate-500">No past shifts</p>
++        ) : (
++          <Table>
++            <TableHeader className="sticky top-14 z-10 bg-slate-50">
++              <TableRow>
++                <TableHead>Status</TableHead>
++                <TableHead>Cashier</TableHead>
++                <TableHead>Opened</TableHead>
++                <TableHead>Closed</TableHead>
++                <TableHead className="text-right">Opening Cash</TableHead>
++                <TableHead className="text-right">Closing Cash</TableHead>
++                <TableHead className="text-right">Variance</TableHead>
++                <TableHead>Notes</TableHead>
++                <TableHead></TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {pastShifts.map((shift) => {
++                const opening = Number(shift.opening_cash)
++                const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
++                const variance = closing !== null ? closing - opening : null
++                return (
++                  <TableRow key={shift.id} className="h-10">
++                    <TableCell>
++                      <Badge variant={statusVariant[shift.status] || 'secondary'}>
++                        {shift.status}
++                      </Badge>
++                    </TableCell>
++                    <TableCell>{shift.cashier_name || '—'}</TableCell>
++                    <TableCell>{parseDate(shift.opened_at)}</TableCell>
++                    <TableCell>{shift.closed_at ? parseDate(shift.closed_at) : '-'}</TableCell>
++                    <TableCell className="text-right tabular-nums">
++                      {opening.toFixed(2)}
++                    </TableCell>
++                    <TableCell className="text-right tabular-nums">
++                      {closing !== null ? closing.toFixed(2) : '-'}
++                    </TableCell>
++                    <TableCell className="text-right tabular-nums">
++                      {variance !== null ? (
++                        <span className={variance < 0 ? 'text-destructive' : ''}>
++                          {variance >= 0 ? '+' : ''}
++                          {variance.toFixed(2)}
++                        </span>
++                      ) : (
++                        '-'
++                      )}
++                    </TableCell>
++                    <TableCell>{shift.notes || '-'}</TableCell>
++                    <TableCell>
++                      <Link href={`/shifts/${shift.id}`} className="text-sm text-primary">
++                        View
++                      </Link>
++                    </TableCell>
++                  </TableRow>
++                )
++              })}
++            </TableBody>
++          </Table>
++        )}
++      </div>
+     </section>
+   )
+-}
+\ No newline at end of file
++}

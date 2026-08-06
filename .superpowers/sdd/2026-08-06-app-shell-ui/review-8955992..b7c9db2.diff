@@ -1,0 +1,1808 @@
+# Review package: 8955992..b7c9db2
+
+## Commits
+b7c9db2 style(web): Tailwind+shadcn restyle for procurement pages
+
+## Files changed
+ apps/web/app/(app)/procurement/[id]/page.tsx       | 163 ++++++++-------------
+ .../app/(app)/procurement/[id]/receive/page.tsx    | 130 +++++++---------
+ apps/web/app/(app)/procurement/new/page.tsx        |  76 ++++------
+ apps/web/app/(app)/procurement/page.tsx            | 119 +++++++--------
+ .../app/(app)/procurement/returns/[id]/page.tsx    | 112 +++++++-------
+ .../web/app/(app)/procurement/returns/new/page.tsx |  23 ++-
+ .../(app)/procurement/returns/new/return-form.tsx  | 150 +++++++------------
+ apps/web/app/(app)/procurement/returns/page.tsx    | 133 +++++++----------
+ apps/web/app/(app)/suppliers/[id]/page.tsx         | 163 +++++++++------------
+ apps/web/app/(app)/suppliers/[id]/print-button.tsx |  17 +--
+ apps/web/app/(app)/suppliers/page.tsx              | 102 ++++++-------
+ 11 files changed, 477 insertions(+), 711 deletions(-)
+
+## Diff
+diff --git a/apps/web/app/(app)/procurement/[id]/page.tsx b/apps/web/app/(app)/procurement/[id]/page.tsx
+index 7f0de0b..2108910 100644
+--- a/apps/web/app/(app)/procurement/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/page.tsx
+@@ -1,14 +1,32 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
+-import { statusColors, parseDate } from '../status'
++import { parseDate } from '../status'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  DRAFT: 'outline',
++  PENDING_APPROVAL: 'secondary',
++  APPROVED: 'default',
++  RECEIVED: 'secondary',
++  CANCELLED: 'destructive',
++}
+ 
+ async function submitPurchaseOrder(formData: FormData) {
+   'use server'
+   const id = formData.get('id') as string
+   const supabase = await createClient()
+   const { data: po } = await supabase
+     .from('purchase_orders')
+     .select('status')
+     .eq('id', id)
+     .single()
+@@ -53,130 +71,75 @@ export default async function PurchaseOrderDetailPage({
+     .from('purchase_orders')
+     .select('*, suppliers (name)')
+     .eq('id', id)
+     .single()
+   const { data: items } = await supabase
+     .from('purchase_order_items')
+     .select('*, products (name, sku)')
+     .eq('purchase_order_id', id)
+ 
+   if (!po) {
+-    return <p style={{ color: 'var(--danger)' }}>Purchase order not found</p>
++    return <p className="text-sm text-destructive">Purchase order not found</p>
+   }
+ 
+   return (
+-    <section>
+-      <Link
+-        href="/procurement"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Procurement
+-      </Link>
+-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: '0' }}>{po.po_number}</h1>
+-        <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
++          Back to Procurement
++        </Link>
++        <div className="mt-1 flex items-center gap-3">
++          <h1 className="text-xl font-semibold text-slate-900">{po.po_number}</h1>
++          <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
++        </div>
++        <p className="mt-1 text-sm text-slate-500">
++          Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
++        </p>
+       </div>
+-      <p style={{ color: 'var(--text-secondary)' }}>
+-        Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
+-      </p>
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>SKU</th>
+-            <th style={thStyle}>Qty</th>
+-            <th style={thStyle}>Unit Price</th>
+-            <th style={thStyle}>Line Total</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>{it.products?.name || '-'}</td>
+-              <td style={tdStyle}>{it.products?.sku || '-'}</td>
+-              <td style={tdStyle}>{it.qty_ordered}</td>
+-              <td style={tdStyle}>{Number(it.unit_price).toFixed(2)}</td>
+-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++        <Table>
++          <TableHeader className="bg-slate-50">
++            <TableRow>
++              <TableHead>Product</TableHead>
++              <TableHead>SKU</TableHead>
++              <TableHead className="text-right">Qty</TableHead>
++              <TableHead className="text-right">Unit Price</TableHead>
++              <TableHead className="text-right">Line Total</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {(items || []).map((it: any) => (
++              <TableRow key={it.id} className="h-10">
++                <TableCell>{it.products?.name || '-'}</TableCell>
++                <TableCell>{it.products?.sku || '-'}</TableCell>
++                <TableCell className="text-right tabular-nums">{it.qty_ordered}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.unit_price).toFixed(2)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
++              </TableRow>
++            ))}
++          </TableBody>
++        </Table>
++      </div>
+ 
+       {po.status === 'DRAFT' && (
+-        <form style={{ marginTop: 16 }}>
++        <form>
+           <input type="hidden" name="id" value={po.id} />
+-          <button
+-            formAction={submitPurchaseOrder}
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
++          <Button type="submit" formAction={submitPurchaseOrder}>
+             Submit for Approval
+-          </button>
++          </Button>
+         </form>
+       )}
+       {po.status === 'PENDING_APPROVAL' && (
+-        <form style={{ marginTop: 16 }}>
++        <form>
+           <input type="hidden" name="id" value={po.id} />
+-          <button
+-            formAction={approvePurchaseOrder}
+-            style={{
+-              background: 'var(--primary)',
+-              color: '#fff',
+-              padding: '8px 16px',
+-              border: 'none',
+-              borderRadius: 6,
+-              cursor: 'pointer',
+-            }}
+-          >
++          <Button type="submit" formAction={approvePurchaseOrder}>
+             Approve
+-          </button>
++          </Button>
+         </form>
+       )}
+       {po.status === 'APPROVED' && (
+-        <Link
+-          href={`/procurement/${po.id}/receive`}
+-          style={{
+-            display: 'inline-block',
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-          }}
+-        >
+-          Receive Goods
+-        </Link>
++        <Button render={<Link href={`/procurement/${po.id}/receive`} />}>Receive Goods</Button>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/[id]/receive/page.tsx b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+index 489ff4b..4727dd8 100644
+--- a/apps/web/app/(app)/procurement/[id]/receive/page.tsx
++++ b/apps/web/app/(app)/procurement/[id]/receive/page.tsx
+@@ -1,13 +1,16 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../../utils/supabase/server'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ async function receiveGoods(formData: FormData) {
+   'use server'
+   const id = formData.get('purchase_order_id') as string
+   const receiptNumber = formData.get('receipt_number') as string
+   const invoiceNumber = formData.get('invoice_number') as string
+   const purchaseOrderItemIds = formData.getAll('purchase_order_item_id') as string[]
+   const productIds = formData.getAll('product_id') as string[]
+   const batchNumbers = formData.getAll('batch_number') as string[]
+   const expiryDates = formData.getAll('expiry_date') as string[]
+@@ -106,141 +109,106 @@ export default async function ReceiveGoodsPage({
+     .select('*, suppliers (name)')
+     .eq('id', id)
+     .single()
+   const { data: items } = await supabase
+     .from('purchase_order_items')
+     .select('*, products (name, sku)')
+     .eq('purchase_order_id', id)
+ 
+   if (!po || po.status !== 'APPROVED') {
+     return (
+-      <section>
+-        <Link
+-          href="/procurement"
+-          style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-        >
++      <section className="space-y-2">
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
+           Back to Procurement
+         </Link>
+-        <p style={{ color: 'var(--danger)' }}>Only an approved purchase order can be received</p>
+-        <Link href={`/procurement/${id}`} style={{ color: 'var(--primary)' }}>
++        <p className="text-sm text-destructive">Only an approved purchase order can be received</p>
++        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
+           Back to purchase order
+         </Link>
+       </section>
+     )
+   }
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link
+-        href={`/procurement/${id}`}
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Purchase Order
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Receive Goods</h1>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+-        {po.po_number} • Supplier: {po.suppliers?.name || '-'}
+-      </p>
+-
+-      <form
+-        action={receiveGoods}
+-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-      >
++    <section className="space-y-6">
++      <div>
++        <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
++          Back to Purchase Order
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">Receive Goods</h1>
++        <p className="mt-1 text-sm text-slate-500">
++          {po.po_number} • Supplier: {po.suppliers?.name || '-'}
++        </p>
++      </div>
++
++      <form action={receiveGoods} className="max-w-3xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+         <input type="hidden" name="purchase_order_id" value={po.id} />
+ 
+-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+-          <div>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Receipt Number</label>
+-            <input name="receipt_number" required placeholder="GR-2026-0001" style={inputStyle} />
++        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++          <div className="grid gap-1.5">
++            <Label htmlFor="receipt_number">Receipt Number</Label>
++            <Input id="receipt_number" name="receipt_number" required placeholder="GR-2026-0001" />
+           </div>
+-          <div>
+-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Invoice Number</label>
+-            <input name="invoice_number" required placeholder="INV-2026-0001" style={inputStyle} />
++          <div className="grid gap-1.5">
++            <Label htmlFor="invoice_number">Invoice Number</Label>
++            <Input id="invoice_number" name="invoice_number" required placeholder="INV-2026-0001" />
+           </div>
+         </div>
+ 
+-        <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-        <div style={{ display: 'grid', gap: 12 }}>
++        <h2 className="text-sm font-medium text-slate-900">Items</h2>
++        <div className="grid gap-3">
+           {(items || []).map((it: any) => (
+             <div
+               key={it.id}
+-              style={{
+-                border: '1px solid var(--border)',
+-                borderRadius: 6,
+-                padding: 12,
+-                display: 'grid',
+-                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+-                gap: 8,
+-                alignItems: 'end',
+-              }}
++              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-end gap-2 rounded-lg border border-border/60 p-3"
+             >
+               <input type="hidden" name="purchase_order_item_id" value={it.id} />
+               <input type="hidden" name="product_id" value={it.product_id} />
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
+-                <span style={{ fontSize: 14 }}>
++              <div className="grid gap-1">
++                <Label className="text-xs">Product</Label>
++                <span className="text-sm">
+                   {it.products?.name || '-'} ({it.products?.sku || '-'})
+                 </span>
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
+-                <input name="batch_number" required placeholder="Batch no" style={inputStyle} />
++              <div className="grid gap-1.5">
++                <Label htmlFor={`batch-${it.id}`} className="text-xs">Batch</Label>
++                <Input id={`batch-${it.id}`} name="batch_number" required placeholder="Batch no" />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Expiry</label>
+-                <input name="expiry_date" type="date" required style={inputStyle} />
++              <div className="grid gap-1.5">
++                <Label htmlFor={`expiry-${it.id}`} className="text-xs">Expiry</Label>
++                <Input id={`expiry-${it.id}`} name="expiry_date" type="date" required />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
+-                <input
++              <div className="grid gap-1.5">
++                <Label htmlFor={`qty-${it.id}`} className="text-xs">Qty</Label>
++                <Input
++                  id={`qty-${it.id}`}
+                   name="qty_received"
+                   type="number"
+                   step="0.001"
+                   min="0"
+                   required
+                   placeholder={String(it.qty_ordered)}
+-                  style={inputStyle}
++                  className="w-24"
+                 />
+               </div>
+-              <div>
+-                <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
+-                <input
++              <div className="grid gap-1.5">
++                <Label htmlFor={`cost-${it.id}`} className="text-xs">Unit Cost</Label>
++                <Input
++                  id={`cost-${it.id}`}
+                   name="unit_cost"
+                   type="number"
+                   step="0.01"
+                   min="0"
+                   required
+                   placeholder={String(Number(it.unit_price).toFixed(2))}
+-                  style={inputStyle}
++                  className="w-24"
+                 />
+               </div>
+             </div>
+           ))}
+         </div>
+ 
+-        <button
+-          type="submit"
+-          style={{
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-          }}
+-        >
+-          Receive Goods
+-        </button>
++        <Button type="submit">Receive Goods</Button>
+       </form>
+     </section>
+   )
+ }
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+diff --git a/apps/web/app/(app)/procurement/new/page.tsx b/apps/web/app/(app)/procurement/new/page.tsx
+index a52661d..d057bbc 100644
+--- a/apps/web/app/(app)/procurement/new/page.tsx
++++ b/apps/web/app/(app)/procurement/new/page.tsx
+@@ -1,13 +1,16 @@
+ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import { createClient } from '../../../../utils/supabase/server'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ async function createPurchaseOrder(formData: FormData) {
+   'use server'
+   const supplierId = formData.get('supplier_id') as string
+   const poNumber = formData.get('po_number') as string
+   const productIds = formData.getAll('product_id') as string[]
+   const qtys = formData.getAll('qty_ordered') as string[]
+   const prices = formData.getAll('unit_price') as string[]
+ 
+   if (!supplierId || !poNumber || productIds.length === 0) {
+@@ -43,97 +46,72 @@ async function createPurchaseOrder(formData: FormData) {
+ 
+   const { error: iErr } = await supabase.from('purchase_order_items').insert(rows)
+   if (iErr) {
+     redirect(`/procurement/new?error=Failed to add items`)
+     return
+   }
+ 
+   redirect(`/procurement/${po.id}`)
+ }
+ 
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
++
+ export default async function NewPurchaseOrderPage() {
+   const supabase = await createClient()
+   const { data: suppliers } = await supabase
+     .from('suppliers')
+     .select('id, name')
+     .order('name', { ascending: true })
+   const { data: products } = await supabase
+     .from('products')
+     .select('id, name, sku')
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link href="/procurement" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
+-        Back to Procurement
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Purchase Order</h1>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement" className="text-sm text-primary hover:underline">
++          Back to Procurement
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Order</h1>
++      </div>
+ 
+-      <form
+-        action={createPurchaseOrder}
+-        style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-      >
+-        <div style={{ marginBottom: 12 }}>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PO Number</label>
+-          <input
+-            name="po_number"
+-            required
+-            style={inputStyle}
+-            placeholder="PO-2026-0001"
+-          />
++      <form action={createPurchaseOrder} className="max-w-2xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
++        <div className="grid gap-1.5">
++          <Label htmlFor="po_number">PO Number</Label>
++          <Input id="po_number" name="po_number" required placeholder="PO-2026-0001" />
+         </div>
+ 
+-        <div style={{ marginBottom: 12 }}>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
+-          <select name="supplier_id" required style={inputStyle}>
++        <div className="grid gap-1.5">
++          <Label htmlFor="supplier_id">Supplier</Label>
++          <select id="supplier_id" name="supplier_id" required className={selectClass}>
+             <option value="">Select supplier</option>
+             {(suppliers || []).map((s: any) => (
+               <option key={s.id} value={s.id}>
+                 {s.name}
+               </option>
+             ))}
+           </select>
+         </div>
+ 
+-        <h2 style={{ fontSize: 14, margin: '16px 0 8px' }}>Items</h2>
+-        <div id="items" style={{ display: 'grid', gap: 8 }}>
+-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 8 }}>
+-            <select name="product_id" required style={inputStyle}>
++        <h2 className="text-sm font-medium text-slate-900">Items</h2>
++        <div id="items" className="grid gap-2">
++          <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
++            <select name="product_id" required className={selectClass}>
+               <option value="">Product</option>
+               {(products || []).map((p: any) => (
+                 <option key={p.id} value={p.id}>
+                   {p.name} ({p.sku})
+                 </option>
+               ))}
+             </select>
+-            <input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" style={inputStyle} />
+-            <input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" style={inputStyle} />
++            <Input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" />
++            <Input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" />
+           </div>
+         </div>
+ 
+-        <button
+-          type="submit"
+-          style={{
+-            marginTop: 16,
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            border: 'none',
+-            borderRadius: 6,
+-            cursor: 'pointer',
+-          }}
+-        >
+-          Create PO (Draft)
+-        </button>
++        <Button type="submit">Create PO (Draft)</Button>
+       </form>
+     </section>
+   )
+ }
+-
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/page.tsx b/apps/web/app/(app)/procurement/page.tsx
+index d6f88fd..9fff476 100644
+--- a/apps/web/app/(app)/procurement/page.tsx
++++ b/apps/web/app/(app)/procurement/page.tsx
+@@ -1,85 +1,70 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../utils/supabase/server'
+-import { statusColors, parseDate } from './status'
++import { parseDate } from './status'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
++
++const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
++  DRAFT: 'outline',
++  PENDING_APPROVAL: 'secondary',
++  APPROVED: 'default',
++  RECEIVED: 'secondary',
++  CANCELLED: 'destructive',
++}
+ 
+ export default async function ProcurementPage() {
+   const supabase = await createClient()
+   const { data: pos } = await supabase
+     .from('purchase_orders')
+     .select('*, suppliers (name)')
+     .order('created_at', { ascending: false })
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Procurement</h1>
+-        <Link
+-          href="/procurement/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '8px 16px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-          }}
+-        >
+-          New PO
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Procurement</h1>
++        <Button render={<Link href="/procurement/new" />}>New PO</Button>
+       </div>
+       {!pos || pos.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No purchase orders yet</p>
++        <p className="text-sm text-slate-500">No purchase orders yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>PO Number</th>
+-              <th style={thStyle}>Supplier</th>
+-              <th style={thStyle}>Status</th>
+-              <th style={thStyle}>Ordered At</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {pos.map((po: any) => (
+-              <tr key={po.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/procurement/${po.id}`} style={{ color: 'var(--primary)' }}>
+-                    {po.po_number}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>{po.suppliers?.name || '-'}</td>
+-                <td style={tdStyle}>
+-                  <span style={badgeStyle(statusColors[po.status] || '#64748b')}>{po.status}</span>
+-                </td>
+-                <td style={tdStyle}>{parseDate(po.ordered_at || po.created_at)}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>PO Number</TableHead>
++                <TableHead>Supplier</TableHead>
++                <TableHead>Status</TableHead>
++                <TableHead>Ordered At</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {pos.map((po: any) => (
++                <TableRow key={po.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/procurement/${po.id}`} className="text-primary hover:underline">
++                      {po.po_number}
++                    </Link>
++                  </TableCell>
++                  <TableCell>{po.suppliers?.name || '-'}</TableCell>
++                  <TableCell>
++                    <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
++                  </TableCell>
++                  <TableCell>{parseDate(po.ordered_at || po.created_at)}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
+diff --git a/apps/web/app/(app)/procurement/returns/[id]/page.tsx b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+index 90d3d71..51d7add 100644
+--- a/apps/web/app/(app)/procurement/returns/[id]/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/[id]/page.tsx
+@@ -1,119 +1,105 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params
+   const supabase = await createClient()
+ 
+   const { data: ret } = await supabase
+     .from('purchase_returns')
+     .select('*, supplier:suppliers(name)')
+     .eq('id', id)
+     .single()
+ 
+-  if (!ret) return <p>Return not found</p>
++  if (!ret) return <p className="text-sm text-slate-500">Return not found</p>
+ 
+   const { data: items } = await supabase
+     .from('purchase_return_items')
+     .select('*, product:products(name, sku)')
+     .eq('purchase_return_id', id)
+ 
+   const total = Number(ret.total_amount || 0)
+   const applied = Number(ret.applied_amount || 0)
+   const remaining = Math.max(total - applied, 0)
+ 
+   return (
+-    <section style={{ maxWidth: 720 }}>
+-      <Link
+-        href="/procurement/returns"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Returns
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{ret.return_number}</h1>
+-      <div
+-        style={{
+-          background: 'var(--card)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 8,
+-          padding: 16,
+-          marginBottom: 16,
+-          display: 'grid',
+-          gridTemplateColumns: '1fr 1fr',
+-          gap: 8,
+-          fontSize: 14,
+-        }}
+-      >
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
++          Back to Returns
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">{ret.return_number}</h1>
++      </div>
++
++      <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
+         <div>
+           Supplier: <strong>{ret.supplier?.name || '-'}</strong>
+         </div>
+         <div>
+           Reason: <strong>{ret.reason}</strong>
+         </div>
+         <div>
+           Date: <strong>{parseDate(ret.returned_at)}</strong>
+         </div>
+         <div>
+           PBF Credit Note: <strong>{ret.pbf_credit_note_number || '-'}</strong>
+         </div>
+         <div>
+-          Total: <strong>{total.toFixed(2)}</strong>
++          Total: <strong className="tabular-nums">{total.toFixed(2)}</strong>
+         </div>
+         <div>
+-          Remaining credit: <strong>{remaining.toFixed(2)}</strong>
++          Remaining credit: <strong className="tabular-nums">{remaining.toFixed(2)}</strong>
+         </div>
+         {ret.notes && (
+-          <div style={{ gridColumn: '1 / -1' }}>
++          <div className="sm:col-span-2">
+             Notes: {ret.notes}
+           </div>
+         )}
+       </div>
+ 
+-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-        <thead>
+-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-            <th style={thStyle}>Product</th>
+-            <th style={thStyle}>Batch</th>
+-            <th style={thStyle}>Expiry</th>
+-            <th style={thStyle}>Qty</th>
+-            <th style={thStyle}>Unit Cost</th>
+-            <th style={thStyle}>Line Total</th>
+-          </tr>
+-        </thead>
+-        <tbody>
+-          {(items || []).map((it: any) => (
+-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+-              <td style={tdStyle}>
+-                {it.product?.name || '-'} ({it.product?.sku || '-'})
+-              </td>
+-              <td style={tdStyle}>{it.batch_number}</td>
+-              <td style={tdStyle}>{parseDate(it.expiry_date)}</td>
+-              <td style={tdStyle}>{Number(it.qty_returned)}</td>
+-              <td style={tdStyle}>{Number(it.unit_cost).toFixed(2)}</td>
+-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
+-            </tr>
+-          ))}
+-        </tbody>
+-      </table>
++      <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++        <Table>
++          <TableHeader className="bg-slate-50">
++            <TableRow>
++              <TableHead>Product</TableHead>
++              <TableHead>Batch</TableHead>
++              <TableHead>Expiry</TableHead>
++              <TableHead className="text-right">Qty</TableHead>
++              <TableHead className="text-right">Unit Cost</TableHead>
++              <TableHead className="text-right">Line Total</TableHead>
++            </TableRow>
++          </TableHeader>
++          <TableBody>
++            {(items || []).map((it: any) => (
++              <TableRow key={it.id} className="h-10">
++                <TableCell>
++                  {it.product?.name || '-'} ({it.product?.sku || '-'})
++                </TableCell>
++                <TableCell>{it.batch_number}</TableCell>
++                <TableCell>{parseDate(it.expiry_date)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.qty_returned)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.unit_cost).toFixed(2)}</TableCell>
++                <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
++              </TableRow>
++            ))}
++          </TableBody>
++        </Table>
++      </div>
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+diff --git a/apps/web/app/(app)/procurement/returns/new/page.tsx b/apps/web/app/(app)/procurement/returns/new/page.tsx
+index 350c3dc..269ec95 100644
+--- a/apps/web/app/(app)/procurement/returns/new/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/new/page.tsx
+@@ -1,38 +1,37 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../../utils/auth'
+ import { ReturnForm } from './return-form'
+ 
+ export default async function NewReturnPage() {
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!role || role === 'CASHIER') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner, pharmacist, or inventory only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+   }
+ 
+   const [{ data: suppliers }, { data: products }, { data: batches }] = await Promise.all([
+     supabase.from('suppliers').select('id, name').order('name', { ascending: true }),
+     supabase.from('products').select('id, name, sku').order('name', { ascending: true }),
+     supabase
+       .from('product_batches')
+       .select('id, product_id, batch_number, expiry_date, current_qty')
+       .gt('current_qty', 0)
+       .order('batch_number', { ascending: true }),
+   ])
+ 
+   return (
+-    <section style={{ maxWidth: 860 }}>
+-      <Link
+-        href="/procurement/returns"
+-        style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}
+-      >
+-        Back to Returns
+-      </Link>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Purchase Return</h1>
+-      <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>
+-        A return creates a supplier credit note. It does not change the original invoice.
+-      </p>
++    <section className="space-y-6">
++      <div>
++        <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
++          Back to Returns
++        </Link>
++        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Return</h1>
++        <p className="mt-1 text-sm text-slate-500">
++          A return creates a supplier credit note. It does not change the original invoice.
++        </p>
++      </div>
+       <ReturnForm suppliers={suppliers || []} products={products || []} batches={batches || []} />
+     </section>
+   )
+ }
+diff --git a/apps/web/app/(app)/procurement/returns/new/return-form.tsx b/apps/web/app/(app)/procurement/returns/new/return-form.tsx
+index 46fae8a..c51c3c0 100644
+--- a/apps/web/app/(app)/procurement/returns/new/return-form.tsx
++++ b/apps/web/app/(app)/procurement/returns/new/return-form.tsx
+@@ -1,14 +1,17 @@
+ 'use client'
+ 
+ import { useState } from 'react'
+ import { createPurchaseReturn } from './actions'
++import { Button } from '@/components/ui/button'
++import { Input } from '@/components/ui/input'
++import { Label } from '@/components/ui/label'
+ 
+ export interface ReturnBatch {
+   id: string
+   product_id: string
+   batch_number: string
+   expiry_date: string | null
+   current_qty: number
+ }
+ 
+ export interface ReturnProduct {
+@@ -17,28 +20,22 @@ export interface ReturnProduct {
+   sku: string
+ }
+ 
+ interface ItemRow {
+   productId: string
+   batchId: string
+   qty: string
+   unitCost: string
+ }
+ 
+-const inputStyle: React.CSSProperties = {
+-  width: '100%',
+-  padding: '8px 12px',
+-  border: '1px solid var(--border)',
+-  borderRadius: 6,
+-  fontSize: 14,
+-  background: '#fff',
+-}
++const selectClass =
++  'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+ 
+ export function ReturnForm({
+   suppliers,
+   products,
+   batches,
+ }: {
+   suppliers: { id: string; name: string }[]
+   products: ReturnProduct[]
+   batches: ReturnBatch[]
+ }) {
+@@ -57,191 +54,144 @@ export function ReturnForm({
+ 
+   function removeRow(index: number) {
+     setRows((prev) => prev.filter((_, i) => i !== index))
+   }
+ 
+   function batchesFor(productId: string): ReturnBatch[] {
+     return batches.filter((b) => b.product_id === productId)
+   }
+ 
+   return (
+-    <form
+-      action={createPurchaseReturn}
+-      style={{ background: 'var(--card)', padding: 16, border: '1px solid var(--border)', borderRadius: 8 }}
+-    >
+-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Supplier</label>
+-          <select name="supplier_id" required style={inputStyle} defaultValue="">
++    <form action={createPurchaseReturn} className="max-w-4xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
++      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
++        <div className="grid gap-1.5">
++          <Label htmlFor="supplier_id">Supplier</Label>
++          <select id="supplier_id" name="supplier_id" required className={selectClass} defaultValue="">
+             <option value="" disabled>
+               Select supplier
+             </option>
+             {suppliers.map((s) => (
+               <option key={s.id} value={s.id}>
+                 {s.name}
+               </option>
+             ))}
+           </select>
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Return Number</label>
+-          <input name="return_number" required placeholder="RTR-2608-001" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="return_number">Return Number</Label>
++          <Input id="return_number" name="return_number" required placeholder="RTR-2608-001" />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Reason</label>
+-          <select name="reason" required style={inputStyle} defaultValue="">
++        <div className="grid gap-1.5">
++          <Label htmlFor="reason">Reason</Label>
++          <select id="reason" name="reason" required className={selectClass} defaultValue="">
+             <option value="" disabled>
+               Select reason
+             </option>
+             <option value="EXPIRED">Expired</option>
+             <option value="DAMAGED">Damaged</option>
+             <option value="RECALL">Recall</option>
+           </select>
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>PBF Credit Note Number</label>
+-          <input name="pbf_credit_note_number" placeholder="Optional" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="pbf_credit_note_number">PBF Credit Note Number</Label>
++          <Input id="pbf_credit_note_number" name="pbf_credit_note_number" placeholder="Optional" />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Returned At</label>
+-          <input name="returned_at" type="date" required style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="returned_at">Returned At</Label>
++          <Input id="returned_at" name="returned_at" type="date" required />
+         </div>
+-        <div>
+-          <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Notes</label>
+-          <input name="notes" placeholder="Optional" style={inputStyle} />
++        <div className="grid gap-1.5">
++          <Label htmlFor="notes">Notes</Label>
++          <Input id="notes" name="notes" placeholder="Optional" />
+         </div>
+       </div>
+ 
+-      <h2 style={{ fontSize: 14, margin: '0 0 8px' }}>Items</h2>
+-      <div style={{ display: 'grid', gap: 12 }}>
++      <h2 className="text-sm font-medium text-slate-900">Items</h2>
++      <div className="grid gap-3">
+         {rows.map((row, index) => (
+           <div
+             key={index}
+-            style={{
+-              border: '1px solid var(--border)',
+-              borderRadius: 6,
+-              padding: 12,
+-              display: 'grid',
+-              gridTemplateColumns: '2fr 1.5fr 1fr 1fr auto',
+-              gap: 8,
+-              alignItems: 'end',
+-            }}
++            className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-border/60 p-3"
+           >
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Product</label>
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Product</Label>
+               <select
+                 value={row.productId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
+               >
+                 <option value="" disabled>
+                   Select product
+                 </option>
+                 {products.map((p) => (
+                   <option key={p.id} value={p.id}>
+                     {p.name} ({p.sku})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Batch</label>
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Batch</Label>
+               <select
+                 name="batch_id"
+                 value={row.batchId}
+                 required
+-                style={inputStyle}
++                className={selectClass}
+                 disabled={!row.productId}
+                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
+               >
+                 <option value="" disabled>
+                   Select batch
+                 </option>
+                 {batchesFor(row.productId).map((b) => (
+                   <option key={b.id} value={b.id}>
+                     {b.batch_number} (ED {b.expiry_date ? String(b.expiry_date).slice(0, 10) : '-'}, qty {Number(b.current_qty)})
+                   </option>
+                 ))}
+               </select>
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Qty</label>
+-              <input
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Qty</Label>
++              <Input
+                 name="qty_returned"
+                 type="number"
+                 step="0.001"
+                 min="0.001"
+                 required
+                 value={row.qty}
+-                style={inputStyle}
++                className="w-24"
+                 onChange={(e) => updateRow(index, { qty: e.target.value })}
+               />
+             </div>
+-            <div>
+-              <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Unit Cost</label>
+-              <input
++            <div className="grid gap-1.5">
++              <Label className="text-xs">Unit Cost</Label>
++              <Input
+                 name="unit_cost"
+                 type="number"
+                 step="0.01"
+                 min="0"
+                 required
+                 value={row.unitCost}
+-                style={inputStyle}
++                className="w-24"
+                 onChange={(e) => updateRow(index, { unitCost: e.target.value })}
+               />
+             </div>
+             <div>
+-              <button
+-                type="button"
+-                onClick={() => removeRow(index)}
+-                style={{
+-                  background: 'transparent',
+-                  color: 'var(--danger)',
+-                  border: '1px solid var(--border)',
+-                  borderRadius: 6,
+-                  padding: '8px 10px',
+-                  cursor: 'pointer',
+-                }}
+-              >
++              <Button type="button" variant="outline" onClick={() => removeRow(index)}>
+                 Remove
+-              </button>
++              </Button>
+             </div>
+             <input type="hidden" name="product_id" value={row.productId} />
+           </div>
+         ))}
+       </div>
+ 
+-      <button
+-        type="button"
+-        onClick={addRow}
+-        style={{
+-          marginTop: 12,
+-          background: 'transparent',
+-          color: 'var(--primary)',
+-          border: '1px solid var(--border)',
+-          borderRadius: 6,
+-          padding: '8px 16px',
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Add Item
+-      </button>
+-
+-      <button
+-        type="submit"
+-        style={{
+-          marginTop: 16,
+-          marginLeft: 12,
+-          background: 'var(--primary)',
+-          color: '#fff',
+-          padding: '8px 16px',
+-          border: 'none',
+-          borderRadius: 6,
+-          cursor: 'pointer',
+-        }}
+-      >
+-        Create Return
+-      </button>
++      <div className="flex gap-2">
++        <Button type="button" variant="outline" onClick={addRow}>
++          Add Item
++        </Button>
++        <Button type="submit">Create Return</Button>
++      </div>
+     </form>
+   )
+ }
+diff --git a/apps/web/app/(app)/procurement/returns/page.tsx b/apps/web/app/(app)/procurement/returns/page.tsx
+index 04b9459..46e7900 100644
+--- a/apps/web/app/(app)/procurement/returns/page.tsx
++++ b/apps/web/app/(app)/procurement/returns/page.tsx
+@@ -1,104 +1,81 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../utils/supabase/server'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ function parseDate(value: string | null | undefined): string {
+   if (!value) return '-'
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function ReturnsListPage() {
+   const supabase = await createClient()
+   const { data: returns, error } = await supabase
+     .from('purchase_returns')
+     .select('id, return_number, reason, returned_at, total_amount, applied_amount, supplier:suppliers(name)')
+     .order('returned_at', { ascending: false })
+ 
+-  if (error) return <p style={{ color: 'var(--danger)' }}>Returns unavailable</p>
++  if (error) return <p className="text-sm text-destructive">Returns unavailable</p>
+ 
+   return (
+-    <section>
+-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+-        <h1 style={{ fontSize: 20, margin: 0 }}>Purchase Returns</h1>
+-        <Link
+-          href="/procurement/returns/new"
+-          style={{
+-            background: 'var(--primary)',
+-            color: '#fff',
+-            padding: '6px 14px',
+-            borderRadius: 6,
+-            textDecoration: 'none',
+-            fontSize: 14,
+-          }}
+-        >
+-          New Return
+-        </Link>
++    <section className="space-y-6">
++      <div className="flex items-center justify-between">
++        <h1 className="text-xl font-semibold text-slate-900">Purchase Returns</h1>
++        <Button render={<Link href="/procurement/returns/new" />}>New Return</Button>
+       </div>
+       {!returns || returns.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No returns yet</p>
++        <p className="text-sm text-slate-500">No returns yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Return Number</th>
+-              <th style={thStyle}>Supplier</th>
+-              <th style={thStyle}>Reason</th>
+-              <th style={thStyle}>Date</th>
+-              <th style={thStyle}>Total</th>
+-              <th style={thStyle}>Applied</th>
+-              <th style={thStyle}>Status</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {returns.map((r: any) => {
+-              const applied = Number(r.applied_amount || 0)
+-              const total = Number(r.total_amount || 0)
+-              const status = applied >= total && total > 0 ? 'APPLIED' : 'OPEN'
+-              return (
+-                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                  <td style={tdStyle}>
+-                    <Link href={`/procurement/returns/${r.id}`} style={{ color: 'var(--primary)' }}>
+-                      {r.return_number}
+-                    </Link>
+-                  </td>
+-                  <td style={tdStyle}>{r.supplier?.name || '-'}</td>
+-                  <td style={tdStyle}>{r.reason}</td>
+-                  <td style={tdStyle}>{parseDate(r.returned_at)}</td>
+-                  <td style={tdStyle}>{total.toFixed(2)}</td>
+-                  <td style={tdStyle}>{applied.toFixed(2)}</td>
+-                  <td style={tdStyle}>
+-                    <span style={badgeStyle(status === 'APPLIED' ? '#0d9488' : '#f59e0b')}>{status}</span>
+-                  </td>
+-                </tr>
+-              )
+-            })}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Return Number</TableHead>
++                <TableHead>Supplier</TableHead>
++                <TableHead>Reason</TableHead>
++                <TableHead>Date</TableHead>
++                <TableHead className="text-right">Total</TableHead>
++                <TableHead className="text-right">Applied</TableHead>
++                <TableHead>Status</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {returns.map((r: any) => {
++                const applied = Number(r.applied_amount || 0)
++                const total = Number(r.total_amount || 0)
++                const status = applied >= total && total > 0 ? 'APPLIED' : 'OPEN'
++                return (
++                  <TableRow key={r.id} className="h-10">
++                    <TableCell>
++                      <Link href={`/procurement/returns/${r.id}`} className="text-primary hover:underline">
++                        {r.return_number}
++                      </Link>
++                    </TableCell>
++                    <TableCell>{r.supplier?.name || '-'}</TableCell>
++                    <TableCell>{r.reason}</TableCell>
++                    <TableCell>{parseDate(r.returned_at)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{total.toFixed(2)}</TableCell>
++                    <TableCell className="text-right tabular-nums">{applied.toFixed(2)}</TableCell>
++                    <TableCell>
++                      <Badge variant={status === 'APPLIED' ? 'default' : 'secondary'}>{status}</Badge>
++                    </TableCell>
++                  </TableRow>
++                )
++              })}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+diff --git a/apps/web/app/(app)/suppliers/[id]/page.tsx b/apps/web/app/(app)/suppliers/[id]/page.tsx
+index 2993066..efc3a8f 100644
+--- a/apps/web/app/(app)/suppliers/[id]/page.tsx
++++ b/apps/web/app/(app)/suppliers/[id]/page.tsx
+@@ -1,15 +1,25 @@
+ import Link from 'next/link'
+ import { createClient } from '../../../../utils/supabase/server'
+ import { getUserRole } from '../../../../utils/auth'
+ import { buildStatementLedger, computeSupplierBalance } from '../../../../lib/purchase-returns'
+ import { PrintButton } from './print-button'
++import { Button } from '@/components/ui/button'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableFooter,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ // A4 print CSS scoped to .statement-print.
+ function printCss(): string {
+   return `
+   @media print {
+     @page { size: A4; margin: 14mm; }
+     body * { visibility: hidden; }
+     .statement-print, .statement-print * { visibility: visible; }
+     .statement-print { position: absolute; top: 0; left: 0; width: 100%; }
+     .no-print { display: none !important; }
+@@ -24,25 +34,25 @@ function parseDate(value: string | null | undefined): string {
+   const d = new Date(value)
+   if (Number.isNaN(d.getTime())) return '-'
+   return d.toLocaleDateString()
+ }
+ 
+ export default async function SupplierStatementPage({ params }: { params: Promise<{ id: string }> }) {
+   const { id } = await params
+   const supabase = await createClient()
+   const role = await getUserRole(supabase)
+   if (!role || role === 'CASHIER') {
+-    return <p style={{ color: 'var(--danger)' }}>Access denied. Owner, pharmacist, or inventory only.</p>
++    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+   }
+ 
+   const { data: supplier } = await supabase.from('suppliers').select('*').eq('id', id).single()
+-  if (!supplier) return <p>Supplier not found</p>
++  if (!supplier) return <p className="text-sm text-slate-500">Supplier not found</p>
+ 
+   const { data: payables } = await supabase
+     .from('accounts_payables')
+     .select('id, invoice_number, due_date, receipt_total_amount, paid_amount, remaining_amount, goods_receipts(received_at, purchase_order_id)')
+     .eq('supplier_id', id)
+ 
+   const payableIds = (payables || []).map((p: any) => p.id)
+   const { data: payments } =
+     payableIds.length > 0
+       ? await supabase
+@@ -89,123 +99,96 @@ export default async function SupplierStatementPage({ params }: { params: Promis
+ 
+   const closingBalance = ledger.length > 0 ? ledger[ledger.length - 1].balance : 0
+   const balance = computeSupplierBalance(
+     (payables || []).map((p: any) => ({ remaining: Number(p.remaining_amount) })),
+     (returns || []).map((r: any) => ({ total: Number(r.total_amount), applied: 0 }))
+   )
+ 
+   return (
+     <>
+       <style dangerouslySetInnerHTML={{ __html: printCss() }} />
+-      <section style={{ maxWidth: 860 }}>
+-        <div
+-          className="no-print"
+-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}
+-        >
+-          <Link href="/suppliers" style={{ color: 'var(--primary)' }}>
++      <section className="space-y-6">
++        <div className="no-print flex items-center justify-between">
++          <Link href="/suppliers" className="text-sm text-primary hover:underline">
+             Back to Suppliers
+           </Link>
+           <PrintButton />
+         </div>
+-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>{supplier.name}</h1>
++        <h1 className="text-xl font-semibold text-slate-900">{supplier.name}</h1>
+ 
+-        <div
+-          style={{
+-            background: 'var(--card)',
+-            border: '1px solid var(--border)',
+-            borderRadius: 8,
+-            padding: 16,
+-            marginBottom: 16,
+-            display: 'grid',
+-            gridTemplateColumns: '1fr 1fr',
+-            gap: 8,
+-            fontSize: 14,
+-          }}
+-        >
++        <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
+           <div>
+             PBF: <strong>{supplier.is_pbf ? 'Yes' : 'No'}</strong>
+           </div>
+           <div>
+             License: <strong>{supplier.pbf_license_number || '-'}</strong>
+           </div>
+           <div>
+             Phone: <strong>{supplier.phone || '-'}</strong>
+           </div>
+           <div>
+             Payment Terms: <strong>{supplier.payment_terms_days} days</strong>
+           </div>
+         </div>
+ 
+-        <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>Statement (Kartu Hutang)</h2>
+-        <div className="statement-print">
+-          <div style={{ marginBottom: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
+-            Supplier: {supplier.name} • Generated: {new Date().toLocaleDateString()}
++        <div>
++          <h2 className="mb-3 text-base font-semibold text-slate-900">Statement (Kartu Hutang)</h2>
++          <div className="statement-print overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++            <div className="px-4 pt-3 text-xs text-slate-500">
++              Supplier: {supplier.name} • Generated: {new Date().toLocaleDateString()}
++            </div>
++            {ledger.length === 0 ? (
++              <p className="p-4 text-sm text-slate-500">No transactions yet</p>
++            ) : (
++              <Table>
++                <TableHeader className="bg-slate-50">
++                  <TableRow>
++                    <TableHead>Date</TableHead>
++                    <TableHead>Reference</TableHead>
++                    <TableHead>Description</TableHead>
++                    <TableHead className="text-right">Debit</TableHead>
++                    <TableHead className="text-right">Credit</TableHead>
++                    <TableHead className="text-right">Balance</TableHead>
++                  </TableRow>
++                </TableHeader>
++                <TableBody>
++                  {ledger.map((row, i) => {
++                    const poId = poByInvoice.get(row.ref)
++                    return (
++                      <TableRow key={i} className="h-10">
++                        <TableCell>{parseDate(row.date)}</TableCell>
++                        <TableCell>
++                          {poId ? (
++                            <Link href={`/procurement/${poId}`} className="text-primary hover:underline">
++                              {row.ref}
++                            </Link>
++                          ) : (
++                            row.ref
++                          )}
++                        </TableCell>
++                        <TableCell>{row.description}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.debit > 0 ? row.debit.toFixed(2) : ''}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.credit > 0 ? row.credit.toFixed(2) : ''}</TableCell>
++                        <TableCell className="text-right tabular-nums">{row.balance.toFixed(2)}</TableCell>
++                      </TableRow>
++                    )
++                  })}
++                </TableBody>
++                <TableFooter>
++                  <TableRow>
++                    <TableCell colSpan={5}>Closing Balance</TableCell>
++                    <TableCell className="text-right tabular-nums">
++                      {closingBalance.toFixed(2)}
++                      {balance < 0 && (
++                        <span className="text-xs text-slate-500"> (credit balance)</span>
++                      )}
++                    </TableCell>
++                  </TableRow>
++                </TableFooter>
++              </Table>
++            )}
+           </div>
+-          {ledger.length === 0 ? (
+-            <p style={{ color: 'var(--text-secondary)' }}>No transactions yet</p>
+-          ) : (
+-            <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-              <thead>
+-                <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-                  <th style={thStyle}>Date</th>
+-                  <th style={thStyle}>Reference</th>
+-                  <th style={thStyle}>Description</th>
+-                  <th style={thStyle}>Debit</th>
+-                  <th style={thStyle}>Credit</th>
+-                  <th style={thStyle}>Balance</th>
+-                </tr>
+-              </thead>
+-              <tbody>
+-                {ledger.map((row, i) => {
+-                  const poId = poByInvoice.get(row.ref)
+-                  return (
+-                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+-                      <td style={tdStyle}>{parseDate(row.date)}</td>
+-                      <td style={tdStyle}>
+-                        {poId ? (
+-                          <Link href={`/procurement/${poId}`} style={{ color: 'var(--primary)' }}>
+-                            {row.ref}
+-                          </Link>
+-                        ) : (
+-                          row.ref
+-                        )}
+-                      </td>
+-                      <td style={tdStyle}>{row.description}</td>
+-                      <td style={tdStyle}>{row.debit > 0 ? row.debit.toFixed(2) : ''}</td>
+-                      <td style={tdStyle}>{row.credit > 0 ? row.credit.toFixed(2) : ''}</td>
+-                      <td style={tdStyle}>{row.balance.toFixed(2)}</td>
+-                    </tr>
+-                  )
+-                })}
+-              </tbody>
+-              <tfoot>
+-                <tr style={{ borderTop: '2px solid var(--border)', fontWeight: 600 }}>
+-                  <td style={tdStyle} colSpan={5}>
+-                    Closing Balance
+-                  </td>
+-                  <td style={tdStyle}>
+-                    {closingBalance.toFixed(2)}
+-                    {balance < 0 && (
+-                      <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}> (credit balance)</span>
+-                    )}
+-                  </td>
+-                </tr>
+-              </tfoot>
+-            </table>
+-          )}
+         </div>
+       </section>
+     </>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+diff --git a/apps/web/app/(app)/suppliers/[id]/print-button.tsx b/apps/web/app/(app)/suppliers/[id]/print-button.tsx
+index dca754b..bde7425 100644
+--- a/apps/web/app/(app)/suppliers/[id]/print-button.tsx
++++ b/apps/web/app/(app)/suppliers/[id]/print-button.tsx
+@@ -1,20 +1,11 @@
+ 'use client'
+ 
++import { Button } from '@/components/ui/button'
++
+ export function PrintButton() {
+   return (
+-    <button
+-      onClick={() => window.print()}
+-      style={{
+-        background: 'transparent',
+-        color: 'var(--primary)',
+-        border: '1px solid var(--border)',
+-        borderRadius: 6,
+-        padding: '6px 14px',
+-        fontSize: 13,
+-        cursor: 'pointer',
+-      }}
+-    >
++    <Button type="button" variant="outline" onClick={() => window.print()}>
+       Print (A4)
+-    </button>
++    </Button>
+   )
+ }
+diff --git a/apps/web/app/(app)/suppliers/page.tsx b/apps/web/app/(app)/suppliers/page.tsx
+index d5a4cd6..32f5a73 100644
+--- a/apps/web/app/(app)/suppliers/page.tsx
++++ b/apps/web/app/(app)/suppliers/page.tsx
+@@ -1,75 +1,61 @@
+ import { createClient } from '../../../utils/supabase/server'
+ import Link from 'next/link'
++import { Badge } from '@/components/ui/badge'
++import {
++  Table,
++  TableBody,
++  TableCell,
++  TableHead,
++  TableHeader,
++  TableRow,
++} from '@/components/ui/table'
+ 
+ export default async function SuppliersPage() {
+   const supabase = await createClient()
+   const { data: suppliers } = await supabase
+     .from('suppliers')
+     .select('*')
+     .order('name', { ascending: true })
+ 
+   return (
+-    <section>
+-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Suppliers (PBF)</h1>
++    <section className="space-y-6">
++      <h1 className="text-xl font-semibold text-slate-900">Suppliers (PBF)</h1>
+       {!suppliers || suppliers.length === 0 ? (
+-        <p style={{ color: 'var(--text-secondary)' }}>No suppliers yet</p>
++        <p className="text-sm text-slate-500">No suppliers yet</p>
+       ) : (
+-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
+-          <thead>
+-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
+-              <th style={thStyle}>Name</th>
+-              <th style={thStyle}>PBF</th>
+-              <th style={thStyle}>License Number</th>
+-              <th style={thStyle}>Phone</th>
+-              <th style={thStyle}>Payment Terms (days)</th>
+-            </tr>
+-          </thead>
+-          <tbody>
+-            {suppliers.map((s: any) => (
+-              <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
+-                <td style={tdStyle}>
+-                  <Link href={`/suppliers/${s.id}`} style={{ color: 'var(--primary)' }}>
+-                    {s.name}
+-                  </Link>
+-                </td>
+-                <td style={tdStyle}>
+-                  {s.is_pbf ? (
+-                    <span style={badgeStyle('#0d9488')}>PBF</span>
+-                  ) : (
+-                    <span style={badgeStyle('#64748b')}>Non-PBF</span>
+-                  )}
+-                </td>
+-                <td style={tdStyle}>{s.pbf_license_number || '-'}</td>
+-                <td style={tdStyle}>{s.phone || '-'}</td>
+-                <td style={tdStyle}>{s.payment_terms_days}</td>
+-              </tr>
+-            ))}
+-          </tbody>
+-        </table>
++        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
++          <Table>
++            <TableHeader className="bg-slate-50">
++              <TableRow>
++                <TableHead>Name</TableHead>
++                <TableHead>PBF</TableHead>
++                <TableHead>License Number</TableHead>
++                <TableHead>Phone</TableHead>
++                <TableHead className="text-right">Payment Terms (days)</TableHead>
++              </TableRow>
++            </TableHeader>
++            <TableBody>
++              {suppliers.map((s: any) => (
++                <TableRow key={s.id} className="h-10">
++                  <TableCell>
++                    <Link href={`/suppliers/${s.id}`} className="text-primary hover:underline">
++                      {s.name}
++                    </Link>
++                  </TableCell>
++                  <TableCell>
++                    <Badge variant={s.is_pbf ? 'default' : 'secondary'}>
++                      {s.is_pbf ? 'PBF' : 'Non-PBF'}
++                    </Badge>
++                  </TableCell>
++                  <TableCell>{s.pbf_license_number || '-'}</TableCell>
++                  <TableCell>{s.phone || '-'}</TableCell>
++                  <TableCell className="text-right tabular-nums">{s.payment_terms_days}</TableCell>
++                </TableRow>
++              ))}
++            </TableBody>
++          </Table>
++        </div>
+       )}
+     </section>
+   )
+ }
+-
+-const thStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 12,
+-  fontWeight: 600,
+-  borderBottom: '1px solid var(--border)',
+-}
+-
+-const tdStyle: React.CSSProperties = {
+-  padding: '8px 12px',
+-  fontSize: 14,
+-}
+-
+-function badgeStyle(color: string): React.CSSProperties {
+-  return {
+-    background: color,
+-    color: '#fff',
+-    fontSize: 11,
+-    fontWeight: 600,
+-    padding: '2px 8px',
+-    borderRadius: 4,
+-  }
+-}
+\ No newline at end of file
