@@ -101,9 +101,8 @@ export default config
 
 - [ ] **Step 3: Add `@/*` alias to `apps/web/tsconfig.json`.**
 
-Merge into `compilerOptions` (keep everything else):
+Merge into `compilerOptions` (keep everything else). NO `baseUrl` — TS 6 rejects it as deprecated (TS5101 hard error); `paths` alone resolves relative to this tsconfig:
 ```json
-"baseUrl": ".",
 "paths": {
   "@/*": ["./*"]
 }
