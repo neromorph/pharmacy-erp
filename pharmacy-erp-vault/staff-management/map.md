@@ -27,3 +27,4 @@ Provide an OWNER-gated user management interface and database structure to manag
 - Self-service email password recovery flow (requires SMTP).
 - Custom permission levels per-endpoint (keeps to role-based access).
 - Multi-branch staff assignment (one staff belongs to exactly one tenant).
+- 05-resolved: Migration `20260806000006_staff_management.sql` live on remote; two-policy RLS split; backfill 2 rows; plan docs/superpowers/plans/2026-08-06-staff-management.md.
