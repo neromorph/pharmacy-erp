@@ -210,8 +210,8 @@ describe('lookupKfaProduct', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const result = await lookupKfaProduct({ token: 'tok', code: '93000515' })
-    expect(result.kfa_code).toBe('93000515')
-    expect(result.nie).toBe('GPL1433311910A1')
+    expect(result?.kfa_code).toBe('93000515')
+    expect(result?.nie).toBe('GPL1433311910A1')
     vi.unstubAllGlobals()
   })
 

@@ -5,6 +5,7 @@ import {
   isBpjsCheckoutBlocked,
   requiresAddress,
   requiresResep,
+  type CartLine,
 } from './cart'
 
 describe('requiresResep', () => {
@@ -35,7 +36,7 @@ describe('requiresAddress', () => {
 
 describe('computeSaleTotals', () => {
   it('sums item qty x price, racikan price, embalase, and tuslah', () => {
-    const lines = [
+    const lines: CartLine[] = [
       { kind: 'item', product_id: 'i', qty: 2, unit_price: 1000 },
       { kind: 'racikan', name: 'R1', price: 50000, dosage_count: 10, embalase: 3000 },
     ]
@@ -77,7 +78,7 @@ describe('isBpjsCheckoutBlocked', () => {
 
 describe('computeSaleTotals', () => {
   it('BPJS: tuslah 0 and embalase 0 produce correct grand total', () => {
-    const lines = [
+    const lines: CartLine[] = [
       { kind: 'item', product_id: 'i', qty: 3, unit_price: 10000 },
       { kind: 'racikan', name: 'R', price: 20000, dosage_count: 5, embalase: 0 },
     ]

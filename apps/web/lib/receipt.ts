@@ -23,7 +23,8 @@ export interface SaleItem {
 
 export interface SalePayment {
   payment_method: string
-  amount: number
+  // NUMERIC may reach the client as a string; coerced with Number() at use.
+  amount: number | string
 }
 
 export interface SaleRow {
