@@ -1,63 +1,31 @@
 import Link from 'next/link'
+import { CircleAlert } from 'lucide-react'
 import { createClient } from '../../../../utils/supabase/server'
 import { requireOpenShift } from '../../shifts/actions'
 import { ShiftRow } from '@pharmacy/domain'
 import { CartBuilder } from './cart-builder'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 // POS blocked when no shift is open.
 async function PosBlock() {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: 320,
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 8,
-        padding: 32,
-        textAlign: 'center',
-      }}
-    >
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 16 }}>
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>No Open Shift</h2>
-      <p style={{ color: 'var(--text-secondary)', fontSize: 14, margin: '0 0 20px' }}>
+    <div className="flex min-h-80 flex-col items-center justify-center rounded-xl bg-card px-8 py-8 text-center ring-1 ring-foreground/10">
+      <CircleAlert className="mb-4 size-12 text-slate-400" aria-hidden />
+      <h2 className="mb-2 text-base font-semibold text-slate-900">No Open Shift</h2>
+      <p className="mb-5 text-sm text-slate-500">
         Open a shift before you can start a sale.
       </p>
-      <Link
-        href="/shifts/new"
-        style={{
-          background: 'var(--primary)',
-          color: '#fff',
-          padding: '10px 20px',
-          borderRadius: 6,
-          textDecoration: 'none',
-          fontSize: 14,
-          fontWeight: 500,
-        }}
-      >
-        Open Shift
-      </Link>
+      <Button render={<Link href="/shifts/new" />}>Open Shift</Button>
     </div>
   )
-}
-
-const miniTh: React.CSSProperties = {
-  padding: '6px 8px',
-  fontSize: 11,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const miniTd: React.CSSProperties = {
-  padding: '6px 8px',
-  fontSize: 12,
 }
 
 function parseDate(value: string | null): string {
@@ -81,11 +49,13 @@ export default async function NewSalePage({
     openShiftData = await requireOpenShift()
   } catch {
     return (
-      <section style={{ maxWidth: 480 }}>
-        <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-          Back to Sales
-        </Link>
-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>New Sale</h1>
+      <section className="mx-auto max-w-md space-y-6">
+        <div>
+          <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
+            Back to Sales
+          </Link>
+          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
+        </div>
         <PosBlock />
       </section>
     )
@@ -115,21 +85,21 @@ export default async function NewSalePage({
   }
 
   return (
-    <section style={{ maxWidth: 860 }}>
-      <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-        Back to Sales
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, margin: 0 }}>New Sale</h1>
-        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
-        </span>
+    <section className="mx-auto max-w-3xl space-y-6">
+      <div>
+        <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
+          Back to Sales
+        </Link>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
+          <span className="text-xs text-slate-500">
+            Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
+          </span>
+        </div>
       </div>
 
       {error && (
-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
-          {error}
-        </p>
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
       )}
 
       <CartBuilder
@@ -138,36 +108,41 @@ export default async function NewSalePage({
         patients={patientRes.data || []}
       />
 
-      <h2 style={{ fontSize: 14, margin: '20px 0 8px' }}>Available stock (FEFO)</h2>
-      {(products || []).length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>No products yet</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={miniTh}>Product</th>
-              <th style={miniTh}>Batch</th>
-              <th style={miniTh}>Expiry</th>
-              <th style={miniTh}>Qty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(products || []).map((p: any) => {
-              const stock = stockByProduct[p.id] || []
-              return stock.length === 0 ? null : (
-                stock.map((b) => (
-                  <tr key={`${p.id}-${b.batch_number}`} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={miniTd}>{p.name}</td>
-                    <td style={miniTd}>{b.batch_number}</td>
-                    <td style={miniTd}>{b.expiry_date ? parseDate(b.expiry_date) : '-'}</td>
-                    <td style={miniTd}>{b.current_qty}</td>
-                  </tr>
-                ))
-              )
-            })}
-          </tbody>
-        </table>
-      )}
+      <div className="space-y-3">
+        <h2 className="text-sm font-medium text-slate-900">Available stock (FEFO)</h2>
+        {(products || []).length === 0 ? (
+          <p className="text-sm text-slate-500">No products yet</p>
+        ) : (
+          <Table>
+            <TableHeader className="sticky top-14 z-10 bg-slate-50">
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead>Batch</TableHead>
+                <TableHead>Expiry</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(products || []).map((p: any) => {
+                const stock = stockByProduct[p.id] || []
+                return stock.length === 0 ? null : (
+                  stock.map((b) => (
+                    <TableRow
+                      key={`${p.id}-${b.batch_number}`}
+                      className="h-10 cursor-pointer hover:bg-slate-50"
+                    >
+                      <TableCell>{p.name}</TableCell>
+                      <TableCell>{b.batch_number}</TableCell>
+                      <TableCell>{b.expiry_date ? parseDate(b.expiry_date) : '-'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{b.current_qty}</TableCell>
+                    </TableRow>
+                  ))
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </section>
   )
 }

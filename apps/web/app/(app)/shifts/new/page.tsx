@@ -1,16 +1,16 @@
 import Link from 'next/link'
 import { openShift } from '../actions'
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
-}
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, marginBottom: 4, color: 'var(--text-secondary)' }
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 
 export default async function NewShiftPage({
   searchParams,
@@ -21,68 +21,57 @@ export default async function NewShiftPage({
   const error = params.error
 
   return (
-    <section style={{ maxWidth: 480 }}>
-      <Link href="/shifts" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-        Back to Shifts
-      </Link>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Open Shift</h1>
+    <section className="mx-auto max-w-md space-y-6">
+      <div>
+        <Link href="/shifts" className="mb-4 inline-block text-sm text-primary hover:underline">
+          Back to Shifts
+        </Link>
+        <h1 className="text-xl font-semibold text-slate-900">Open Shift</h1>
+      </div>
 
       {error && (
-        <p style={{ background: '#fef2f2', color: '#ef4444', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 16 }}>
-          {error}
-        </p>
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
       )}
 
-      <form
-        action={openShift}
-        style={{
-          background: 'var(--card)',
-          padding: 16,
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-        }}
-      >
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Opening Cash *</label>
-          <input
-            name="opening_cash"
-            type="number"
-            step="0.01"
-            min="0"
-            required
-            placeholder="0.00"
-            style={inputStyle}
-          />
-          <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-secondary)' }}>
-            Cash in drawer at shift start. Numeric, non-negative.
-          </p>
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Shift Details</CardTitle>
+          <CardDescription>Enter the cash in the drawer at shift start.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={openShift} className="grid gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="opening_cash">Opening Cash *</Label>
+              <Input
+                id="opening_cash"
+                name="opening_cash"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                placeholder="0.00"
+              />
+              <p className="text-xs text-slate-500">
+                Cash in drawer at shift start. Numeric, non-negative.
+              </p>
+            </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>Notes</label>
-          <textarea
-            name="notes"
-            rows={3}
-            placeholder="Optional notes for this shift"
-            style={{ ...inputStyle, resize: 'vertical' }}
-          />
-        </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                name="notes"
+                rows={3}
+                placeholder="Optional notes for this shift"
+              />
+            </div>
 
-        <button
-          type="submit"
-          style={{
-            background: 'var(--primary)',
-            color: '#fff',
-            padding: '8px 16px',
-            border: 'none',
-            borderRadius: 6,
-            cursor: 'pointer',
-            fontSize: 14,
-          }}
-        >
-          Start Shift
-        </button>
-      </form>
+            <Button type="submit" className="w-fit">
+              Start Shift
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </section>
   )
 }

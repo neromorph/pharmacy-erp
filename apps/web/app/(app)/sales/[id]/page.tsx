@@ -1,18 +1,42 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
-import { statusColors, parseDate } from '../status'
+import { parseDate } from '../status'
 import { getUserRole, canVoidSale } from '../../../../utils/auth'
 import { listOpenShift } from '../../shifts/actions'
 import { perProductQuantities, sumEmbalase } from '../../../../lib/compound'
 import { updateSaleClinicalInfo } from './actions'
 import { retrySatusehatSubmission } from './satusehat-actions'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-const satusehatStatusColor: Record<string, string> = {
-  PENDING: '#d97706',
-  SENT: '#16a34a',
-  FAILED: '#dc2626',
-  SKIPPED: '#64748b',
+const satusehatStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  PENDING: 'outline',
+  SENT: 'default',
+  FAILED: 'destructive',
+  SKIPPED: 'secondary',
+}
+
+const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  DRAFT: 'outline',
+  PAID: 'default',
+  VOID: 'destructive',
 }
 
 async function voidSaleAction(formData: FormData) {
@@ -224,7 +248,7 @@ export default async function SaleDetailPage({
     .maybeSingle()
 
   if (!sale) {
-    return <p style={{ color: 'var(--danger)' }}>Sale not found</p>
+    return <p className="text-sm text-destructive">Sale not found</p>
   }
 
   // Shift gate: draft sale with no shift cannot be paid — keep read-only.
@@ -234,22 +258,27 @@ export default async function SaleDetailPage({
   const canPay = sale.status === 'DRAFT' && !!openShift
 
   return (
-    <section>
-      <Link href="/sales" style={{ color: 'var(--primary)', display: 'inline-block', marginBottom: 16 }}>
-        Back to Sales
-      </Link>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <h1 style={{ fontSize: 20, margin: '0' }}>{sale.sale_number}</h1>
-        <span style={badgeStyle(statusColors[sale.status] || '#64748b')}>{sale.status}</span>
-        <span style={badgeStyle(sale.sale_type === 'RESEP' ? '#8b5cf6' : '#0d9488')}>{sale.sale_type}</span>
+    <section className="space-y-6">
+      <div>
+        <Link href="/sales" className="inline-block text-sm text-primary hover:underline">
+          Back to Sales
+        </Link>
       </div>
-      <p style={{ color: 'var(--text-secondary)' }}>Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
+      <div className="flex items-center gap-3">
+        <h1 className="text-xl font-semibold text-slate-900">{sale.sale_number}</h1>
+        <Badge variant={saleStatusVariant[sale.status] || 'secondary'}>{sale.status}</Badge>
+        <Badge
+          variant={sale.sale_type === 'RESEP' ? 'outline' : sale.sale_type === 'BPJS' ? 'default' : 'secondary'}
+          className={sale.sale_type === 'BPJS' ? 'bg-emerald-500 text-white' : ''}
+        >
+          {sale.sale_type}
+        </Badge>
+      </div>
+      <p className="text-sm text-slate-500">Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
       {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+        <p className="text-sm text-slate-500">
           {sale.sale_type === 'BPJS' && (
-            <span style={{ background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 3, marginRight: 6 }}>
-              BPJS / JKN
-            </span>
+            <Badge className="mr-1.5 bg-emerald-500 text-white">BPJS / JKN</Badge>
           )}
           Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
           {sale.patients?.name || '-'}
@@ -259,92 +288,75 @@ export default async function SaleDetailPage({
         </p>
       )}
       {sale.sale_type === 'SARANA' && (
-        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          Facility: {sale.patients?.name || '-'}
-        </p>
+        <p className="text-sm text-slate-500">Facility: {sale.patients?.name || '-'}</p>
       )}
 
       {satusehatSubmission && (
-        <div
-          style={{
-            marginTop: 16,
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 12,
-            maxWidth: 480,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={badgeStyle(satusehatStatusColor[satusehatSubmission.status] || '#64748b')}>
-              SATUSEHAT: {satusehatSubmission.status}
-            </span>
-            {satusehatSubmission.sent_at && (
-              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                Sent: {parseDate(satusehatSubmission.sent_at)}
-              </span>
+        <Card className="max-w-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Badge variant={satusehatStatusVariant[satusehatSubmission.status] || 'secondary'}>
+                SATUSEHAT: {satusehatSubmission.status}
+              </Badge>
+              {satusehatSubmission.sent_at && (
+                <span className="text-xs text-slate-500">
+                  Sent: {parseDate(satusehatSubmission.sent_at)}
+                </span>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {satusehatSubmission.last_error && (
+              <p className="text-xs text-slate-500">{satusehatSubmission.last_error}</p>
             )}
-          </div>
-          {satusehatSubmission.last_error && (
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 0' }}>
-              {satusehatSubmission.last_error}
-            </p>
-          )}
-          {satusehatSubmission.status === 'FAILED' &&
-            (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
-              <form action={retrySatusehatSubmission.bind(null, sale.id)} style={{ marginTop: 8 }}>
-                <button
-                  type="submit"
-                  style={{
-                    background: 'transparent',
-                    color: 'var(--primary)',
-                    padding: '4px 12px',
-                    borderRadius: 6,
-                    border: '1px solid var(--border)',
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Retry
-                </button>
-              </form>
-            )}
-        </div>
+            {satusehatSubmission.status === 'FAILED' &&
+              (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
+                <form action={retrySatusehatSubmission.bind(null, sale.id)}>
+                  <Button type="submit" variant="outline" size="sm">
+                    Retry
+                  </Button>
+                </form>
+              )}
+          </CardContent>
+        </Card>
       )}
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-            <th style={thStyle}>Product</th>
-            <th style={thStyle}>Batch</th>
-            <th style={thStyle}>Expiry</th>
-            <th style={thStyle}>Qty</th>
-            <th style={thStyle}>Unit Price</th>
-            <th style={thStyle}>Line Total</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader className="sticky top-14 z-10 bg-slate-50">
+          <TableRow>
+            <TableHead>Product</TableHead>
+            <TableHead>Batch</TableHead>
+            <TableHead>Expiry</TableHead>
+            <TableHead className="text-right">Qty</TableHead>
+            <TableHead className="text-right">Unit Price</TableHead>
+            <TableHead className="text-right">Line Total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {(sale.sale_items || []).map((it: any) => (
-            <tr key={it.id} style={{ borderTop: '1px solid var(--border)', background: it.parent_item_id ? '#f8fafc' : undefined }}>
-              <td style={{ ...tdStyle, paddingLeft: it.parent_item_id ? 28 : 12 }}>
+            <TableRow
+              key={it.id}
+              className={`h-10 ${it.parent_item_id ? 'bg-slate-50' : ''}`}
+            >
+              <TableCell className={it.parent_item_id ? 'pl-7' : ''}>
                 {it.parent_item_id ? '↳ ' : ''}
                 {it.item_name || it.products?.name || it.product_id}
-              </td>
-              <td style={tdStyle}>{it.batch_number || '-'}</td>
-              <td style={tdStyle}>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</td>
-              <td style={tdStyle}>{it.qty_sold}</td>
-              <td style={tdStyle}>
+              </TableCell>
+              <TableCell>{it.batch_number || '-'}</TableCell>
+              <TableCell>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</TableCell>
+              <TableCell className="text-right tabular-nums">{it.qty_sold}</TableCell>
+              <TableCell className="text-right tabular-nums">
                 {Number(it.unit_price).toFixed(2)}
                 {it.embalase_amount && Number(it.embalase_amount) > 0 ? ` + emb ${Number(it.embalase_amount).toFixed(2)}` : ''}
-              </td>
-              <td style={tdStyle}>{Number(it.line_total).toFixed(2)}</td>
-            </tr>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
 
-      <div style={{ marginTop: 16, textAlign: 'right' }}>
-        <p style={{ margin: 0, fontSize: 14 }}>
+      <div className="text-right">
+        <p className="text-sm text-slate-900">
           Subtotal: {Number(sale.subtotal).toFixed(2)}
           {Number(sale.embalase_amount || 0) > 0 && (
             <> • Emb: {Number(sale.embalase_amount).toFixed(2)}</>
@@ -353,213 +365,136 @@ export default async function SaleDetailPage({
             <> • Tuslah: {Number(sale.tuslah_amount).toFixed(2)}</>
           )}
         </p>
-        <p style={{ margin: 0, fontSize: 14 }}>
-          Grand Total: <strong>{Number(sale.grand_total).toFixed(2)}</strong>
+        <p className="text-sm">
+          Grand Total: <strong className="tabular-nums">{Number(sale.grand_total).toFixed(2)}</strong>
         </p>
         {sale.status === 'PAID' && (
-          <p style={{ margin: 4, fontSize: 14, color: 'var(--text-secondary)' }}>
+          <p className="mt-1 text-sm tabular-nums text-slate-500">
             Paid: {Number(sale.paid_amount).toFixed(2)} • Change: {Number(sale.change_amount).toFixed(2)}
           </p>
         )}
       </div>
 
       {sale.status === 'DRAFT' && canPay && (
-        <form
-          action={paySale}
-          style={{
-            background: 'var(--card)',
-            padding: 16,
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            marginTop: 16,
-            maxWidth: 360,
-          }}
-        >
-          <input type="hidden" name="sale_id" value={sale.id} />
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Payment method</label>
-            <select name="payment_method" required style={inputStyle}>
-              {paymentMethods.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Paid amount</label>
-            <input name="paid_amount" type="number" step="0.01" min="0" required style={inputStyle} />
-          </div>
-          <button
-            type="submit"
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
-            Complete Sale (Paid)
-          </button>
-        </form>
+        <Card className="max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-sm">Complete Sale</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={paySale} className="grid gap-3">
+              <input type="hidden" name="sale_id" value={sale.id} />
+              <div className="grid gap-1.5">
+                <Label htmlFor="payment_method">Payment method</Label>
+                <select
+                  id="payment_method"
+                  name="payment_method"
+                  required
+                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
+                >
+                  {paymentMethods.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="paid_amount">Paid amount</Label>
+                <Input
+                  id="paid_amount"
+                  name="paid_amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-fit">
+                Complete Sale (Paid)
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {(shiftMissing || (sale.status === 'DRAFT' && !canPay)) && (
-        <div
-          style={{
-            marginTop: 16,
-            background: '#fef2f2',
-            border: '1px solid #fca5a5',
-            borderRadius: 8,
-            padding: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <span style={{ fontSize: 14, color: '#ef4444' }}>
+        <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
+          <span className="text-sm text-red-600">
             Cannot pay: {shiftMissing ? 'this draft sale has no associated shift.' : 'no open shift.'}
           </span>
-          <a
+          <Link
             href="/shifts/new"
-            style={{
-              color: 'var(--primary)',
-              fontSize: 13,
-              whiteSpace: 'nowrap',
-              textDecoration: 'none',
-              fontWeight: 500,
-            }}
+            className="whitespace-nowrap text-sm font-medium text-primary hover:underline"
           >
             Open Shift →
-          </a>
-        </div>
-      )}
-
-      {sale.status === 'PAID' && (
-        <div style={{ marginTop: 16 }}>
-          <Link
-            href={`/receipts/${sale.id}`}
-            style={{
-              display: 'inline-block',
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-            }}
-          >
-            Cetak Struk
           </Link>
         </div>
       )}
 
+      {sale.status === 'PAID' && (
+        <div>
+          <Button render={<Link href={`/receipts/${sale.id}`} />}>Cetak Struk</Button>
+        </div>
+      )}
+
       {sale.status === 'PAID' && (sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && canVoidSale(userRole) && (
-        <form
-          action={updateSaleClinicalInfo}
-          style={{
-            background: 'var(--card)',
-            padding: 16,
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            marginTop: 16,
-            maxWidth: 480,
-          }}
-        >
-          <h3 style={{ fontSize: 14, margin: '0 0 8px' }}>Edit Prescription Info</h3>
-          <input type="hidden" name="sale_id" value={sale.id} />
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Doctor</label>
-            <select name="doctor_id" defaultValue={sale.doctor_id || ''} style={inputStyle}>
-              <option value="">-</option>
-              {(doctorListRes.data || []).map((d: any) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                  {d.sip_number ? ` (${d.sip_number})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ display: 'block', fontSize: 12, marginBottom: 4 }}>Patient</label>
-            <select name="patient_id" defaultValue={sale.patient_id || ''} style={inputStyle}>
-              <option value="">-</option>
-              {(patientListRes.data || []).map((p: any) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                  {p.address ? ` (${p.address})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="submit"
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
-            Save
-          </button>
-        </form>
+        <Card className="max-w-lg">
+          <CardHeader>
+            <CardTitle className="text-sm">Edit Prescription Info</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={updateSaleClinicalInfo} className="grid gap-3">
+              <input type="hidden" name="sale_id" value={sale.id} />
+              <div className="grid gap-1.5">
+                <Label htmlFor="doctor_id">Doctor</Label>
+                <select
+                  id="doctor_id"
+                  name="doctor_id"
+                  defaultValue={sale.doctor_id || ''}
+                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
+                >
+                  <option value="">-</option>
+                  {(doctorListRes.data || []).map((d: any) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                      {d.sip_number ? ` (${d.sip_number})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="patient_id">Patient</Label>
+                <select
+                  id="patient_id"
+                  name="patient_id"
+                  defaultValue={sale.patient_id || ''}
+                  className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm"
+                >
+                  <option value="">-</option>
+                  {(patientListRes.data || []).map((p: any) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                      {p.address ? ` (${p.address})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button type="submit" className="w-fit">
+                Save
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
       {sale.status === 'PAID' && canVoidSale(userRole) && (
-        <form action={voidSaleAction} style={{ marginTop: 16 }}>
+        <form action={voidSaleAction}>
           <input type="hidden" name="sale_id" value={sale.id} />
-          <button
-            type="submit"
-            style={{
-              background: 'var(--danger, #ef4444)',
-              color: '#fff',
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: 6,
-              cursor: 'pointer',
-            }}
-          >
+          <Button type="submit" variant="destructive">
             Void Sale
-          </button>
+          </Button>
         </form>
       )}
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: '#fff',
-}
-
-function badgeStyle(color: string): React.CSSProperties {
-  return {
-    background: color,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 4,
-  }
 }

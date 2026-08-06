@@ -1,4 +1,12 @@
+import { Banknote, AlertTriangle, CalendarClock } from 'lucide-react'
 import { createClient } from '../../utils/supabase/server'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 
 const currency = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' })
 
@@ -32,63 +40,43 @@ export default async function HomePage() {
     {
       label: 'Daily Sales',
       value: available ? currency.format(dailySales!) : '—',
-      accent: 'var(--success)',
+      Icon: Banknote,
     },
     {
       label: 'Low Stock',
       value: available ? String(lowStockCount!) : '—',
-      accent: 'var(--warning)',
+      Icon: AlertTriangle,
     },
     {
       label: 'Near Expiry',
       value: available ? String(nearExpiryCount!) : '—',
-      accent: 'var(--danger)',
+      Icon: CalendarClock,
     },
   ]
 
   return (
-    <section>
-      <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Dashboard</h1>
+    <section className="space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
       {!available ? (
-        <p style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-sm text-slate-500">
           Dashboard unavailable{error ? `: ${error.message}` : ''}
         </p>
       ) : (
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div className="grid gap-4 sm:grid-cols-3">
           {cards.map((card) => (
-            <div
-              key={card.label}
-              style={{
-                flex: '1 1 200px',
-                background: 'var(--card)',
-                border: `1px solid var(--border)`,
-                borderRadius: 8,
-                padding: '16px 20px',
-              }}
-            >
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
-                {card.label}
-              </p>
-              <p
-                style={{
-                  margin: '8px 0 0',
-                  fontSize: 28,
-                  fontWeight: 600,
-                  color: 'var(--text-primary)',
-                }}
-              >
-                {card.value}
-              </p>
-              <div
-                style={{
-                  marginTop: 12,
-                  height: 3,
-                  borderRadius: 2,
-                  background: card.accent,
-                  width: 48,
-                }}
-              />
-            </div>
+            <Card key={card.label}>
+              <CardHeader>
+                <CardTitle className="text-sm text-slate-500">{card.label}</CardTitle>
+                <CardAction>
+                  <card.Icon className="size-5 text-slate-400" aria-hidden />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tabular-nums text-slate-900">
+                  {card.value}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}

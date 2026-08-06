@@ -1,6 +1,16 @@
 import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
 import { listOpenShift } from './actions'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 // ASD-STE100: shared utility for date display
 function parseDate(value: string | null | undefined): string {
@@ -10,22 +20,17 @@ function parseDate(value: string | null | undefined): string {
   return d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
 }
 
-const statusColors: Record<string, string> = {
-  OPEN: '#10b981',
-  CLOSED: '#64748b',
-  FORCE_CLOSED: '#ef4444',
+const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  OPEN: 'default',
+  CLOSED: 'secondary',
+  FORCE_CLOSED: 'destructive',
 }
-
-function badgeStyle(color: string): React.CSSProperties {
-  return { background: color, color: '#fff', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4 }
-}
-
-const thStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, borderBottom: '1px solid var(--border)', textAlign: 'left' }
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
 
 export default async function ShiftsPage() {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   const currentShift = await listOpenShift()
 
@@ -42,117 +47,104 @@ export default async function ShiftsPage() {
   }
 
   return (
-    <section>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: 20, margin: '0 0 16px' }}>Shifts</h1>
-        {!currentShift && (
-          <Link
-            href="/shifts/new"
-            style={{
-              background: 'var(--primary)',
-              color: '#fff',
-              padding: '8px 16px',
-              borderRadius: 6,
-              textDecoration: 'none',
-              fontSize: 14,
-            }}
-          >
-            Open Shift
-          </Link>
-        )}
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Shifts</h1>
+        {!currentShift && <Button render={<Link href="/shifts/new" />}>Open Shift</Button>}
       </div>
 
       {/* Current open shift */}
       {currentShift && (
-        <div
-          style={{
-            background: 'var(--card)',
-            border: '1px solid #10b981',
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 24,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Open Shift</h2>
-            <span style={badgeStyle(statusColors['OPEN'])}>OPEN</span>
+        <div className="rounded-xl bg-card py-4 ring-1 ring-emerald-500/50">
+          <div className="flex items-center gap-2 px-4 pb-1">
+            <h2 className="text-base font-medium text-slate-900">Open Shift</h2>
+            <Badge variant="default">OPEN</Badge>
           </div>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
-            Cashier: <strong>{currentShift.cashier_name || user?.email || '-'}</strong>
-          </p>
-          <p style={{ margin: '4px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
-            Opened: {parseDate(currentShift.opened_at)}
-          </p>
-          <p style={{ margin: '4px 0', fontSize: 14 }}>
-            Opening Cash: <strong>{Number(currentShift.opening_cash).toFixed(2)}</strong>
-          </p>
-          <p style={{ margin: '4px 0', fontSize: 13, color: 'var(--text-secondary)' }}>
-            {currentShift.notes || 'No notes'}
-          </p>
-          <Link
-            href={`/shifts/${currentShift.id}`}
-            style={{ color: 'var(--primary)', fontSize: 13, display: 'inline-block', marginTop: 8 }}
-          >
-            View &amp; Close Shift →
-          </Link>
+          <div className="space-y-1 px-4 text-sm text-slate-500">
+            <p>
+              Cashier: <strong className="text-slate-900">{currentShift.cashier_name || user?.email || '-'}</strong>
+            </p>
+            <p>Opened: {parseDate(currentShift.opened_at)}</p>
+            <p className="text-slate-900">
+              Opening Cash: <strong>{Number(currentShift.opening_cash).toFixed(2)}</strong>
+            </p>
+            <p>{currentShift.notes || 'No notes'}</p>
+          </div>
+          <div className="px-4 pt-2">
+            <Link
+              href={`/shifts/${currentShift.id}`}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              View &amp; Close Shift →
+            </Link>
+          </div>
         </div>
       )}
 
       {/* Past shifts */}
-      <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>Shift History</h2>
-      {pastShifts.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No past shifts</p>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Cashier</th>
-              <th style={thStyle}>Opened</th>
-              <th style={thStyle}>Closed</th>
-              <th style={thStyle}>Opening Cash</th>
-              <th style={thStyle}>Closing Cash</th>
-              <th style={thStyle}>Variance</th>
-              <th style={thStyle}>Notes</th>
-              <th style={thStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pastShifts.map((shift) => {
-              const opening = Number(shift.opening_cash)
-              const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
-              const variance = closing !== null ? closing - opening : null
-              return (
-                <tr key={shift.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={tdStyle}>
-                    <span style={badgeStyle(statusColors[shift.status] || '#64748b')}>{shift.status}</span>
-                  </td>
-                  <td style={tdStyle}>{shift.cashier_name || '—'}</td>
-                  <td style={tdStyle}>{parseDate(shift.opened_at)}</td>
-                  <td style={tdStyle}>{shift.closed_at ? parseDate(shift.closed_at) : '-'}</td>
-                  <td style={tdStyle}>{opening.toFixed(2)}</td>
-                  <td style={tdStyle}>{closing !== null ? closing.toFixed(2) : '-'}</td>
-                  <td style={tdStyle}>
-                    {variance !== null ? (
-                      <span style={{ color: variance < 0 ? 'var(--danger, #ef4444)' : 'inherit' }}>
-                        {variance >= 0 ? '+' : ''}{variance.toFixed(2)}
-                      </span>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td style={tdStyle}>{shift.notes || '-'}</td>
-                  <td style={tdStyle}>
-                    <Link href={`/shifts/${shift.id}`} style={{ color: 'var(--primary)', fontSize: 13 }}>
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
+      <div className="space-y-3">
+        <h2 className="text-base font-medium text-slate-900">Shift History</h2>
+        {pastShifts.length === 0 ? (
+          <p className="text-sm text-slate-500">No past shifts</p>
+        ) : (
+          <Table>
+            <TableHeader className="sticky top-14 z-10 bg-slate-50">
+              <TableRow>
+                <TableHead>Status</TableHead>
+                <TableHead>Cashier</TableHead>
+                <TableHead>Opened</TableHead>
+                <TableHead>Closed</TableHead>
+                <TableHead className="text-right">Opening Cash</TableHead>
+                <TableHead className="text-right">Closing Cash</TableHead>
+                <TableHead className="text-right">Variance</TableHead>
+                <TableHead>Notes</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pastShifts.map((shift) => {
+                const opening = Number(shift.opening_cash)
+                const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
+                const variance = closing !== null ? closing - opening : null
+                return (
+                  <TableRow key={shift.id} className="h-10">
+                    <TableCell>
+                      <Badge variant={statusVariant[shift.status] || 'secondary'}>
+                        {shift.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{shift.cashier_name || '—'}</TableCell>
+                    <TableCell>{parseDate(shift.opened_at)}</TableCell>
+                    <TableCell>{shift.closed_at ? parseDate(shift.closed_at) : '-'}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {opening.toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {closing !== null ? closing.toFixed(2) : '-'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {variance !== null ? (
+                        <span className={variance < 0 ? 'text-destructive' : ''}>
+                          {variance >= 0 ? '+' : ''}
+                          {variance.toFixed(2)}
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>{shift.notes || '-'}</TableCell>
+                    <TableCell>
+                      <Link href={`/shifts/${shift.id}`} className="text-sm text-primary">
+                        View
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </div>
     </section>
   )
 }
