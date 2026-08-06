@@ -1,15 +1,14 @@
 import { login } from './actions'
 import { Logo } from '@/components/brand/Logo'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SubmitButton } from '@/components/submit-button'
 
 interface LoginPageProps {
   searchParams: Promise<{ error?: string }>
@@ -27,7 +26,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
       <Card className="w-full">
         <CardHeader>
-          <CardTitle className="text-lg">Sign in</CardTitle>
+          <h1 data-slot="card-title" className="font-heading text-lg leading-snug font-medium">
+            Sign in
+          </h1>
           <CardDescription>Use your branch account to continue.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -46,10 +47,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 required
               />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="mt-1 w-full">
-              Sign In
-            </Button>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <SubmitButton className="mt-1 w-full">Sign In</SubmitButton>
           </form>
         </CardContent>
       </Card>

@@ -7,6 +7,9 @@ import { listOpenShift } from '../../shifts/actions'
 import { perProductQuantities, sumEmbalase } from '../../../../lib/compound'
 import { updateSaleClinicalInfo } from './actions'
 import { retrySatusehatSubmission } from './satusehat-actions'
+import { SubmitButton } from '@/components/submit-button'
+import { VoidSaleDialog } from './void-sale-dialog'
+import { formatRupiah } from '@/lib/receipt'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -269,7 +272,7 @@ export default async function SaleDetailPage({
         <Badge variant={saleStatusVariant[sale.status] || 'secondary'}>{sale.status}</Badge>
         <Badge
           variant={sale.sale_type === 'RESEP' ? 'outline' : sale.sale_type === 'BPJS' ? 'default' : 'secondary'}
-          className={sale.sale_type === 'BPJS' ? 'bg-emerald-500 text-white' : ''}
+          className={sale.sale_type === 'BPJS' ? 'bg-emerald-700 text-white' : ''}
         >
           {sale.sale_type}
         </Badge>
@@ -278,7 +281,7 @@ export default async function SaleDetailPage({
       {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
         <p className="text-sm text-slate-500">
           {sale.sale_type === 'BPJS' && (
-            <Badge className="mr-1.5 bg-emerald-500 text-white">BPJS / JKN</Badge>
+            <Badge className="mr-1.5 bg-emerald-700 text-white">BPJS / JKN</Badge>
           )}
           Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
           {sale.patients?.name || '-'}
@@ -312,9 +315,9 @@ export default async function SaleDetailPage({
             {satusehatSubmission.status === 'FAILED' &&
               (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
                 <form action={retrySatusehatSubmission.bind(null, sale.id)}>
-                  <Button type="submit" variant="outline" size="sm">
+                  <SubmitButton variant="outline" size="sm">
                     Retry
-                  </Button>
+                  </SubmitButton>
                 </form>
               )}
           </CardContent>
@@ -346,10 +349,10 @@ export default async function SaleDetailPage({
               <TableCell>{it.expiry_date ? parseDate(it.expiry_date) : '-'}</TableCell>
               <TableCell className="text-right tabular-nums">{it.qty_sold}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {Number(it.unit_price).toFixed(2)}
-                {it.embalase_amount && Number(it.embalase_amount) > 0 ? ` + emb ${Number(it.embalase_amount).toFixed(2)}` : ''}
+                {formatRupiah(Number(it.unit_price))}
+                {it.embalase_amount && Number(it.embalase_amount) > 0 ? ` + emb ${formatRupiah(Number(it.embalase_amount))}` : ''}
               </TableCell>
-              <TableCell className="text-right tabular-nums">{Number(it.line_total).toFixed(2)}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatRupiah(Number(it.line_total))}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -357,20 +360,20 @@ export default async function SaleDetailPage({
 
       <div className="text-right">
         <p className="text-sm text-slate-900">
-          Subtotal: {Number(sale.subtotal).toFixed(2)}
+          Subtotal: {formatRupiah(Number(sale.subtotal))}
           {Number(sale.embalase_amount || 0) > 0 && (
-            <> • Emb: {Number(sale.embalase_amount).toFixed(2)}</>
+            <> • Emb: {formatRupiah(Number(sale.embalase_amount))}</>
           )}
           {Number(sale.tuslah_amount || 0) > 0 && (
-            <> • Tuslah: {Number(sale.tuslah_amount).toFixed(2)}</>
+            <> • Tuslah: {formatRupiah(Number(sale.tuslah_amount))}</>
           )}
         </p>
         <p className="text-sm">
-          Grand Total: <strong className="tabular-nums">{Number(sale.grand_total).toFixed(2)}</strong>
+          Grand Total: <strong className="tabular-nums">{formatRupiah(Number(sale.grand_total))}</strong>
         </p>
         {sale.status === 'PAID' && (
           <p className="mt-1 text-sm tabular-nums text-slate-500">
-            Paid: {Number(sale.paid_amount).toFixed(2)} • Change: {Number(sale.change_amount).toFixed(2)}
+            Paid: {formatRupiah(Number(sale.paid_amount))} • Change: {formatRupiah(Number(sale.change_amount))}
           </p>
         )}
       </div>
@@ -409,9 +412,7 @@ export default async function SaleDetailPage({
                   required
                 />
               </div>
-              <Button type="submit" className="w-fit">
-                Complete Sale (Paid)
-              </Button>
+              <SubmitButton className="w-fit">Complete Sale (Paid)</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -419,7 +420,7 @@ export default async function SaleDetailPage({
 
       {(shiftMissing || (sale.status === 'DRAFT' && !canPay)) && (
         <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
-          <span className="text-sm text-red-600">
+          <span className="text-sm text-red-700">
             Cannot pay: {shiftMissing ? 'this draft sale has no associated shift.' : 'no open shift.'}
           </span>
           <Link
@@ -433,7 +434,7 @@ export default async function SaleDetailPage({
 
       {sale.status === 'PAID' && (
         <div>
-          <Button render={<Link href={`/receipts/${sale.id}`} />}>Cetak Struk</Button>
+          <Button render={<Link href={`/receipts/${sale.id}`} />}>Print receipt</Button>
         </div>
       )}
 
@@ -479,21 +480,14 @@ export default async function SaleDetailPage({
                   ))}
                 </select>
               </div>
-              <Button type="submit" className="w-fit">
-                Save
-              </Button>
+              <SubmitButton className="w-fit">Save</SubmitButton>
             </form>
           </CardContent>
         </Card>
       )}
 
       {sale.status === 'PAID' && canVoidSale(userRole) && (
-        <form action={voidSaleAction}>
-          <input type="hidden" name="sale_id" value={sale.id} />
-          <Button type="submit" variant="destructive">
-            Void Sale
-          </Button>
-        </form>
+        <VoidSaleDialog saleId={sale.id} action={voidSaleAction} />
       )}
     </section>
   )

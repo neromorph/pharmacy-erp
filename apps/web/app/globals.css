@@ -5,8 +5,8 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --color-primary: #0d9488;        /* Teal-600 — project primary */
-  --color-primary-hover: #0f766e;  /* Teal-700 */
+  --color-primary: #0f766e;        /* Teal-700 — white text passes AA (5.47:1) */
+  --color-primary-hover: #115e59;  /* Teal-800 */
   --color-primary-foreground: #ffffff;
 }
 
@@ -58,8 +58,8 @@
 }
 
 :root {
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
+  --primary: #0f766e;
+  --primary-hover: #115e59;
   --surface: #f8fafc;
   --card: oklch(1 0 0);
   --text-primary: #0f172a;
@@ -80,9 +80,9 @@
   --muted-foreground: oklch(0.556 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --destructive: oklch(0.51 0.205 27);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.51 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -100,7 +100,7 @@
 }
 
 html {
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
@@ -144,6 +144,10 @@ body {
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  a:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;

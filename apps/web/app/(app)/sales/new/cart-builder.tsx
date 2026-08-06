@@ -12,6 +12,8 @@ import {
   RegulatoryCategory,
 } from '../../../../lib/cart'
 import { Button } from '@/components/ui/button'
+import { SubmitButton } from '@/components/submit-button'
+import { formatRupiah } from '@/lib/receipt'
 
 interface ProductLite {
   id: string
@@ -225,10 +227,13 @@ export function CartBuilder({
         {lines.map((line, idx) => (
           <div key={idx} className="rounded-lg border border-border p-3">
             {line.kind === 'item' ? (
-              <div className="grid grid-cols-[2.2fr_0.7fr_0.9fr_auto] gap-2">
-                <div>
-                  <label className={labelCls}>Product</label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[2.2fr_0.7fr_0.9fr_auto]">
+                <div className="col-span-2 sm:col-span-1">
+                  <label htmlFor={`line-${idx}-product`} className={labelCls}>
+                    Product
+                  </label>
                   <select
+                    id={`line-${idx}-product`}
                     value={line.product_id}
                     onChange={(e) => updateLine(idx, { product_id: e.target.value })}
                     required
@@ -243,8 +248,11 @@ export function CartBuilder({
                   </select>
                 </div>
                 <div>
-                  <label className={labelCls}>Qty</label>
+                  <label htmlFor={`line-${idx}-qty`} className={labelCls}>
+                    Qty
+                  </label>
                   <input
+                    id={`line-${idx}-qty`}
                     type="number"
                     value={line.qty}
                     onChange={(e) => updateLine(idx, { qty: e.target.value })}
@@ -260,8 +268,11 @@ export function CartBuilder({
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Price</label>
+                  <label htmlFor={`line-${idx}-price`} className={labelCls}>
+                    Price
+                  </label>
                   <input
+                    id={`line-${idx}-price`}
                     type="number"
                     value={line.unit_price}
                     onChange={(e) => updateLine(idx, { unit_price: e.target.value })}
@@ -277,6 +288,7 @@ export function CartBuilder({
                   variant="ghost"
                   size="sm"
                   className="self-end text-destructive"
+                  aria-label={`Remove item ${idx + 1}`}
                   onClick={() => removeLine(idx)}
                 >
                   ×
@@ -284,10 +296,13 @@ export function CartBuilder({
               </div>
             ) : (
               <div>
-                <div className="mb-2.5 grid grid-cols-[1.4fr_0.7fr_0.9fr_0.8fr_auto] gap-2">
-                  <div>
-                    <label className={labelCls}>Compound name</label>
+                <div className="mb-2.5 grid grid-cols-2 gap-2 sm:grid-cols-[1.4fr_0.7fr_0.9fr_0.8fr_auto]">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor={`line-${idx}-name`} className={labelCls}>
+                      Compound name
+                    </label>
                     <input
+                      id={`line-${idx}-name`}
                       value={line.name}
                       onChange={(e) => updateLine(idx, { name: e.target.value })}
                       required
@@ -296,8 +311,11 @@ export function CartBuilder({
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Dosage count</label>
+                    <label htmlFor={`line-${idx}-dosage`} className={labelCls}>
+                      Dosage count
+                    </label>
                     <input
+                      id={`line-${idx}-dosage`}
                       type="number"
                       value={line.dosage_count}
                       onChange={(e) => updateLine(idx, { dosage_count: e.target.value })}
@@ -309,8 +327,11 @@ export function CartBuilder({
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Price (total)</label>
+                    <label htmlFor={`line-${idx}-rxprice`} className={labelCls}>
+                      Price (total)
+                    </label>
                     <input
+                      id={`line-${idx}-rxprice`}
                       type="number"
                       value={line.price}
                       onChange={(e) => updateLine(idx, { price: e.target.value })}
@@ -322,8 +343,11 @@ export function CartBuilder({
                     />
                   </div>
                   <div>
-                    <label className={labelCls}>Embalase</label>
+                    <label htmlFor={`line-${idx}-embalase`} className={labelCls}>
+                      Embalase
+                    </label>
                     <input
+                      id={`line-${idx}-embalase`}
                       type="number"
                       value={effectiveType === 'BPJS' ? '0' : (line.embalase ?? '')}
                       onChange={(e) => { if (effectiveType !== 'BPJS') updateLine(idx, { embalase: e.target.value }) }}
@@ -339,6 +363,7 @@ export function CartBuilder({
                     variant="ghost"
                     size="sm"
                     className="self-end text-destructive"
+                    aria-label={`Remove compound ${idx + 1}`}
                     onClick={() => removeLine(idx)}
                   >
                     ×
@@ -352,15 +377,16 @@ export function CartBuilder({
                     Number(line.dosage_count || 0)
                   )
                   return (
-                    <div key={ingIdx} className="mb-1.5 grid grid-cols-[2fr_0.8fr_1fr_auto] gap-2">
+                    <div key={ingIdx} className="mb-1.5 grid grid-cols-2 gap-2 sm:grid-cols-[2fr_0.8fr_1fr_auto]">
                       <select
+                        aria-label={`Ingredient ${ingIdx + 1} product`}
                         value={ing.product_id}
                         onChange={(e) => {
                           const ings = [...(line.ingredients || [])]
                           ings[ingIdx] = { ...ings[ingIdx], product_id: e.target.value }
                           updateLine(idx, { ingredients: ings })
                         }}
-                        className={fieldCls}
+                        className={`col-span-2 ${fieldCls} sm:col-span-1`}
                       >
                         <option value="">Ingredient…</option>
                         {products.map((p) => (
@@ -370,6 +396,7 @@ export function CartBuilder({
                         ))}
                       </select>
                       <input
+                        aria-label={`Ingredient ${ingIdx + 1} per dose`}
                         type="number"
                         value={ing.per_dose}
                         onChange={(e) => {
@@ -391,6 +418,7 @@ export function CartBuilder({
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
+                        aria-label={`Remove ingredient ${ingIdx + 1}`}
                         onClick={() => {
                           const ings = (line.ingredients || []).filter((_, i) => i !== ingIdx)
                           updateLine(idx, { ingredients: ings })
@@ -411,10 +439,13 @@ export function CartBuilder({
       </div>
 
       {/* Sale type + fees */}
-      <div className="mt-4 grid grid-cols-3 gap-3 px-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 px-4 sm:grid-cols-3">
         <div>
-          <label className={labelCls}>Sale type</label>
+          <label htmlFor="sale-type" className={labelCls}>
+            Sale type
+          </label>
           <select
+            id="sale-type"
             value={effectiveType}
             disabled={forcedResep}
             onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'BPJS' | 'SARANA')}
@@ -426,19 +457,22 @@ export function CartBuilder({
             <option value="SARANA">Sarana (facility)</option>
           </select>
           {effectiveType === 'BPJS' && (
-            <span className="mt-1 inline-block rounded bg-emerald-500 px-1.5 py-0.5 text-[11px] font-semibold text-white">
+            <span className="mt-1 inline-block rounded bg-emerald-700 px-1.5 py-0.5 text-[11px] font-semibold text-white">
               BPJS — Tuslah &amp; Embalase waived (SE 031/XI/2014)
             </span>
           )}
           {forcedResep && (
-            <div className="mt-1 text-[11px] text-red-600">
+            <div className="mt-1 text-[11px] text-red-700">
               Forced RESEP — cart contains KERAS/narcotic item.
             </div>
           )}
         </div>
         <div>
-          <label className={labelCls}>Tuslah</label>
+          <label htmlFor="tuslah" className={labelCls}>
+            Tuslah
+          </label>
           <input
+            id="tuslah"
             type="number"
             value={effectiveType === 'BPJS' ? '0' : tuslah}
             onChange={(e) => { if (effectiveType !== 'BPJS') setTuslah(e.target.value) }}
@@ -452,11 +486,11 @@ export function CartBuilder({
         <div className="flex items-end justify-end">
           <div className="text-right">
             <div className="text-xs text-slate-500">
-              Subtotal {totals.subtotal.toFixed(2)} + Embalase {totals.embalaseTotal.toFixed(2)} + Tuslah{' '}
-              {Number(tuslah || 0).toFixed(2)}
+              Subtotal {formatRupiah(totals.subtotal)} + Embalase {formatRupiah(totals.embalaseTotal)} + Tuslah{' '}
+              {formatRupiah(Number(tuslah || 0))}
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-900">
-              Rp {totals.grandTotal.toFixed(2)}
+              {formatRupiah(totals.grandTotal)}
             </div>
           </div>
         </div>
@@ -468,10 +502,12 @@ export function CartBuilder({
           <h3 className="mb-2.5 text-sm font-medium text-slate-900">
             Prescription ({hardGate ? 'hard gate — address required' : 'doctor + patient'})
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Doctor</label>
-              <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={fieldCls}>
+              <label htmlFor="doctor_id" className={labelCls}>
+                Doctor
+              </label>
+              <select id="doctor_id" value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={fieldCls}>
                 <option value="">— pick existing —</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -483,20 +519,24 @@ export function CartBuilder({
                 <input
                   value={doctorName}
                   onChange={(e) => setDoctorName(e.target.value)}
+                  aria-label="New doctor name"
                   placeholder="or new doctor name"
                   className={fieldCls}
                 />
                 <input
                   value={doctorSip}
                   onChange={(e) => setDoctorSip(e.target.value)}
+                  aria-label="SIP number"
                   placeholder="SIP number"
                   className={fieldCls}
                 />
               </div>
             </div>
             <div>
-              <label className={labelCls}>Patient</label>
-              <select value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} className={fieldCls}>
+              <label htmlFor="patient_id" className={labelCls}>
+                Patient
+              </label>
+              <select id="patient_id" value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} className={fieldCls}>
                 <option value="">— pick existing —</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -508,12 +548,14 @@ export function CartBuilder({
                 <input
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
+                  aria-label="New patient name"
                   placeholder="or new patient name"
                   className={fieldCls}
                 />
                 <input
                   value={patientPhone}
                   onChange={(e) => setPatientPhone(e.target.value)}
+                  aria-label="Patient phone"
                   placeholder="phone"
                   className={fieldCls}
                 />
@@ -522,6 +564,7 @@ export function CartBuilder({
                 <input
                   value={patientAddress}
                   onChange={(e) => setPatientAddress(e.target.value)}
+                  aria-label="Patient address"
                   placeholder="Patient address (required)"
                   className={`${fieldCls} mt-1.5`}
                 />
@@ -538,10 +581,12 @@ export function CartBuilder({
       {effectiveType === 'SARANA' ? (
         <div className="mx-4 mt-4 rounded-lg border border-border p-3">
           <h3 className="mb-2.5 text-sm font-medium text-slate-900">Facility (B2B transfer)</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Facility</label>
-              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className={fieldCls}>
+              <label htmlFor="facility_id" className={labelCls}>
+                Facility
+              </label>
+              <select id="facility_id" value={patientId} onChange={(e) => setPatientId(e.target.value)} className={fieldCls}>
                 <option value="">— pick existing —</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -553,12 +598,14 @@ export function CartBuilder({
                 <input
                   value={patientName}
                   onChange={(e) => setPatientName(e.target.value)}
+                  aria-label="New facility name"
                   placeholder="or new facility name"
                   className={fieldCls}
                 />
                 <input
                   value={patientPhone}
                   onChange={(e) => setPatientPhone(e.target.value)}
+                  aria-label="Facility phone"
                   placeholder="phone"
                   className={fieldCls}
                 />
@@ -569,15 +616,15 @@ export function CartBuilder({
       ) : null}
 
       {error && (
-        <p className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+        <p role="alert" className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       )}
 
       <div className="px-4 pt-4">
-        <Button type="submit" disabled={bpjsBlocked}>
-          Create Draft Sale
-        </Button>
+        <SubmitButton disabled={bpjsBlocked}>Create Draft Sale</SubmitButton>
         {bpjsBlocked && (
-          <p className="mt-1 text-xs text-red-600">
+          <p className="mt-1 text-xs text-red-700">
             Patient is missing No. Peserta BPJS — update the patient record first.
           </p>
         )}

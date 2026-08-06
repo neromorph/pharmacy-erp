@@ -32,7 +32,12 @@ function parseDate(value: string | null): string {
   if (!value) return '-'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString()
+  return d.toLocaleDateString('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
 }
 
 export default async function NewSalePage({
@@ -99,7 +104,9 @@ export default async function NewSalePage({
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       )}
 
       <CartBuilder

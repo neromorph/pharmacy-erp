@@ -23,6 +23,7 @@ function parseDate(value: string | null | undefined): string {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '-'
   return d.toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta',
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -98,7 +99,7 @@ export default async function ReceiptPage({
       {/* Screen preview — hidden when printing */}
       <section style={{ maxWidth: 480, margin: '24px auto', padding: '0 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }} className="no-print">
-          <h1 style={{ fontSize: 18, margin: 0 }}>Struk Pembayaran</h1>
+          <h1 style={{ fontSize: 18, margin: 0 }}>Payment receipt</h1>
           <PrintButton />
         </div>
         <div style={{ marginBottom: 8 }} className="no-print">
@@ -310,7 +311,7 @@ export default async function ReceiptPage({
             href={`/sales/${saleId}`}
             style={{ color: 'var(--primary)', fontSize: 13, textDecoration: 'none' }}
           >
-            ← Kembali ke detail penjualan
+            ← Back to sale detail
           </a>
         </div>
       </section>

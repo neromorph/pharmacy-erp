@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import { openShift } from '../actions'
-import { Button } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { SubmitButton } from '@/components/submit-button'
 
 export default async function NewShiftPage({
   searchParams,
@@ -30,7 +30,9 @@ export default async function NewShiftPage({
       </div>
 
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </p>
       )}
 
       <Card>
@@ -66,9 +68,7 @@ export default async function NewShiftPage({
               />
             </div>
 
-            <Button type="submit" className="w-fit">
-              Start Shift
-            </Button>
+            <SubmitButton className="w-fit">Start Shift</SubmitButton>
           </form>
         </CardContent>
       </Card>

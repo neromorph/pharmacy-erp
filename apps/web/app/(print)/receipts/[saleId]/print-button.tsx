@@ -14,7 +14,7 @@ export function PrintButton() {
         fontSize: 14,
       }}
     >
-      Print Struk
+      Print receipt
     </button>
   )
 }

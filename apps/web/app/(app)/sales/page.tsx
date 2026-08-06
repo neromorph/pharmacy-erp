@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
 import { parseDate } from './status'
+import { formatRupiah } from '@/lib/receipt'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -60,10 +61,10 @@ export default async function SalesPage() {
                 </TableCell>
                 <TableCell>{s.sale_items?.length ?? 0}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {Number(s.grand_total).toFixed(2)}
+                  {formatRupiah(Number(s.grand_total))}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {Number(s.paid_amount).toFixed(2)}
+                  {formatRupiah(Number(s.paid_amount))}
                 </TableCell>
                 <TableCell>{parseDate(s.sold_at || s.created_at)}</TableCell>
               </TableRow>

@@ -14,6 +14,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary"
+      >
+        Skip to content
+      </a>
       <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col border-r bg-white">
         <Sidebar />
       </div>
@@ -26,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           tenant={{ name: tenant?.data?.name ?? null }}
           shift={shift}
         />
-        <main className="flex-1 p-6">{children}</main>
+        <main id="content" className="flex-1 p-6">{children}</main>
       </div>
     </div>
   )
