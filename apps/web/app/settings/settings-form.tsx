@@ -38,8 +38,13 @@ interface SettingsFormProps {
 export function SettingsForm({ tenant }: SettingsFormProps) {
   const [saving, setSaving] = useState(false)
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const clientIdRef = useRef<HTMLInputElement>(null)
+  const secretRef = useRef<HTMLInputElement>(null)
+  const orgIdRef = useRef<HTMLInputElement>(null)
 
   async function handleSave(formData: FormData) {
     setSaving(true)
@@ -80,6 +85,44 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       window.location.reload()
     } catch (e: unknown) {
       setMessage({ type: 'error', text: e instanceof Error ? e.message : 'Remove failed.' })
+    }
+  }
+
+  async function handleTestConnection() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch('/api/satusehat/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: clientIdRef.current?.value ?? '',
+          client_secret: secretRef.current?.value ?? '',
+          org_id: orgIdRef.current?.value ?? '',
+        }),
+      })
+      if (!res.ok) {
+        // The route is added in a later task. A 404 means it is not live yet.
+        setTestResult({
+          type: 'error',
+          text:
+            res.status === 404
+              ? 'Test connection is not available yet.'
+              : `Test connection failed (${res.status}).`,
+        })
+        return
+      }
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      setTestResult({
+        type: data.ok ? 'success' : 'error',
+        text: data.ok
+          ? 'Connection OK. Token obtained.'
+          : `Connection failed: ${data.error ?? 'unknown error'}`,
+      })
+    } catch {
+      setTestResult({ type: 'error', text: 'Test connection failed. Check the server.' })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -176,6 +219,79 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
         <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
           Leave empty to hide the footer on receipts.
         </p>
+      </div>
+
+      {/* SATUSEHAT */}
+      <div style={sectionStyle}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>SATUSEHAT</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={fieldStyle}>
+            <label style={labelStyle} htmlFor="satusehat_client_id">Client ID</label>
+            <input
+              ref={clientIdRef}
+              id="satusehat_client_id"
+              name="satusehat_client_id"
+              type="text"
+              defaultValue={tenant.satusehat_client_id ?? ''}
+              style={inputStyle}
+            />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle} htmlFor="satusehat_client_secret">Client Secret</label>
+            <input
+              ref={secretRef}
+              id="satusehat_client_secret"
+              name="satusehat_client_secret"
+              type="password"
+              placeholder="Leave blank to keep the current value"
+              autoComplete="off"
+              style={inputStyle}
+            />
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              The stored secret is never shown. Leave blank to keep it.
+            </p>
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle} htmlFor="satusehat_org_id">Org ID</label>
+            <input
+              ref={orgIdRef}
+              id="satusehat_org_id"
+              name="satusehat_org_id"
+              type="text"
+              defaultValue={tenant.satusehat_org_id ?? ''}
+              style={inputStyle}
+            />
+          </div>
+          <div style={fieldStyle}>
+            <button
+              type="button"
+              onClick={handleTestConnection}
+              disabled={testing}
+              style={{
+                padding: '6px 14px',
+                background: 'none',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                fontSize: 13,
+                cursor: testing ? 'not-allowed' : 'pointer',
+                opacity: testing ? 0.6 : 1,
+              }}
+            >
+              {testing ? 'Testing…' : 'Test connection'}
+            </button>
+            {testResult && (
+              <p
+                style={{
+                  fontSize: 12,
+                  marginTop: 4,
+                  color: testResult.type === 'success' ? '#166534' : '#991b1b',
+                }}
+              >
+                {testResult.text}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
 
       {message && (

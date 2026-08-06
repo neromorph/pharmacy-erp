@@ -23,7 +23,7 @@ export default async function SettingsPage() {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, name, address, phone, sia_number, sipa_number, logo_url, receipt_footer')
+    .select('id, name, address, phone, sia_number, sipa_number, logo_url, receipt_footer, satusehat_client_id, satusehat_org_id')
     .eq('id', tenantId)
     .single()
 

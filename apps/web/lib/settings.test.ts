@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTenantPatch, logoPath } from './settings'
+import { buildSatusehatPatch, buildTenantPatch, logoPath } from './settings'
 
 describe('buildTenantPatch', () => {
   it('drops empty receipt_footer', () => {
@@ -50,6 +50,29 @@ describe('buildTenantPatch', () => {
         receipt_footer: '',
       })
     ).toThrow('Tenant name is required')
+  })
+})
+
+describe('buildSatusehatPatch', () => {
+  it('omits blank fields so an empty input never erases stored values', () => {
+    const patch = buildSatusehatPatch({
+      satusehat_client_id: '  ',
+      satusehat_client_secret: '',
+      satusehat_org_id: 'org-123',
+    })
+    expect(patch).toEqual({ satusehat_org_id: 'org-123' })
+  })
+
+  it('keeps trimmed non-blank values', () => {
+    const patch = buildSatusehatPatch({
+      satusehat_client_id: ' client-1 ',
+      satusehat_org_id: '',
+    })
+    expect(patch).toEqual({ satusehat_client_id: 'client-1' })
+  })
+
+  it('returns empty object when all fields are blank', () => {
+    expect(buildSatusehatPatch({})).toEqual({})
   })
 })
 

@@ -2,7 +2,7 @@
 
 import { createClient } from '../../utils/supabase/server'
 import { getUserRole } from '../../utils/auth'
-import { buildTenantPatch, logoPath } from '../../lib/settings'
+import { buildSatusehatPatch, buildTenantPatch, logoPath } from '../../lib/settings'
 
 // Save tenant profile — OWNER only.
 export async function saveTenantProfile(formData: FormData) {
@@ -25,9 +25,16 @@ export async function saveTenantProfile(formData: FormData) {
     receipt_footer: (formData.get('receipt_footer') as string) || '',
   })
 
+  // Blank SATUSEHAT fields keep their stored values.
+  const satusehatPatch = buildSatusehatPatch({
+    satusehat_client_id: (formData.get('satusehat_client_id') as string) || '',
+    satusehat_client_secret: (formData.get('satusehat_client_secret') as string) || '',
+    satusehat_org_id: (formData.get('satusehat_org_id') as string) || '',
+  })
+
   const { error } = await supabase
     .from('tenants')
-    .update(patch)
+    .update({ ...patch, ...satusehatPatch })
     .eq('id', tenantId)
 
   if (error) throw new Error(error.message)
