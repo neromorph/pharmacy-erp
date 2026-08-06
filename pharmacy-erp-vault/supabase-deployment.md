@@ -67,3 +67,18 @@ docker exec -i pharmacy-supabase-db psql -U supabase_admin -d supabase -f /dev/s
 - New tables get default grants to `anon`/`authenticated`/`service_role` automatically.
 - Email autoconfirm enabled (`ENABLE_EMAIL_AUTOCONFIRM=true`) for easy provisioning; revisit for production.
 - Traefik needed `--force-recreate` to regain docker.sock access (group 988) — it had lost socket access.
+
+## Incidents & ops log (2026-08-07)
+
+### P0: staff sync trigger broke login
+- `sync_staff_from_auth_users()` ran SECURITY INVOKER on ALL auth.users updates. Gotrue connects as `supabase_auth_admin` without `public.staff` grants; its `last_sign_in_at` update at login failed with SQLSTATE 42501 → every login 500.
+- Live-verified with the `supabase_admin` role hid the bug (supabase_admin holds the grants).
+- Fix: migration `20260806000007_fix_staff_sync_trigger_hotfix.sql` — SECURITY DEFINER with `SET search_path = public, auth, pg_temp` + trigger only on `INSERT OR UPDATE OF raw_app_meta_data, raw_user_meta_data, email`.
+- Lesson: always test auth-adjacent triggers via the gotrue HTTP API (real login), never only via SQL roles.
+
+### Data wipe + reseed
+- An external actor zeroed suppliers, sales, sale_items, sale_payments, goods_receipts/items, accounts_payables(*), satusehat_submissions rows between 15:47 and 17:29 UTC 2026-08-06. Tenants/products/staff/doctors/patients/sipnap_exports survived. No actor identified.
+- `satusehat_submissions` IS the queue — there is no separate `satusehat_submission_queue` table (controller misread during triage; schema was/intact).
+- No backups existed. Reseeded dev data: 2 PBF suppliers, 3 units, 2 batches, PO+receipt PO-RESEED-01/GR-RESEED-01 (AP auto-created via trigger), one PAID sale SL-RESEED-01 with payment + submission SENT.
+- NEW: daily pg_dump backup `~/bin/pharmacy-pg-backup.sh` → `~/backups/pharmacy/supabase-*.dump`, 7-day retention, cron `17 17 * * *` (server TZ UTC).
+- Restore: `docker exec -i pharmacy-supabase-db pg_restore -U postgres -d supabase --clean /path/dump` (copy dump into container first).
