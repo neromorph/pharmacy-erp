@@ -78,7 +78,7 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Follow `pharmacy-erp-vault/CONTEXT.md` vocabulary (FEFO, Batch, Goods Receipt, etc.) and UI reference (Emerald/Teal on Slate, light-first, compact, no dark POS screens)
 - Respect RLS: backend passes the user's JWT through; never use service_role in request paths
 - Tests: keep `pnpm -r test` + `pnpm -r build` green after every change
-- No git repo initialized yet — commits/skills that assume git will fail; `git init` when user asks
+- Git repo initialized (main branch). Commits are expected; keep the tree clean.
 
 ## Agent skills
 

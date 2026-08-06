@@ -12,7 +12,7 @@
 
 - Run migrations as `supabase_admin` role (public schema CREATE is restricted for `postgres`).
 - Migrations must be idempotent (guarded with `IF NOT EXISTS` / `DO $$ ... $$` blocks) per existing pattern.
-- Follow existing naming: `public.staff`, policies named `"Tenant isolation for staff"`, indexes `idx_staff_*`.
+- Follow existing naming: `public.staff`, policies named `"Staff read"` + `"Staff owner write"` (the two-policy split), indexes `idx_staff_*`.
 - Roles enum values: `OWNER`, `PHARMACIST`, `INVENTORY`, `CASHIER` (matches `packages/domain/src/tenant.ts`).
 - Tenant id comes from JWT claim: `current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'tenant_id'`.
 - Use ASD-STE100 Simplified Technical English in all comments.

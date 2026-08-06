@@ -1,5 +1,8 @@
-export const STAFF_ROLES = ['OWNER', 'PHARMACIST', 'INVENTORY', 'CASHIER'] as const
-export type StaffRole = (typeof STAFF_ROLES)[number]
+import { userRoleValues, type UserRole } from '@pharmacy/domain'
+
+// One source of truth: roles live in packages/domain (tenant.ts).
+export const STAFF_ROLES = userRoleValues
+export type StaffRole = UserRole
 
 export function isOwnerRole(role: string | null): boolean {
   return role === 'OWNER'
