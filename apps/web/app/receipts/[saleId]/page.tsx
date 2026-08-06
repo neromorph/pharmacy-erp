@@ -47,7 +47,7 @@ export default async function ReceiptPage({
   const { data: sale } = await supabase
     .from('sales')
     .select(
-      '*, sale_items(*, products(name, sku)), sale_payments(*), doctors(name, sip_number), patients(name, address)'
+      '*, sale_items(*, products(name, sku)), sale_payments(*), doctors(name, sip_number), patients(name, address, bpjs_number)'
     )
     .eq('id', saleId)
     .single()
@@ -158,8 +158,13 @@ export default async function ReceiptPage({
             <div>No: {sale.sale_number}</div>
             <div>Tanggal: {parseDate(sale.sold_at || sale.created_at)}</div>
             {cashierName && <div>Kasir: {cashierName}</div>}
-            {sale.sale_type === 'RESEP' && (
-              <>
+            {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
+              <div style={{ fontSize: 11, marginTop: 4 }}>
+                {sale.sale_type === 'BPJS' && (
+                  <span style={{ background: '#16a34a', color: '#fff', fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 3, marginRight: 6 }}>
+                    BPJS / JKN
+                  </span>
+                )}
                 {sale.doctors && (
                   <div>
                     Dokter: {sale.doctors.name}
@@ -167,7 +172,10 @@ export default async function ReceiptPage({
                   </div>
                 )}
                 {sale.patients && <div>Pasien: {sale.patients.name}</div>}
-              </>
+                {sale.sale_type === 'BPJS' && sale.patients?.bpjs_number && (
+                  <div>No. Peserta: {sale.patients.bpjs_number}</div>
+                )}
+              </div>
             )}
           </div>
 

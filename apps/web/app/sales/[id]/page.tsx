@@ -198,14 +198,14 @@ export default async function SaleDetailPage({
   const { data: sale } = await supabase
     .from('sales')
     .select(
-      '*, sale_items (*, products (name, sku)), sale_payments (*), doctors (name, sip_number), patients (name, address)'
+      '*, sale_items (*, products (name, sku)), sale_payments (*), doctors (name, sip_number), patients (name, address, bpjs_number)'
     )
     .eq('id', id)
     .single()
 
   const [doctorListRes, patientListRes] = await Promise.all([
     supabase.from('doctors').select('id, name, sip_number').order('name', { ascending: true }),
-    supabase.from('patients').select('id, name, address').order('name', { ascending: true }),
+    supabase.from('patients').select('id, name, address, bpjs_number').order('name', { ascending: true }),
   ])
 
   if (!sale) {
@@ -229,10 +229,18 @@ export default async function SaleDetailPage({
         <span style={badgeStyle(sale.sale_type === 'RESEP' ? '#8b5cf6' : '#0d9488')}>{sale.sale_type}</span>
       </div>
       <p style={{ color: 'var(--text-secondary)' }}>Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
-      {sale.sale_type === 'RESEP' && (
+      {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
         <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          {sale.sale_type === 'BPJS' && (
+            <span style={{ background: '#16a34a', color: '#fff', fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 3, marginRight: 6 }}>
+              BPJS / JKN
+            </span>
+          )}
           Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
           {sale.patients?.name || '-'}
+          {sale.sale_type === 'BPJS' && sale.patients?.bpjs_number && (
+            <> · No. Peserta: {sale.patients.bpjs_number}</>
+          )}
         </p>
       )}
       {sale.sale_type === 'SARANA' && (
@@ -385,7 +393,7 @@ export default async function SaleDetailPage({
         </div>
       )}
 
-      {sale.status === 'PAID' && sale.sale_type === 'RESEP' && canVoidSale(userRole) && (
+      {sale.status === 'PAID' && (sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && canVoidSale(userRole) && (
         <form
           action={updateSaleClinicalInfo}
           style={{
