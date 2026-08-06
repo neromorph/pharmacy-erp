@@ -82,3 +82,11 @@
 - No pure dark theme for checkout or operational screens
 - No low-contrast gray text for dosages or prices
 - No slow transitions above 200ms on POS scanning
+
+## UI implementation (2026-08-06 rebuild)
+
+- Tailwind CSS v4 (`@theme` tokens in `app/globals.css`), shadcn/ui components in `apps/web/components/ui/` (base-ui, not radix — Button idiom `<Button render={<Link/>}>`, not `asChild`), lucide-react icons.
+- Route groups `(auth)` (login, flat slate shell) / `(app)` (sidebar + header shell) / `(print)` (receipts keep own thermal CSS — do not restyle).
+- Shell components in `apps/web/components/{brand,shell}`: fixed sidebar with 7 NAV_GROUPS, top header with shift-open dot (green pulse = open) + role badge + tenant name.
+- POS `/sales` is the filled primary button; other nav = text-left with active left border.
+- Money/qty cells: `text-right tabular-nums` (no font-mono).
