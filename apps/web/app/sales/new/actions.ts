@@ -82,7 +82,8 @@ async function createDraftSale(formData: FormData) {
     return
   }
 
-  const saleType = String(formData.get('sale_type') || 'OTC') === 'RESEP' ? 'RESEP' : 'OTC'
+  const saleTypeRaw = String(formData.get('sale_type') || 'OTC')
+  const saleType = saleTypeRaw === 'RESEP' || saleTypeRaw === 'SARANA' ? saleTypeRaw : 'OTC'
   const doctorId = String(formData.get('doctor_id') || '') || null
   const patientId = String(formData.get('patient_id') || '') || null
   const doctorName = String(formData.get('doctor_name') || '') || null
@@ -117,11 +118,12 @@ async function createDraftSale(formData: FormData) {
   const resolvedDoctorId = finalSaleType === 'RESEP'
     ? await resolveDoctor(supabase, tenantId, doctorId, doctorName, doctorSip)
     : null
-  const resolvedPatientId = finalSaleType === 'RESEP'
+  const resolvedPatientId = finalSaleType === 'RESEP' || finalSaleType === 'SARANA'
     ? await resolvePatient(supabase, tenantId, patientId, patientName, patientAddress, patientPhone)
     : null
 
-  // Hard gate at cart time: narcotic lines need the patient identity and address.
+  // Hard gate at cart time: narcotic RESEP lines need the patient identity
+  // and address. SARANA transfers carry a facility name, not an address.
   const needsAddress = requiresAddress(categories)
   if (finalSaleType === 'RESEP' && needsAddress && (!resolvedPatientId)) {
     redirect('/sales/new?error=Patient address required for narcotic sale')

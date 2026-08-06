@@ -70,7 +70,7 @@ export function CartBuilder({
   patients: PatientLite[]
 }) {
   const [lines, setLines] = useState<Line[]>([emptyLine('item')])
-  const [saleType, setSaleType] = useState<'OTC' | 'RESEP'>('OTC')
+  const [saleType, setSaleType] = useState<'OTC' | 'RESEP' | 'SARANA'>('OTC')
   const [tuslah, setTuslah] = useState('')
   const [doctorId, setDoctorId] = useState('')
   const [doctorName, setDoctorName] = useState('')
@@ -146,15 +146,22 @@ export function CartBuilder({
         return
       }
     }
+    if (effectiveType === 'SARANA') {
+      const facilityOk = Boolean(patientId || patientName.trim())
+      if (!facilityOk) {
+        setError('A SARANA sale needs a facility name.')
+        return
+      }
+    }
     setError(null)
     formData.set('lines', JSON.stringify(lines))
     formData.set('sale_type', effectiveType)
     formData.set('tuslah', String(tuslah || 0))
     formData.set('doctor_id', effectiveType === 'RESEP' ? doctorId : '')
-    formData.set('patient_id', effectiveType === 'RESEP' ? patientId : '')
+    formData.set('patient_id', effectiveType === 'RESEP' || effectiveType === 'SARANA' ? patientId : '')
     formData.set('doctor_name', effectiveType === 'RESEP' ? doctorName : '')
     formData.set('doctor_sip', doctorSip)
-    formData.set('patient_name', effectiveType === 'RESEP' ? patientName : '')
+    formData.set('patient_name', effectiveType === 'RESEP' || effectiveType === 'SARANA' ? patientName : '')
     formData.set('patient_address', patientAddress)
     formData.set('patient_phone', patientPhone)
     createDraftSale(formData)
@@ -364,11 +371,12 @@ export function CartBuilder({
           <select
             value={effectiveType}
             disabled={forcedResep}
-            onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP')}
+            onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'SARANA')}
             style={inputStyle}
           >
             <option value="OTC">OTC</option>
             <option value="RESEP">Resep</option>
+            <option value="SARANA">Sarana (facility)</option>
           </select>
           {forcedResep && (
             <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
@@ -461,6 +469,40 @@ export function CartBuilder({
                   style={{ ...inputStyle, marginTop: 6 }}
                 />
               ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Facility metadata — only for SARANA sales */}
+      {effectiveType === 'SARANA' ? (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 6, padding: 12, marginTop: 16 }}>
+          <h3 style={{ fontSize: 13, margin: '0 0 10px' }}>Facility (B2B transfer)</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={miniLabel}>Facility</label>
+              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} style={inputStyle}>
+                <option value="">— pick existing —</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
+                <input
+                  value={patientName}
+                  onChange={(e) => setPatientName(e.target.value)}
+                  placeholder="or new facility name"
+                  style={inputStyle}
+                />
+                <input
+                  value={patientPhone}
+                  onChange={(e) => setPatientPhone(e.target.value)}
+                  placeholder="phone"
+                  style={inputStyle}
+                />
+              </div>
             </div>
           </div>
         </div>

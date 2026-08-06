@@ -235,6 +235,11 @@ export default async function SaleDetailPage({
           {sale.patients?.name || '-'}
         </p>
       )}
+      {sale.sale_type === 'SARANA' && (
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Facility: {sale.patients?.name || '-'}
+        </p>
+      )}
 
       <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)', marginTop: 16 }}>
         <thead>
