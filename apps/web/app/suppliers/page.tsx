@@ -1,4 +1,5 @@
 import { createClient } from '../../utils/supabase/server'
+import Link from 'next/link'
 
 export default async function SuppliersPage() {
   const supabase = await createClient()
@@ -26,7 +27,11 @@ export default async function SuppliersPage() {
           <tbody>
             {suppliers.map((s: any) => (
               <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>{s.name}</td>
+                <td style={tdStyle}>
+                  <Link href={`/suppliers/${s.id}`} style={{ color: 'var(--primary)' }}>
+                    {s.name}
+                  </Link>
+                </td>
                 <td style={tdStyle}>
                   {s.is_pbf ? (
                     <span style={badgeStyle('#0d9488')}>PBF</span>
