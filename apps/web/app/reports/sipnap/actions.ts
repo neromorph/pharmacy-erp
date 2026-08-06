@@ -4,8 +4,15 @@ import { createHash } from 'crypto'
 import { createClient } from '../../../utils/supabase/server'
 import { buildSipnapV2Csv, type SipnapV2Report } from '../../../lib/sipnap-v2'
 
-// Store the exact export CSV in the private archive bucket and record the
+// Store the exact export CSV in the database (payload column) and record the
 // audit row. Re-download always serves the stored file, never a recompute.
+//
+// Deviation from the map: the sipnap-archives Storage bucket is unusable on
+// this deployment — storage-api v1.60.4 rejects every object with
+// 'Invalid key ... must be a relative path' on both upload and version-delete
+// (absolute /storage-single-tenant/ path bug). The DB payload keeps the same
+// audit property (exact, immutable, never recomputed). Follow up: fix or
+// upgrade the storage-api container, then switch back to the bucket.
 export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: boolean }> {
   const supabase = await createClient()
   const {
@@ -18,15 +25,6 @@ export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: 
 
   const csv = buildSipnapV2Csv(report)
   const fileHash = createHash('sha256').update(csv, 'utf8').digest('hex')
-  const fileName = `${tenantId}/${report.year}-${String(report.month).padStart(2, '0')}-${Date.now()}.csv`
-
-  const { error: upErr } = await supabase.storage
-    .from('sipnap-archives')
-    .upload(fileName, new Blob([csv], { type: 'text/csv' }), {
-      contentType: 'text/csv',
-      upsert: true,
-    })
-  if (upErr) throw new Error(upErr.message)
 
   const { error } = await supabase.from('sipnap_exports').insert({
     tenant_id: tenantId,
@@ -34,18 +32,17 @@ export async function recordSipnapExport(report: SipnapV2Report): Promise<{ ok: 
     report_year: report.year,
     transaction_count: report.transactions.length,
     product_count: report.products.length,
-    storage_url: fileName,
     generated_by: user.email || null,
     file_hash: fileHash,
-    payload: report.products,
+    payload: { csv, products: report.products },
   })
   if (error) throw new Error(error.message)
 
   return { ok: true }
 }
 
-// One signed URL for the stored snapshot file. Used by the history tab.
-export async function getExportDownloadUrl(id: string): Promise<string> {
+// One stored snapshot CSV for a history row. Served from the DB payload.
+export async function getStoredExport(id: string): Promise<{ csv: string }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -54,15 +51,11 @@ export async function getExportDownloadUrl(id: string): Promise<string> {
 
   const { data: row } = await supabase
     .from('sipnap_exports')
-    .select('storage_url')
+    .select('payload')
     .eq('id', id)
     .single()
-  if (!row?.storage_url) throw new Error('Export file not found')
+  const csv = row?.payload?.csv
+  if (!csv) throw new Error('Export file not found')
 
-  const { data, error } = await supabase.storage
-    .from('sipnap-archives')
-    .createSignedUrl(row.storage_url, 60 * 5)
-  if (error || !data) throw new Error(error.message)
-
-  return data.signedUrl
+  return { csv }
 }

@@ -304,7 +304,7 @@ BEGIN
             SELECT pp.product_name, (snap->>'saldo_akhir')::numeric AS expected, pp.saldo_awal AS actual
             FROM per_product pp
             JOIN prev_export pe ON true
-            CROSS JOIN LATERAL jsonb_array_elements(COALESCE(pe.payload, '[]'::jsonb)) AS snap
+            CROSS JOIN LATERAL jsonb_array_elements(COALESCE(pe.payload->'products', '[]'::jsonb)) AS snap
             WHERE snap->>'product_id' = pp.product_id::text
               AND (snap->>'saldo_akhir')::numeric <> pp.saldo_awal
         )

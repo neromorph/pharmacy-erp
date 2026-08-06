@@ -1,17 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { getExportDownloadUrl } from './actions'
+import { getStoredExport } from './actions'
 
-// One download link per history row. Fetches a signed URL on click.
+// One download link per history row. Fetches the stored snapshot CSV and
+// downloads it in the browser. The stored file is never recomputed.
 export function ExportDownloadLink({ exportId }: { exportId: string }) {
   const [busy, setBusy] = useState(false)
 
   async function download() {
     setBusy(true)
     try {
-      const url = await getExportDownloadUrl(exportId)
-      window.open(url, '_blank')
+      const { csv } = await getStoredExport(exportId)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `sipnap-export-${exportId.slice(0, 8)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch {
       // silent: the action throws a readable message on failure
     } finally {
