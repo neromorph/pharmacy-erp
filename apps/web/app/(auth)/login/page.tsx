@@ -1,24 +1,58 @@
 import { login } from './actions'
+import { Logo } from '@/components/brand/Logo'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
-export default function LoginPage() {
+interface LoginPageProps {
+  searchParams: Promise<{ error?: string }>
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { error } = await searchParams
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50">
-      <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold text-slate-900">Pharmacy ERP</h1>
-        <form action={login} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm text-slate-500">
-            Email
-            <input name="email" type="email" required className="rounded border border-slate-200 p-2 text-slate-900 focus:border-teal-600 focus:outline-none" />
-          </label>
-          <label className="flex flex-col gap-1 text-sm text-slate-500">
-            Password
-            <input name="password" type="password" required className="rounded border border-slate-200 p-2 text-slate-900 focus:border-teal-600 focus:outline-none" />
-          </label>
-          <button type="submit" className="mt-2 rounded bg-teal-600 p-2 font-medium text-white hover:bg-teal-700">
-            Sign In
-          </button>
-        </form>
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col items-center gap-2 text-center">
+        <Logo name="Pharmacy ERP" />
+        <p className="text-sm text-slate-500">Point of Sale · Stock · Compliance</p>
       </div>
+
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="text-lg">Sign in</CardTitle>
+          <CardDescription>Use your branch account to continue.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={login} className="flex flex-col gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" autoComplete="email" required />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <Button type="submit" className="mt-1 w-full">
+              Sign In
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

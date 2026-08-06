@@ -1,11 +1,32 @@
-// App shell: left sidebar + top header + main content.
-// The real sidebar content lands in Task 2; this establishes the grid.
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+import { createClient } from '@/utils/supabase/server'
+import { Sidebar } from '@/components/shell/Sidebar'
+import { TopHeader } from '@/components/shell/TopHeader'
+import { getOpenShift } from '@/components/shell/shift'
+
+// App shell: fixed sidebar (desktop), sticky header, main content.
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const shift = await getOpenShift()
+  const tenant = await supabase.from('tenants').select('name').limit(1).maybeSingle()
+
   return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:block" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 bg-slate-50 p-6">{children}</main>
+    <div className="min-h-screen bg-slate-50">
+      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col border-r bg-white">
+        <Sidebar />
+      </div>
+      <div className="flex flex-col md:pl-64">
+        <TopHeader
+          user={{
+            email: user?.email ?? null,
+            role: (user?.app_metadata?.role as string | undefined) ?? null,
+          }}
+          tenant={{ name: tenant?.data?.name ?? null }}
+          shift={shift}
+        />
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   )
