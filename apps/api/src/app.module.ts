@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { SentryModule } from '@sentry/nestjs/setup'
 import { HealthController } from './health.controller'
 import { AuthModule } from './auth/auth.module'
 import { SupabaseModule } from './supabase/supabase.module'
@@ -8,6 +9,6 @@ import { SalesModule } from './sales/sales.module'
 
 @Module({
   controllers: [HealthController],
-  imports: [AuthModule, SupabaseModule, ProductsModule, ProcurementModule, SalesModule],
+  imports: [SentryModule.forRoot(), AuthModule, SupabaseModule, ProductsModule, ProcurementModule, SalesModule],
 })
 export class AppModule {}
