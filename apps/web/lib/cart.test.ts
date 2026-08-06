@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeSaleTotals,
   ingredientTotalQty,
+  isBpjsCheckoutBlocked,
   requiresAddress,
   requiresResep,
 } from './cart'
@@ -56,5 +57,33 @@ describe('ingredientTotalQty', () => {
   it('multiplies per-dose fraction by dosage count', () => {
     expect(ingredientTotalQty(0.5, 10)).toBe(5)
     expect(ingredientTotalQty(0.333, 10)).toBeCloseTo(3.33)
+  })
+})
+
+describe('isBpjsCheckoutBlocked', () => {
+  it('blocks when sale_type is BPJS and patient has no bpjs_number', () => {
+    expect(isBpjsCheckoutBlocked('BPJS', { bpjs_number: null })).toBe(true)
+    expect(isBpjsCheckoutBlocked('BPJS', { bpjs_number: '' })).toBe(true)
+    expect(isBpjsCheckoutBlocked('BPJS', null)).toBe(true)
+  })
+  it('does not block when sale_type is BPJS and patient has a bpjs_number', () => {
+    expect(isBpjsCheckoutBlocked('BPJS', { bpjs_number: '0001234567890' })).toBe(false)
+  })
+  it('does not block for non-BPJS sale types regardless of bpjs_number', () => {
+    expect(isBpjsCheckoutBlocked('RESEP', { bpjs_number: null })).toBe(false)
+    expect(isBpjsCheckoutBlocked('OTC', null)).toBe(false)
+  })
+})
+
+describe('computeSaleTotals', () => {
+  it('BPJS: tuslah 0 and embalase 0 produce correct grand total', () => {
+    const lines = [
+      { kind: 'item', product_id: 'i', qty: 3, unit_price: 10000 },
+      { kind: 'racikan', name: 'R', price: 20000, dosage_count: 5, embalase: 0 },
+    ]
+    const totals = computeSaleTotals(lines, 0)
+    expect(totals.subtotal).toBe(50000)
+    expect(totals.embalaseTotal).toBe(0)
+    expect(totals.grandTotal).toBe(50000)
   })
 })

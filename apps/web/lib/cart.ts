@@ -31,7 +31,7 @@ export interface CartLine {
 }
 
 export interface SaleDraftPayload {
-  sale_type: 'OTC' | 'RESEP'
+  sale_type: 'OTC' | 'RESEP' | 'BPJS' | 'SARANA'
   lines: CartLine[]
   doctor_id?: string | null
   patient_id?: string | null
@@ -80,4 +80,14 @@ export function computeSaleTotals(lines: CartLine[], tuslah = 0): SaleTotals {
 // dispensed dosage count (Q2 locked quantity model).
 export function ingredientTotalQty(perDose: number, dosageCount: number): number {
   return Number(perDose) * Number(dosageCount)
+}
+
+// Returns true when a BPJS sale cannot proceed because the patient's
+// BPJS membership number (No. Peserta) is missing.
+export function isBpjsCheckoutBlocked(
+  saleType: string,
+  patient: { bpjs_number?: string | null } | null
+): boolean {
+  if (saleType !== 'BPJS') return false
+  return !patient?.bpjs_number
 }
