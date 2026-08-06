@@ -1,188 +1,191 @@
-# UI Architecture (Auth/App/Print Shells) Implementation Plan
+# App shell + full UI migration Implementation Plan (scope C)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUPER-SKILL: Use superpowers:subagent-driven-development (if this plan was dispatched to implement or execute) or superpowers:executing-plans (if executing this plan in the current session) to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace the flat 15-link top nav with a production SaaS layout: grouped left sidebar, top header with shift status, and route groups separating auth, app, and print shells. URL paths must not change.
+**Goal:** Modernize the pharmacy-erp web app: route-group architecture (done), app shell with sidebar + top header, and a FULL migration of every page to Tailwind CSS v4 + shadcn/ui + lucide-react. Visual identity keeps the project palette (Teal/Emerald on Slate, light-first, compact).
 
-**Architecture:** Next.js App Router route groups `app/(auth)`, `app/(app)`, `app/(print)`. `(app)` holds all authenticated pages with the sidebar shell. `(auth)` holds login with a minimal layout. `(print)` holds receipts with a bare layout (thermal print). The root `app/layout.tsx` keeps only `<html>`/`<body>` and global CSS. Group layouts own the chrome. No URL changes (route groups are invisible).
+**Description:** Next.js 16 (App Router, Turbopack) + Supabase SSR. Styling layer moves from inline styles + CSS vars to Tailwind v4 (CSS-first `@theme`) with shadcn/ui primitives and lucide icons. Palette: Primary `#0D9488` teal (hover `#0F766E`), success `#10B981`, slate neutrals. Bound palette (CONTEXT.md) — NOT blue. Grouped sidebar navigation, teal outline active markers, top header with tenant identity, role badge, shift-aware live status dot (signature), POS `/sales/new` emphasized as filled teal. Print pages (receipts) stay on their own thermal CSS — NOT rewritten to Tailwind.
 
-**Tech Stack:** Next.js 16 App Router, Tailwind CSS, lucide-react (already installed), existing `/* */` CSS vars in `globals.css`.
+**Tech stack (current):** pnpm 11 monorepo, apps/web = Next.js 16.2.12 + React 19 + @supabase/ssr, vitest. **New deps (apps/web):** `tailwindcss`, `@tailwindcss/postcss`, `lucide-react`, plus what `shadcn init`/`add` pulls (`class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/*` per component).
+
+**Version policy (user directive):** install every NEW package with `@latest` and record resolved versions in the report; also run `pnpm update --latest` inside `apps/web` for existing deps. **Exception (binding): `typescript` stays on 6.x** — TS 7 breaks Next 16 + ts-jest (AGENTS.md). If a latest major breaks the build and the fix is non-trivial, pin to the last working major and record it — do NOT silently skip the upgrade.
+
+**Deployment:** VPS `mufid@100.119.164.5` → `~/pharmacy-erp/`; rsync + rebuild container `pharmacy-erp-web-1`. Live: `https://pharmacy.nmrooms.biz.id`.
 
 ## Global Constraints
 
-- **Palette: Teal-600 `#0D9488` is primary** (project CONTEXT.md). NOT blue. Slate for neutrals.
-- System fonts only — do not add font loading.
-- **No URL changes.** Route groups `(auth)`/`(app)`/`(print)` must not alter any public path. Verify `/login`, `/`, `/sales/new`, `/receipts/[saleId]` still resolve at the same URLs.
-- Keep every existing page component's behavior identical — only layouts/nav change. No logic edits inside page files.
-- ASD-STE100 Simplified Technical English in comments.
-- `pnpm` workspace: run web commands as `cd apps/web && npx vitest run` and `npx next build`.
-- Keep the full test suite + build green after every task.
-- Do not commit any `.env*` file.
+- Follow project ASD-STE100 Simplified Technical English in code comments, commit messages, UI copy, docs.
+- Never commit secrets. `.env.local` stays local.
+- Next.js 16 + TypeScript 6.x. New deps only in `apps/web/package.json`.
+- Do not touch `apps/api`, `packages/`, `supabase/` in this plan.
+- Respect RLS: pages query through the JWT-scoped client (`utils/supabase/server.ts` exports async `createClient()`).
+- Public URLs must not change. Route groups `(auth)`, `(app)`, `(print)` invisible in paths.
+- All existing tests stay green: `cd apps/web && npx vitest run` → 85/85. lib pure helpers are NOT restyled.
+- Receipts page (`(print)/receipts/[saleId]`) keeps its own thermal print CSS — do NOT rewrite it to Tailwind; only verify print styles still win over Tailwind preflight.
+- Whether a route is gated by OWNER comes from `app_metadata.role` in the JWT — shell shows everything, pages keep their own gates (no new authorization work here).
+- The `shifts` table real columns: `status` enum `shift_status` values `OPEN`, `CLOSED`, `FORCE_CLOSED`; `opened_at`, `closed_at` (see `supabase/migrations/20260804000000_create_shifts.sql`). Use those exact names.
+- This repo has NO `@/` alias today — Task 2 adds it; new code may use `@/`, existing relative imports stay as they are.
+- Pre-commit hook runs `pnpm run lint` (tsc per workspace) + `pnpm run build` + audit + trivy. Every commit must pass it.
 
-## Design Contract (approved)
+## Findings to apply before/during work
 
-| Part | Choice |
-|---|---|
-| Subject | Pharmacy ERP, Indonesian branch staff |
-| Palette | Teal-600 `#0D9488` primary, hover `#0F766E` (Teal-700), Slate neutrals |
-| Type | System fonts |
-| Layout | 256px sidebar + `h-14` top header, main `bg-slate-50 p-6` |
-| Signature | Shift-aware status dot in header (green live dot + shift label when open, gray closed) |
-| Risk | Sidebar groups mirror 7 domain areas even with 1-2 links each |
-| Nav emphasis | `/sales/new` (POS cart) gets filled teal block — primary action |
+- **Tailwind v4 on Next 16**: install `tailwindcss` + `@tailwindcss/postcss` in `apps/web`; create `apps/web/postcss.config.mjs` with `plugins: { "@tailwindcss/postcss": {} }`; in `app/globals.css` use `@import "tailwindcss";` and define custom colors under `@theme { --color-primary: #0d9488; … }` (CSS-first, no `tailwind.config.js`). Source: tailwindcss.com/docs/installation/framework-guides/nextjs + docs/colors.
+- **shadcn**: requires the `@/*` alias in `apps/web/tsconfig.json` (`"baseUrl": "."`, `"paths": { "@/*": ["./*"] }`). Then `pnpm dlx shadcn@latest init` with components.json: `style: "base-nova"` (or default "new-york"), `rsc: true`, `tailwind.css: "app/globals.css"`, `baseColor: "slate"`, `cssVariables: true`. After that: `pnpm dlx shadcn@latest add button input label card badge table dialog sheet select textarea skeleton separator`. Source: ui.shadcn.com/docs/installation/next + docs/tailwind-v4.
+- **Existing `apps/web/components/ui/button.tsx`** predates shadcn (hand-written). Task 2 replaces it with the generated shadcn Button (same path).
+- **Existing `apps/web/app/globals.css`** owns CSS vars (`--primary: #0d9488` etc.) and element styles (`body`, `main`, tables). Task 2 rewrites it: keep the var VALUES under Tailwind `@theme` (and keep the raw vars via `@theme inline` bridging so any leftover inline-style code reading var(--primary) still works), add base body styles, keep any table/print helpers that receipts depend on (audit first).
+- **Receipts page**: `apps/web/app/(print)/receipts/[saleId]/page.tsx` + its print CSS (thermal 80/58mm via `?w=`). Tailwind preflight (CSS reset) may strip its assumptions — Task 2 must scope-check receipts still print correctly; Task 7 re-verifies visually.
+- **shifts columns**: `status`, `opened_at`, `closed_at`. Shift query: `.eq('status', 'OPEN')`, read `opened_at`.
 
-## Module → Sidebar group mapping (approved)
+## Approved visual systems (binding)
 
-| Sidebar group | Routes | lucide icon |
-|---|---|---|
-| Operations | `/` (Dashboard), `/sales` (Sales), `/shifts` (Shifts) + **emphasis block** `/sales/new` (POS) | LayoutDashboard, ShoppingCart, Clock |
-| Inventory | `/products` (Products), `/kartu-stok` (Kartu Stok), `/stock-opname` (Stock Opname), `/stock/destructions` (Pemusnahan) | Package, ClipboardList, Boxes, Trash2 |
-| Procurement | `/suppliers` (Suppliers), `/procurement` (Purchase Orders), `/procurement/returns` (Returns) | Truck, FileText, Undo2 |
-| Finance | `/finance/payables` (Payables) | Wallet |
-| Compliance | `/reports/sipnap` (SIPNAP) | ShieldCheck |
-| Master Data | `/doctors` (Doctors), `/patients` (Patients) | Users |
-| System | `/settings` (Settings) | Settings |
+- **Layout:** `(app)` = left fixed sidebar `w-64` (256px, desktop) + top header `h-14` sticky + `main` (max-w-7xl, p-6, bg-slate-50). Mobile (`<md`): sidebar hidden, hamburger opens a shadcn `Sheet` (left drawer) with the same nav.
+- **Typography:** system font stack (Inter fallback: `font-sans`), body 14px, card titles 16px semibold, h1 20-24px. 4px/8px spacing, compact table rows (`h-10`), `tabular-nums` for money.
+- **Color token → utility mapping** (define in `@theme`): `--color-primary: #0d9488` → `bg-primary`, `text-primary`, `border-primary`; `--color-primary-hover: #0f766e`; keep `slate` grays default; semantic `emerald-500` success, `amber-500` warning, `red-500` danger (Tailwind defaults already close — don't redefine danger/warning unless a page needs the old var).
+- **Component rules:** buttons = shadcn `Button` (primary default variant restyled to teal via CSS var override of `--primary` in shadcn's theme block); tables = shadcn `Table` with sticky header + right-aligned money + zebra hover; badges for status pills; cards = shadcn `Card`; forms = `Input`/`Label`/`Select`; dialogs for confirmations = `Dialog`.
+- **Priority layers:** primary actions = filled teal; secondary = slate outline; POS `/sales/new` in sidebar = filled teal block.
+- **Forbidden:** gradients, glows, glassmorphism, dark POS screens, purple/blue palette change, `transition: all`.
 
-Excluded from sidebar: `/receipts/[saleId]` (print shell), `/sales/[id]` and other detail pages (navigated inline), `/api/*`.
+## Approved group navigation map
+
+```ts
+NAV_GROUPS = [
+  { title: 'Operations', items: [{ label: 'Dashboard', href: '/' }, { label: 'Sales', href: '/sales', primary: true }, { label: 'Shifts', href: '/shifts' }] },
+  { title: 'Inventory', items: [{ label: 'Products', href: '/products' }, { label: 'Kartu Stok', href: '/kartu-stok' }, { label: 'Stock Opname', href: '/stock-opname' }, { label: 'Pemusnahan', href: '/stock/destructions' }] },
+  { title: 'Procurement', items: [{ label: 'Suppliers', href: '/suppliers' }, { label: 'Purchase Orders', href: '/procurement' }, { label: 'Returns', href: '/procurement/returns' }] },
+  { title: 'Finance', items: [{ label: 'Payables', href: '/finance/payables' }] },
+  { title: 'Compliance', items: [{ label: 'SIPNAP', href: '/reports/sipnap' }] },
+  { title: 'Master Data', items: [{ label: 'Doctors', href: '/doctors' }, { label: 'Patients', href: '/patients' }] },
+  { title: 'System', items: [{ label: 'Settings', href: '/settings' }] },
+]
+```
 
 ---
 
-### Task 1: Route structure reorganization + root layout slimming
+### Task 1: Route structure reorganization [COMPLETE]
+
+Route groups `(auth)`, `(app)`, `(print)` + root layout slim. Commit `c60a13f`. Reviewer: spec ✅.
+
+---
+
+### Task 2: Foundation — Tailwind v4 + shadcn + lucide setup
 
 **Files:**
-- Modify: `apps/web/app/layout.tsx` (strip chrome; keep html/body/globals.css + fonts)
-- Move: all app page dirs from `apps/web/app/<dir>` to `apps/web/app/(app)/<dir>`
-- Move: `apps/web/app/login` to `apps/web/app/(auth)/login`
-- Move: `apps/web/app/receipts` to `apps/web/app/(print)/receipts`
-- Create: `apps/web/app/(auth)/layout.tsx`
-- Create: `apps/web/app/(app)/layout.tsx`
-- Create: `apps/web/app/(print)/layout.tsx`
+- Modify: `apps/web/package.json`
+- Create: `apps/web/postcss.config.mjs`, `apps/web/components.json`
+- Modify: `apps/web/tsconfig.json` (add alias)
+- Rewrite: `apps/web/app/globals.css`
+- Generate/replace: `apps/web/components/ui/*` (shadcn), `apps/web/lib/utils.ts` (cn helper)
+- Modify: `apps/web/.env`-adjacent none. `pnpm-lock.yaml` updates via install.
 
-**Interfaces:**
-- Consumes: existing pages (unchanged). Root `app/layout.tsx` currently holds all chrome — remove chrome from it.
-- Produces: three group layouts. `(app)/layout.tsx` initially renders a placeholder `<main>{children}</main>` plus an empty sidebar div (real sidebar in Task 2). `(auth)/layout.tsx` wraps in `min-h-screen bg-slate-50`. `(print)/layout.tsx` is bare `{children}` (no chrome at all — thermal print).
+- [ ] **Step 1: Install Tailwind v4 + PostCSS plugin.**
 
-- [ ] **Step 1: Slim the root layout**
-
-Rewrite `apps/web/app/layout.tsx` to keep ONLY the html shell:
-
-```tsx
-import type { Metadata } from 'next'
-import './globals.css'
-
-export const metadata: Metadata = {
-  title: 'Pharmacy ERP',
-  description: 'POS, procurement, and stock for one branch tenant.',
-}
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body>{children}</body>
-    </html>
-  )
-}
-```
-
-Verify: check `globals.css` does not rely on the old header markup (it should style base elements only). If globals.css has `.header` classes, leave them — they become dead CSS, harmless.
-
-- [ ] **Step 2: Create the three group layouts**
-
-`apps/web/app/(auth)/layout.tsx`:
-
-```tsx
-// Auth shell: blank canvas, no app chrome, centered content area.
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-slate-50">{children}</div>
-}
-```
-
-`apps/web/app/(app)/layout.tsx` (placeholder sidebar; Task 2 fleshes it out):
-
-```tsx
-// App shell: left sidebar + top header + main content.
-// The real sidebar content lands in Task 2; this establishes the grid.
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white md:block" />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <main className="flex-1 bg-slate-50 p-6">{children}</main>
-      </div>
-    </div>
-  )
-}
-```
-
-`apps/web/app/(print)/layout.tsx`:
-
-```tsx
-// Print shell: no chrome at all — receipts render bare for thermal output.
-export default function PrintLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>
-}
-```
-
-- [ ] **Step 3: Move route directories into groups**
-
-Run from `apps/web`:
-
+Run in `apps/web`:
 ```bash
-mkdir -p "app/(app)" "app/(auth)" "app/(print)"
-git mv app/login "app/(auth)/login"
-git mv app/receipts "app/(print)/receipts"
-# Everything else app-route except api/, (auth), (app), (print), layout.tsx, globals.css, favicon, page.tsx (the dashboard root page)
-git mv app/doctors app/finance app/kartu-stok app/patients app/procurement app/products app/reports app/sales app/settings app/shifts app/stock app/stock-opname app/suppliers "app/(app)/"
-git mv app/page.tsx "app/(app)/page.tsx"
+pnpm add -D tailwindcss@latest @tailwindcss/postcss@latest
+pnpm add lucide-react@latest
+pnpm update --latest   # bump existing web deps; revert/downgrade only if build breaks and record it
 ```
 
-`app/api` stays at the root (unauthenticated machine endpoints, unaffected by layout groups anyway). Do NOT move `app/api`.
+- [ ] **Step 2: `apps/web/postcss.config.mjs`.**
 
-- [ ] **Step 4: Verify no broken imports**
+Exact:
+```javascript
+const config = {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  },
+}
 
-Every moved page file currently imports via relative paths (`../../utils/...`, `../../../lib/...`). Since all pages moved exactly one directory level deeper, those relative imports break. Fix by searching every moved `*.tsx`/`*.ts` file for relative imports that now resolve incorrectly and adjust one level. Expected pattern changes:
-
+export default config
 ```
-../utils/    → ../../utils/
-../../utils/ → ../../../utils/
-../lib/      → ../../lib/
-../../lib/   → ../../../lib/
+
+- [ ] **Step 3: Add `@/*` alias to `apps/web/tsconfig.json`.**
+
+Merge into `compilerOptions` (keep everything else):
+```json
+"baseUrl": ".",
+"paths": {
+  "@/*": ["./*"]
+}
 ```
 
-Run: `cd apps/web && npx next build` and fix the reported import errors one file at a time until the build passes. (Alternative, if many: a careful sed over `app/(app)/**/*.tsx` replacing `from '../` → `from '../../'` etc. — verify with build either way.)
+- [ ] **Step 4: Rewrite `apps/web/app/globals.css`.**
 
-Wait — actually `app/(app)/<route>/page.tsx` is deeper by exactly one segment than `app/<route>/page.tsx`. So `../../utils/x` becomes `../../../utils/x`. Confirm with the build errors.
+Content shape (audit the current file first; preserve anything receipts need — e.g. thermal print classes, `@media print` blocks — by copying it to the bottom of the new file):
 
-- [ ] **Step 5: Verify URLs unchanged**
+```css
+@import "tailwindcss";
 
-`cd apps/web && npx next build` then confirm the build output route table still lists the same paths: `/`, `/login`, `/sales`, `/sales/new`, `/receipts/[saleId]`, `/procurement`, etc. Route groups must NOT appear in paths (Next strips parentheses-segments).
+@theme {
+  --color-primary: #0d9488;        /* Teal-600 — project primary */
+  --color-primary-hover: #0f766e;  /* Teal-700 */
+  --color-primary-foreground: #ffffff;
+}
 
-- [ ] **Step 6: Run full test suite**
+/* Bridge old raw vars so leftover inline styles keep working during migration. */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-border: var(--border);
+}
 
-`cd apps/web && npx vitest run` → 85/85 pass.
+:root {
+  --surface: #f8fafc;
+  --card: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --border: #e2e8f0;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+}
 
-- [ ] **Step 7: Commit**
+html {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
 
-`git add -A apps/web && git commit -m "refactor(web): group routes into auth/app/print shells"`
+/* …preserve: existing table defaults, receipt thermal/print CSS, @media print blocks… */
+```
+
+Rules: no dark-mode work; drop the old `main { padding: 2rem }` global (layouts own padding now); keep `body` base background `bg-slate-50` via class on body in root layout instead of element selector.
+
+- [ ] **Step 5: shadcn init + add components.**
+
+In `apps/web`:
+```bash
+pnpm dlx shadcn@latest init -y -d   # -d defaults: new-york, slate base, CSS variables on
+pnpm dlx shadcn@latest add button input label card badge table dialog sheet select textarea skeleton separator
+```
+If `init` is interactive or refuses (existing components/ui/button.tsx), delete that file first — it is replaced by the generated version. Ensure `components.json` `tailwind.css` points at `app/globals.css` and `aliases.ui` = `@/components/ui`, `aliases.lib` = `@/lib`. Verify `apps/web/lib/utils.ts` now exports `cn`.
+
+- [ ] **Step 6: Root layout body class** — in `apps/web/app/layout.tsx` set `<body className="bg-slate-50 text-slate-900 antialiased">` (body stays the only html shell here; group layouts add their own wrappers).
+
+- [ ] **Step 7: Verify.**
+
+`cd apps/web && npx next build` green; `npx vitest run` 85/85; `pnpm -r lint` green (tsc). `git diff` shows no page file changes (visual restyle comes later). Receipts print CSS preserved (grep for `@media print` and thermal classes in the new globals.css).
+
+- [ ] **Step 8: Commit.**
+
+`feat(web): add Tailwind v4 + shadcn/ui + lucide-react foundation`
 
 ---
 
-### Task 2: Sidebar, top header, login card, atmosphere
+### Task 3: Shell — sidebar, top header, login card
 
 **Files:**
-- Modify: `apps/web/app/(app)/layout.tsx` (wire in sidebar + header)
-- Create: `apps/web/components/shell/Sidebar.tsx`
-- Create: `apps/web/components/shell/TopHeader.tsx`
-- Create: `apps/web/components/shell/shift-status.ts` (server helper that queries open shift for current tenant/user)
-- Modify: `apps/web/app/(auth)/login/page.tsx` (redesign as centered card)
+- Create: `apps/web/components/shell/Sidebar.tsx`, `apps/web/components/shell/SidebarNav.tsx` (client), `apps/web/components/shell/TopHeader.tsx`, `apps/web/components/shell/shift.ts`, `apps/web/components/brand/Logo.tsx`, `apps/web/components/shell/nav-map.ts`
+- Modify: `apps/web/app/(app)/layout.tsx`, `apps/web/app/(auth)/layout.tsx`
+- Rewrite: `apps/web/app/(auth)/login/page.tsx`
 
-**Interfaces:**
-- Consumes: `createClient()` from `@/utils/supabase/server` (cookie-scoped server client), `getUserRole` from `@/lib/auth` if present, the approved group map above.
-- Produces: `Sidebar({ navGroups, activePath })` — client component using `usePathname`; `TopHeader({ shift, userEmail, userRole })` — server-fetched data passed in; `getOpenShift()` server helper returning `{ open: boolean; startedAt?: string }`.
+- [ ] **Step 1: `components/shell/nav-map.ts`** — export `NAV_GROUPS` exactly as the approved map above.
 
-- [ ] **Step 1: Write the shift status helper**
+- [ ] **Step 2: `components/brand/Logo.tsx`.**
 
-`apps/web/components/shell/shift.ts` (server-only):
+Server component. Compact mark: teal rounded square (`size-8 rounded-md bg-primary text-white grid place-items-center`) with lucide `Pill` icon `size-5`, next to name text (`font-semibold text-slate-900`, default "Pharmacy ERP", prop `name`). No gradients.
+
+- [ ] **Step 3: `components/shell/shift.ts`.**
 
 ```ts
 import { createClient } from '@/utils/supabase/server'
@@ -192,115 +195,131 @@ export interface ShiftStatus {
   openedAt: string | null
 }
 
-// One row per open shift for the current tenant user. First row only.
-// shifts.status is an enum: 'OPEN' | 'CLOSED' | 'FORCE_CLOSED'.
-export async function getOpenShift(): Promise<ShiftStatus | null> {
+// Returns the currently open shift's status for the shift-aware dot in the header.
+export async function getOpenShift(): Promise<ShiftStatus> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
   const { data } = await supabase
     .from('shifts')
-    .select('opened_at')
+    .select('status, opened_at')
     .eq('status', 'OPEN')
     .order('opened_at', { ascending: false })
     .limit(1)
-  if (!data || data.length === 0) return { open: false, openedAt: null }
-  return { open: true, openedAt: data[0].opened_at }
+    .maybeSingle()
+  return { open: !!data, openedAt: data?.opened_at ?? null }
 }
 ```
+(ponytail: re-verified — remote `shifts` columns are `status` + `opened_at`; checkouts with no open shift return `{ open: false, openedAt: null }`.)
 
-Column names are REAL (from `supabase/migrations/20260804000000_create_shifts.sql`): `shifts.status` (enum with values OPEN/CLOSED/FORCE_CLOSED), `shifts.opened_at`, `shifts.closed_at`. Do NOT use started_at/ended_at — they do not exist.
+- [ ] **Step 4: `components/shell/SidebarNav.tsx`** — `'use client'`, uses `usePathname()`, renders group label (`px-3 pt-4 text-xs font-semibold uppercase tracking-wider text-slate-500`), item links (`flex items-center gap-2 rounded-md px-3 py-2 text-sm`), active = `border-l-2 border-primary bg-primary/5 text-primary font-medium`, default = `text-slate-700 hover:bg-slate-100`, `primary: true` item (`/sales`) rendered as filled block `bg-primary text-white hover:bg-primary-hover font-medium`. lucide icons per item (`LayoutDashboard`, `ShoppingCart`, `Clock`, `Package`, `ScrollText`, `ClipboardCheck`, `Trash2`, `Truck`, `FileText`, `Undo2`, `Wallet`, `ShieldCheck`, `Stethoscope`, `Users`, `Settings`). Client component so Sheet reuse works.
 
-- [ ] **Step 2: Build the Sidebar (client component)**
+- [ ] **Step 5: `components/shell/Sidebar.tsx` (server)** — renders `<Logo/>` top, `<SidebarNav/>`, tenant name footer (fetch tenant row name from `tenants`, graceful fallback).
 
-`apps/web/components/shell/Sidebar.tsx` — client component (`'use client'`, uses `usePathname`). Renders the approved groups with lucide icons. Active link: `bg-teal-50 text-teal-700`. Standard link: `text-slate-600 hover:bg-slate-100 hover:text-slate-900`. The POS entry `/sales/new` gets a filled block: `bg-teal-600 text-white rounded-md` at the top of the Operations group.
+- [ ] **Step 6: `components/shell/TopHeader.tsx` (server)** — sticky `h-14 border-b bg-white flex items-center gap-3 px-6`; children: mobile `SheetTrigger` (hamburger, `md:hidden`, wraps SidebarNav in Sheet), tenant name (`text-sm font-medium text-slate-900`, hidden mobile), shift dot (green `size-2 rounded-full bg-emerald-500 animate-pulse` when open + "Shift open · HH:MM" muted text; gray dot + "No open shift" otherwise), right side: `Badge` with user role (from JWT `app_metadata.role` via `getUserRole` in `@/utils/auth`), avatar circle with email initial (`size-7 rounded-full bg-slate-200 grid place-items-center text-xs font-medium`, placeholder `U`).
 
-Structure per group: uppercase group label (`text-[11px] font-semibold tracking-wider text-slate-400 px-3`), then links (`flex items-center gap-2 px-3 py-1.5 text-sm rounded-md`).
-
-- [ ] **Step 3: Build the TopHeader (client + server split)**
-
-`TopHeader` server component renders a client `<header>` with: mobile menu toggle (later — for now hide sidebar on mobile, show a simple Menu icon button that toggles nothing or a minimal drawer), the **shift status signature**: green live dot (`h-2 w-2 rounded-full bg-emerald-500 animate-pulse`) + "Shift open · HH:mm" when open, or gray dot `bg-slate-300` + "No shift" when closed. User chip on the right: email initial avatar `h-7 w-7 rounded-full bg-teal-100 text-teal-700 text-[11px] font-semibold` + role badge.
-
-Keep mobile simple: sidebar hidden `hidden md:block`, header has a button that toggles an overlay sidebar (use local state in a small client wrapper). If a full drawer is too much for this task, ship the toggle button that does nothing visible yet and mark `ponytail:` with the upgrade path.
-
-- [ ] **Step 4: Wire it into (app)/layout.tsx**
+- [ ] **Step 7: `app/(app)/layout.tsx` rewrite:**
 
 ```tsx
 import { createClient } from '@/utils/supabase/server'
 import { getOpenShift } from '@/components/shell/shift'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { TopHeader } from '@/components/shell/TopHeader'
-import { NAV_GROUPS } from '@/components/shell/nav-map'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   const shift = await getOpenShift()
+  const tenant = await supabase.from('tenants').select('name').limit(1).maybeSingle()
+
   return (
-    <div className="flex min-h-screen">
-      <Sidebar groups={NAV_GROUPS} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <TopHeader shift={shift} email={user?.email ?? ''} role={user?.app_metadata?.role ?? ''} />
-        <main className="flex-1 bg-slate-50 p-6">{children}</main>
+    <div className="min-h-screen bg-slate-50">
+      <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col border-r bg-white">
+        <Sidebar />
+      </div>
+      <div className="flex flex-col md:pl-64">
+        <TopHeader
+          user={{ email: user?.email ?? null, role: (user?.app_metadata?.role as string | undefined) ?? null }}
+          tenant={{ name: tenant?.data?.name ?? null }}
+          shift={shift}
+        />
+        <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
   )
 }
 ```
 
-`NAV_GROUPS` lives in `apps/web/components/shell/nav-map.ts` — the approved table above as a typed constant (group label + array of `{ href, label, icon }`).
+- [ ] **Step 8: `(auth)/layout.tsx`** — `min-h-screen bg-gradient-to-b from-slate-50 to-slate-100`?? NO — flat `min-h-screen bg-slate-50`, `<div className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">{children}</div>`.
 
-- [ ] **Step 5: Redesign the login page**
+- [ ] **Step 9: Login page rewrite** — centered shadcn `Card` (`w-full`), brand block above card (Logo centered, `text-3xl font-semibold` name, `text-sm text-slate-500` tagline "Point of Sale · Stock · Compliance"), card content: heading "Sign in" + description, email/password `Input` + `Label`, submit `Button` full width filled teal, server action unchanged (import from `./actions`), error row in destructive red (`text-sm text-destructive`).
 
-Rewrite `apps/web/app/(auth)/login/page.tsx` as a centered card (`mx-auto max-w-sm mt-24 bg-white border border-slate-200 rounded-xl p-8 shadow-sm`): "Pharmacy ERP" title + "Sign in to your store" subtitle, email + password inputs (`w-full border border-slate-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500`), full-width primary button `bg-teal-600 hover:bg-teal-700 text-white rounded-md px-4 py-2 text-sm font-medium`. Keep the existing server action import and form action — do NOT change auth logic, only the markup/classes.
+- [ ] **Step 10: Verify** — build, 85/85 tests, `pnpm -r lint` green. Manual render check deferred to Task 8 E2E.
 
-Verify the login page is a client or server component as it stands today and keep the same type; only swap CSS classes + add the card wrapper.
+- [ ] **Step 11: Commit:**
 
-- [ ] **Step 6: Build + test + verify routes**
-
-`cd apps/web && npx next build` — green; route table unchanged. `npx vitest run` — 85/85 (no new tests needed for pure layout; if a shell helper gets real logic, add one small vitest file).
-
-- [ ] **Step 7: Manual smoke via local dev (optional) + commit**
-
-`git add -A apps/web && git commit -m "feat(web): add sidebar shell, top header shift status, teal login card"`
+`feat(ui): app shell (sidebar, header, shift dot, redesigned login)`
 
 ---
 
-### Task 3: Deploy + live E2E on the domain
+### Task 4: Restyle Operations pages
 
-**Files:** none (deploy + verification).
+**Pages:** `(app)/page.tsx` (dashboard), `(app)/sales/page.tsx`, `(app)/sales/new/page.tsx` + its cart components (FEFO table included), `(app)/sales/[id]/page.tsx`, `(app)/shifts/page.tsx`, `(app)/shifts/new/page.tsx`, `(app)/shifts/[id]/page.tsx`.
 
-- [ ] **Step 1: Commit all work, deploy**
+- [ ] **Step 1:** Replace inline styles with Tailwind classes: page container `space-y-6`, h1 `text-xl font-semibold text-slate-900`, muted `text-sm text-slate-500`.
+- [ ] **Step 2:** Buttons → shadcn `Button` (`variant="default"` = teal for primary, `outline` secondary, `destructive` void). Links-as-buttons wrap `<Link>` inside `<Button asChild>`.
+- [ ] **Step 3:** Tables → shadcn `Table` family, sticky header `bg-slate-50`, rows `h-10`, money cells `text-right tabular-nums`, status pills → `Badge` (variants: default/secondary/destructive/outline).
+- [ ] **Step 4:** Forms → `Label` + `Input` stacked (`grid gap-1.5`), selects → shadcn `Select` where practical (native `<select>` styled `h-9 rounded-md border px-2` acceptable where the shadcn Select adds no value — radix select in compact POS flows is heavy; ponytail: keep native selects unless a11y requires).
+- [ ] **Step 5:** Dashboard KPI cards → shadcn `Card` row (`grid gap-4 sm:grid-cols-3`), value `text-2xl font-semibold tabular-nums`, delta/subtext `text-sm text-slate-500`, lucide icons top-right muted.
+- [ ] **Step 6:** POS `/sales/new` — keep current client logic untouched; restyle cart list, totals block (grand total `text-xl font-bold` in a bordered foot row), FEFO stock table pointer rows (`cursor-pointer hover:bg-slate-50`).
+- [ ] **Step 7:** Tests (85/85 unchanged), build, lint green. Commit `style(web): Tailwind+shadcn restyle for operations pages`.
 
+### Task 5: Restyle Inventory pages
+
+**Pages:** `(app)/products/page.tsx`, `(app)/kartu-stok/page.tsx`, `(app)/stock-opname/page.tsx` + `/new` + `/[id]`, `(app)/stock/destructions/page.tsx` + `/new` + `/[id]`.
+
+- [ ] **Steps:** same playbook as Task 4 (containers, h1, buttons, tables, badges, forms via the shared rules); kartu stok ledger table gets `font-mono`-free numeric right columns; batch view rows grouped by product header row `bg-slate-50 font-medium`. Tests + build + lint green. Commit `style(web): Tailwind+shadcn restyle for inventory pages`.
+
+### Task 6: Restyle Procurement pages
+
+**Pages:** `(app)/suppliers/page.tsx` + `/[id]`, `(app)/procurement/page.tsx` + `/new` + `/[id]` + `/[id]/receive`, `(app)/procurement/returns/page.tsx` + `/new` + `/[id]`.
+
+- [ ] **Steps:** same playbook; PO status machine pills map DRAFT→outline, PENDING_APPROVAL→secondary, APPROVED→default, RECEIVED→secondary, CANCELLED→destructive; receive page qty inputs compact `w-24`. Tests + build + lint green. Commit `style(web): Tailwind+shadcn restyle for procurement pages`.
+
+### Task 7: Restyle Finance, Compliance, Master Data, System + receipts print check
+
+**Pages:** `(app)/finance/payables/page.tsx`, `(app)/reports/sipnap/page.tsx`(s), `(app)/doctors/page.tsx`, `(app)/patients/page.tsx`, `(app)/settings/page.tsx`. Verify `(print)/receipts/[saleId]/page.tsx` print styles unaffected by Tailwind preflight (load with `?w=80`, inspect @media print output).
+
+- [ ] **Steps:** same playbook; payout form in a `Dialog` (keep server action `postPayout` contract); SIPNAP download link = `Button asChild` outline; settings form in a `Card` with submit `Button`. Receipts: if preflight broke any thermal style, add missing rules to globals.css print section (do NOT rewrite receipt markup to Tailwind). Tests + build + lint green. Commit `style(web): Tailwind+shadcn restyle for finance/compliance/master/system pages`.
+
+### Task 8: Deploy + live E2E + docs
+
+- [ ] **Step 1: Deploy.**
 ```bash
-cd /Users/mufid/personal-projects/pharmacy-erp
 rsync -az --delete --exclude node_modules --exclude .next --exclude .env --exclude .git ./ mufid@100.119.164.5:~/pharmacy-erp/
-ssh mufid@100.119.164.5 'cd ~/pharmacy-erp && docker compose up -d --build web'
+ssh mufid@100.119.164.5 "cd ~/pharmacy-erp && docker compose up -d --build web"
+ssh mufid@100.119.164.5 "docker inspect --format '{{.State.Status}}' pharmacy-erp-web-1"
+curl -s -o /dev/null -w "%{http_code}" https://pharmacy.nmrooms.biz.id/login  # expect 200 or 307→200
+curl -s -o /dev/null -w "%{http_code}" https://pharmacy.nmrooms.biz.id         # expect 307 to /login
 ```
 
-- [ ] **Step 2: Live E2E via firecrawl on https://pharmacy.nmrooms.biz.id**
+- [ ] **Step 2: Browser E2E on the domain via firecrawl interact (never localhost):**
+  `https://pharmacy.nmrooms.biz.id/login` — credentials `owner@mufid.dev` / `Test1234!`.
+  1. Login page: new card design renders, teal primary button.
+  2. Login → dashboard: sidebar with 7 groups visible, POS `/sales` item filled teal.
+  3. Top header: tenant name, OWNER role badge, gray "No open shift" dot (or green when open).
+  4. Navigation: click `/finance/payables` (Finance) and `/procurement` (Procurement) — pages render restyled tables.
+  5. Open one sale detail `/sales/[id]` and its receipt `/receipts/[saleId]` — receipt thermal layout intact.
+  6. Mobile check (viewport 390px): hamburger opens Sheet nav. (If firecrawl viewport control unavailable, DOM check for `md:hidden` trigger suffices.)
+  Report outcome + screenshots.
 
-- `GET /login` → 200, teal login card renders (screenshot).
-- Login as `owner@mufid.dev` / `Test1234!` → lands on `/` dashboard with sidebar + header.
-- Sidebar shows all 7 groups; `/sales/new` shows the filled teal block.
-- Header shows shift status (open or closed) and the user chip with role OWNER.
-- Navigate → `/sales`, `/kartu-stok`, `/settings` — URLs unchanged, page content renders inside the shell.
-- `/receipts/<any-sale-id>` → renders WITHOUT sidebar (bare print shell).
-- No 404s on any sidebar link.
+- [ ] **Step 3: Docs sync** — update `pharmacy-erp-vault/CONTEXT.md` UI section: Tailwind v4 + shadcn/ui + lucide-react now the styling layer, palette unchanged; AGENTS.md status lines mention the shell. Commit `docs: ui stack is now Tailwind v4 + shadcn`.
 
-- [ ] **Step 3: Local regression**
+- [ ] **Step 4: Commit + deploy + verify done.**
 
-`cd apps/web && npx vitest run && npx next build` — green.
+## Self-review notes
 
-- [ ] **Step 4: Report**
-
-Commit nothing (deploy only) unless a fix was needed; report findings.
-
----
-
-## Self-Review
-
-- **Spec coverage:** route groups (Task 1), sidebar+header+login (Task 2), deploy+E2E (Task 3). Navigation mapping per approved design contract.
-- **Placeholder scan:** no TBD/TODO. Concrete Tailwind classes throughout; mobile drawer explicitly deferred with a `ponytail:` marker if the toggle ships inert.
-- **Type consistency:** `ShiftStatus` interface defined once in shell/shift.ts (fields: `open`, `openedAt`) and used in TopHeader. `NAV_GROUPS` typed constant used in layout + Sidebar. Corrected after plan write: shift helper queries `status='OPEN'` + `opened_at` to match the real `shifts` table.
-- **Risk noted:** URL-preserving route-group move is the riskiest step (many files move, relative imports shift one level). Mitigation: build errors pinpoint every broken import; URLs verified from build route table.
+- Task 1 already complete (no rework).
+- Task 2 Step 5 deletes hand-written `components/ui/button.tsx` — generated counterpart replaces it.
+- Task 2 Step 6 sets body class in root layout; group layouts do not re-set it.
+- Table/print helpers in old globals.css MUST be audited before rewrite (receipts depend on them).
+- Receipts page is the only Tailwind-exempt page (thermal print CSS is load-bearing).
+- Base-cadnce: every task ends with build + 85/85 tests + `pnpm -r lint` green (pre-commit enforces it too).
