@@ -3,33 +3,11 @@
 import { useState, useRef } from 'react'
 import { saveTenantProfile, uploadLogo, removeLogo } from './actions'
 import type { TenantProfile } from '../../../lib/settings'
-
-const fieldStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 4,
-}
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--text-secondary)',
-}
-
-const inputStyle: React.CSSProperties = {
-  padding: '8px 10px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 14,
-  background: 'var(--card)',
-  color: 'var(--text-primary)',
-  width: '100%',
-  boxSizing: 'border-box',
-}
-
-const sectionStyle: React.CSSProperties = {
-  marginBottom: 24,
-}
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 
 interface SettingsFormProps {
   tenant: TenantProfile
@@ -127,204 +105,166 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
   }
 
   return (
-    <form action={handleSave} style={{ maxWidth: 560 }}>
+    <form action={handleSave} className="max-w-[560px] space-y-6">
       {/* Store Identity */}
-      <div style={sectionStyle}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Store Identity</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="name">Store Name</label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              defaultValue={tenant.name}
-              required
-              style={inputStyle}
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Store Identity</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="name">Store Name</Label>
+            <Input id="name" name="name" type="text" defaultValue={tenant.name} required />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Logo */}
-      <div style={sectionStyle}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Logo</h2>
-        {tenant.logo_url && (
-          <div style={{ marginBottom: 12 }}>
-            <img
-              src={tenant.logo_url}
-              alt="Store logo"
-              style={{ width: 80, height: 80, objectFit: 'contain', border: '1px solid var(--border)', borderRadius: 6 }}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Logo</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {tenant.logo_url && (
+            <div className="flex items-center gap-3">
+              <img
+                src={tenant.logo_url}
+                alt="Store logo"
+                className="h-20 w-20 rounded-md border border-border object-contain"
+              />
+              <Button type="button" variant="destructive" size="sm" onClick={handleRemoveLogo}>
+                Remove
+              </Button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              disabled={uploadingLogo}
+              className="text-[13px]"
             />
-            <button
-              type="button"
-              onClick={handleRemoveLogo}
-              style={{ marginLeft: 12, fontSize: 12, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-            >
-              Remove
-            </button>
+            {uploadingLogo && <span className="text-xs text-slate-500">Uploading…</span>}
           </div>
-        )}
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-          disabled={uploadingLogo}
-          style={{ fontSize: 13 }}
-        />
-        {uploadingLogo && <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-secondary)' }}>Uploading…</span>}
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Contact */}
-      <div style={sectionStyle}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Contact</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="address">Address</label>
-            <input id="address" name="address" type="text" defaultValue={tenant.address ?? ''} style={inputStyle} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Contact</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="address">Address</Label>
+            <Input id="address" name="address" type="text" defaultValue={tenant.address ?? ''} />
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="phone">Phone</label>
-            <input id="phone" name="phone" type="text" defaultValue={tenant.phone ?? ''} style={inputStyle} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="phone">Phone</Label>
+            <Input id="phone" name="phone" type="text" defaultValue={tenant.phone ?? ''} />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* License Numbers */}
-      <div style={sectionStyle}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>License Numbers</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="sia_number">SIA Number</label>
-            <input id="sia_number" name="sia_number" type="text" defaultValue={tenant.sia_number ?? ''} style={inputStyle} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">License Numbers</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="sia_number">SIA Number</Label>
+            <Input id="sia_number" name="sia_number" type="text" defaultValue={tenant.sia_number ?? ''} />
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="sipa_number">SIPA Number</label>
-            <input id="sipa_number" name="sipa_number" type="text" defaultValue={tenant.sipa_number ?? ''} style={inputStyle} />
+          <div className="grid gap-1.5">
+            <Label htmlFor="sipa_number">SIPA Number</Label>
+            <Input id="sipa_number" name="sipa_number" type="text" defaultValue={tenant.sipa_number ?? ''} />
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Receipt */}
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Receipt Footer</h2>
-        <textarea
-          name="receipt_footer"
-          rows={3}
-          defaultValue={tenant.receipt_footer ?? ''}
-          placeholder="Text shown at the bottom of every receipt (optional)"
-          style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
-        />
-        <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-          Leave empty to hide the footer on receipts.
-        </p>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">Receipt Footer</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-1.5">
+          <Textarea
+            name="receipt_footer"
+            rows={3}
+            defaultValue={tenant.receipt_footer ?? ''}
+            placeholder="Text shown at the bottom of every receipt (optional)"
+          />
+          <p className="text-xs text-slate-500">Leave empty to hide the footer on receipts.</p>
+        </CardContent>
+      </Card>
 
       {/* SATUSEHAT */}
-      <div style={sectionStyle}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>SATUSEHAT</h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="satusehat_client_id">Client ID</label>
-            <input
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold">SATUSEHAT</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="satusehat_client_id">Client ID</Label>
+            <Input
               ref={clientIdRef}
               id="satusehat_client_id"
               name="satusehat_client_id"
               type="text"
               defaultValue={tenant.satusehat_client_id ?? ''}
-              style={inputStyle}
             />
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="satusehat_client_secret">Client Secret</label>
-            <input
+          <div className="grid gap-1.5">
+            <Label htmlFor="satusehat_client_secret">Client Secret</Label>
+            <Input
               ref={secretRef}
               id="satusehat_client_secret"
               name="satusehat_client_secret"
               type="password"
               placeholder="Leave blank to keep the current value"
               autoComplete="off"
-              style={inputStyle}
             />
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              The stored secret is never shown. Leave blank to keep it.
-            </p>
+            <p className="text-xs text-muted-foreground">The stored secret is never shown. Leave blank to keep it.</p>
           </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle} htmlFor="satusehat_org_id">Org ID</label>
-            <input
+          <div className="grid gap-1.5">
+            <Label htmlFor="satusehat_org_id">Org ID</Label>
+            <Input
               ref={orgIdRef}
               id="satusehat_org_id"
               name="satusehat_org_id"
               type="text"
               defaultValue={tenant.satusehat_org_id ?? ''}
-              style={inputStyle}
             />
           </div>
-          <div style={fieldStyle}>
-            <button
-              type="button"
-              onClick={handleTestConnection}
-              disabled={testing}
-              style={{
-                padding: '6px 14px',
-                background: 'none',
-                border: '1px solid var(--border)',
-                borderRadius: 6,
-                fontSize: 13,
-                cursor: testing ? 'not-allowed' : 'pointer',
-                opacity: testing ? 0.6 : 1,
-              }}
-            >
+          <div className="grid gap-1.5">
+            <Button type="button" variant="outline" size="sm" onClick={handleTestConnection} disabled={testing}>
               {testing ? 'Testing…' : 'Test connection'}
-            </button>
+            </Button>
             {testResult && (
-              <p
-                style={{
-                  fontSize: 12,
-                  marginTop: 4,
-                  color: testResult.type === 'success' ? '#166534' : '#991b1b',
-                }}
-              >
+              <p className={`text-xs ${testResult.type === 'success' ? 'text-green-700' : 'text-red-800'}`}>
                 {testResult.text}
               </p>
             )}
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {message && (
         <div
-          style={{
-            padding: '10px 12px',
-            borderRadius: 6,
-            marginBottom: 16,
-            background: message.type === 'success' ? '#f0fdf4' : '#fef2f2',
-            color: message.type === 'success' ? '#166534' : '#991b1b',
-            fontSize: 13,
-          }}
+          className={`rounded-md px-3 py-2 text-[13px] ${
+            message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'
+          }`}
         >
           {message.text}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={saving}
-        style={{
-          padding: '8px 20px',
-          background: 'var(--primary)',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          fontSize: 14,
-          cursor: saving ? 'not-allowed' : 'pointer',
-          opacity: saving ? 0.6 : 1,
-        }}
-      >
+      <Button type="submit" disabled={saving}>
         {saving ? 'Saving…' : 'Save'}
-      </button>
+      </Button>
     </form>
   )
 }

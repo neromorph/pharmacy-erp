@@ -1,4 +1,5 @@
 import type { AgingBucket } from '../../../../lib/purchase-returns'
+import { Card, CardContent } from '@/components/ui/card'
 
 export interface BucketSummary {
   bucket: AgingBucket
@@ -24,22 +25,15 @@ const bucketColors: Record<AgingBucket, string> = {
 
 export function AgingCards({ summaries }: { summaries: BucketSummary[] }) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {summaries.map((s) => (
-        <div
-          key={s.bucket}
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 8,
-            padding: 12,
-            borderTop: `3px solid ${bucketColors[s.bucket]}`,
-          }}
-        >
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{bucketLabels[s.bucket]}</div>
-          <div style={{ fontSize: 18, fontWeight: 600, margin: '4px 0' }}>{s.total.toFixed(2)}</div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{s.count} invoice(s)</div>
-        </div>
+        <Card key={s.bucket} style={{ borderTop: `3px solid ${bucketColors[s.bucket]}` }}>
+          <CardContent className="pt-1">
+            <p className="text-xs text-slate-500">{bucketLabels[s.bucket]}</p>
+            <p className="my-1 text-lg font-semibold tabular-nums text-slate-900">{s.total.toFixed(2)}</p>
+            <p className="text-xs text-slate-500">{s.count} invoice(s)</p>
+          </CardContent>
+        </Card>
       ))}
     </div>
   )

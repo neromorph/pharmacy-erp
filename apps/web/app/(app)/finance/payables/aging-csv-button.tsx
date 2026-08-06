@@ -1,6 +1,7 @@
 'use client'
 
 import { buildAgingCsv, type PayableCsvRow } from '../../../../lib/purchase-returns'
+import { Button } from '@/components/ui/button'
 
 export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
   function download() {
@@ -15,19 +16,8 @@ export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
   }
 
   return (
-    <button
-      onClick={download}
-      style={{
-        background: 'transparent',
-        color: 'var(--primary)',
-        border: '1px solid var(--border)',
-        borderRadius: 6,
-        padding: '6px 14px',
-        fontSize: 13,
-        cursor: 'pointer',
-      }}
-    >
+    <Button variant="outline" size="sm" onClick={download}>
       Download CSV
-    </button>
+    </Button>
   )
 }

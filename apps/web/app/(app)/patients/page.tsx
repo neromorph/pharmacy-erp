@@ -2,31 +2,18 @@ import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
 import { getUserRole } from '../../../utils/auth'
 import { createPatient, updatePatient, deletePatient } from './actions'
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-  textAlign: 'left',
-}
-const tdStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 14 }
-const boxStyle: React.CSSProperties = {
-  background: 'var(--card)',
-  padding: 16,
-  border: '1px solid var(--border)',
-  borderRadius: 8,
-  marginBottom: 20,
-}
-const fieldStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  borderRadius: 6,
-  border: '1px solid var(--border)',
-  fontSize: 14,
-  background: 'var(--surface)',
-  width: '100%',
-  boxSizing: 'border-box',
-}
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 function fmtDate(value: string | null) {
   if (!value) return '-'
@@ -46,127 +33,127 @@ export default async function PatientsPage() {
     .order('name', { ascending: true })
 
   return (
-    <section>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, margin: 0 }}>Patients</h1>
-        <Link href="/" style={{ color: 'var(--primary)', fontSize: 14 }}>Back</Link>
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Patients</h1>
+        <Button render={<Link href="/" />} variant="outline" size="sm">Back</Button>
       </div>
 
       {canEdit ? (
-        <div style={boxStyle}>
-          <h2 style={{ fontSize: 16, margin: '0 0 12px' }}>New Patient</h2>
-          <form action={createPatient} style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
-              <input name="name" required style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Address</label>
-              <input name="address" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
-              <input name="phone" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
-              <input name="birth_date" type="date" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
-              <input name="bpjs_number" placeholder="e.g. 0001234567890" style={fieldStyle} />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
-              <input name="nik" placeholder="16-digit national ID" style={fieldStyle} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-              <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 16px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>
-                Add Patient
-              </button>
-            </div>
-          </form>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">New Patient</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form action={createPatient} className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
+              <div className="grid gap-1.5">
+                <Label htmlFor="name">Name</Label>
+                <Input id="name" name="name" required />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="address">Address</Label>
+                <Input id="address" name="address" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" name="phone" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="birth_date">Birth Date</Label>
+                <Input id="birth_date" name="birth_date" type="date" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="bpjs_number">No. Peserta BPJS</Label>
+                <Input id="bpjs_number" name="bpjs_number" placeholder="e.g. 0001234567890" />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="nik">NIK</Label>
+                <Input id="nik" name="nik" placeholder="16-digit national ID" />
+              </div>
+              <div className="flex items-end">
+                <Button type="submit">Add Patient</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       ) : null}
 
       {!patients || patients.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No patients yet</p>
+        <p className="text-sm text-slate-500">No patients yet</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Name</th>
-              <th style={thStyle}>Address</th>
-              <th style={thStyle}>Phone</th>
-              <th style={thStyle}>Birth Date</th>
-              <th style={thStyle}>No. Peserta BPJS</th>
-              <th style={thStyle}>NIK</th>
-              {canEdit ? <th style={thStyle}></th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {patients.map((p: any) => (
-              <tr key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={tdStyle}>{p.name}</td>
-                <td style={tdStyle}>{p.address || '-'}</td>
-                <td style={tdStyle}>{p.phone || '-'}</td>
-                <td style={tdStyle}>{fmtDate(p.birth_date)}</td>
-                <td style={tdStyle}>{p.bpjs_number || '-'}</td>
-                <td style={tdStyle}>{p.nik || '-'}</td>
-                {canEdit ? (
-                  <td style={tdStyle}>
-                    <details>
-                      <summary style={{ cursor: 'pointer', color: 'var(--primary)', fontSize: 13 }}>Edit</summary>
-                      <form action={updatePatient} style={{ display: 'grid', gap: 10, padding: '12px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Name</label>
-                          <input name="name" required defaultValue={p.name} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Address</label>
-                          <input name="address" defaultValue={p.address ?? ''} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Phone</label>
-                          <input name="phone" defaultValue={p.phone ?? ''} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Birth Date</label>
-                          <input name="birth_date" type="date" defaultValue={p.birth_date ?? ''} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>No. Peserta BPJS</label>
-                          <input name="bpjs_number" defaultValue={p.bpjs_number ?? ''} style={fieldStyle} />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>NIK</label>
-                          <input name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" style={fieldStyle} />
-                          {p.ihs_number ? (
-                            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-                              IHS: {p.ihs_number}
-                            </p>
-                          ) : null}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                          <button type="submit" style={{ background: 'var(--primary)', color: '#fff', padding: '6px 14px', borderRadius: 6, border: 'none', fontSize: 14, cursor: 'pointer' }}>Save</button>
-                        </div>
-                      </form>
-                      {isOwner ? (
-                        <form action={deletePatient} style={{ marginTop: 8 }}>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Address</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Birth Date</TableHead>
+                <TableHead>No. Peserta BPJS</TableHead>
+                <TableHead>NIK</TableHead>
+                {canEdit ? <TableHead></TableHead> : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patients.map((p: any) => (
+                <TableRow key={p.id} className="h-10">
+                  <TableCell>{p.name}</TableCell>
+                  <TableCell>{p.address || '-'}</TableCell>
+                  <TableCell>{p.phone || '-'}</TableCell>
+                  <TableCell>{fmtDate(p.birth_date)}</TableCell>
+                  <TableCell>{p.bpjs_number || '-'}</TableCell>
+                  <TableCell>{p.nik || '-'}</TableCell>
+                  {canEdit ? (
+                    <TableCell>
+                      <details>
+                        <summary className="cursor-pointer text-sm font-medium text-primary">Edit</summary>
+                        <form action={updatePatient} className="grid gap-3 py-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                           <input type="hidden" name="id" value={p.id} />
-                          <button type="submit" style={{ background: 'transparent', color: '#ef4444', padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>
-                            Remove
-                          </button>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-name-${p.id}`}>Name</Label>
+                            <Input id={`edit-name-${p.id}`} name="name" required defaultValue={p.name} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-address-${p.id}`}>Address</Label>
+                            <Input id={`edit-address-${p.id}`} name="address" defaultValue={p.address ?? ''} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-phone-${p.id}`}>Phone</Label>
+                            <Input id={`edit-phone-${p.id}`} name="phone" defaultValue={p.phone ?? ''} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-dob-${p.id}`}>Birth Date</Label>
+                            <Input id={`edit-dob-${p.id}`} name="birth_date" type="date" defaultValue={p.birth_date ?? ''} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-bpjs-${p.id}`}>No. Peserta BPJS</Label>
+                            <Input id={`edit-bpjs-${p.id}`} name="bpjs_number" defaultValue={p.bpjs_number ?? ''} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor={`edit-nik-${p.id}`}>NIK</Label>
+                            <Input id={`edit-nik-${p.id}`} name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" />
+                            {p.ihs_number ? (
+                              <p className="text-xs text-slate-500">IHS: {p.ihs_number}</p>
+                            ) : null}
+                          </div>
+                          <div className="flex items-end">
+                            <Button type="submit" size="sm">Save</Button>
+                          </div>
                         </form>
-                      ) : null}
-                    </details>
-                  </td>
-                ) : null}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                        {isOwner ? (
+                          <form action={deletePatient} className="pb-2">
+                            <input type="hidden" name="id" value={p.id} />
+                            <Button type="submit" variant="destructive" size="sm">Remove</Button>
+                          </form>
+                        ) : null}
+                      </details>
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getStoredExport } from './actions'
+import { Button } from '@/components/ui/button'
 
 // One download link per history row. Fetches the stored snapshot (bucket file
 // via signed URL, or DB payload csv for pre-fix rows) and downloads it. The
@@ -32,21 +33,8 @@ export function ExportDownloadLink({ exportId }: { exportId: string }) {
   }
 
   return (
-    <button
-      onClick={download}
-      disabled={busy}
-      style={{
-        background: 'transparent',
-        color: 'var(--primary)',
-        border: '1px solid var(--primary)',
-        borderRadius: 6,
-        padding: '4px 10px',
-        fontSize: 12,
-        cursor: busy ? 'default' : 'pointer',
-        opacity: busy ? 0.6 : 1,
-      }}
-    >
+    <Button variant="outline" size="sm" onClick={download} disabled={busy}>
       {busy ? '…' : 'Download'}
-    </button>
+    </Button>
   )
 }

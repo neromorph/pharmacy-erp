@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { buildSipnapV2Csv, type SipnapV2Report } from '../../../../lib/sipnap-v2'
 import { recordSipnapExport } from './actions'
+import { Button } from '@/components/ui/button'
 
 // Store the exact CSV in the archive bucket, then download the same file
 // in the browser. The stored file is the audit artifact.
@@ -30,25 +31,11 @@ export function DownloadButton({ report }: { report: SipnapV2Report }) {
   }
 
   return (
-    <div>
-      <button
-        onClick={download}
-        disabled={busy}
-        style={{
-          background: 'var(--primary)',
-          color: '#fff',
-          padding: '8px 16px',
-          border: 'none',
-          borderRadius: 6,
-          cursor: busy ? 'default' : 'pointer',
-          opacity: busy ? 0.6 : 1,
-        }}
-      >
+    <div className="space-y-2">
+      <Button onClick={download} disabled={busy}>
         {busy ? 'Storing export…' : 'Download Export'}
-      </button>
-      {error && (
-        <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{error}</p>
-      )}
+      </Button>
+      {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   )
 }

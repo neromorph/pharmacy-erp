@@ -9,8 +9,8 @@ export default async function SettingsPage() {
 
   if (role !== 'OWNER') {
     return (
-      <div style={{ maxWidth: 480, margin: '40px auto', textAlign: 'center' }}>
-        <p style={{ fontSize: 16, color: 'var(--text-secondary)' }}>Settings: Owner only</p>
+      <div className="mx-auto mt-10 max-w-[480px] text-center">
+        <p className="text-sm text-slate-500">Settings: Owner only</p>
       </div>
     )
   }
@@ -32,9 +32,9 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 560 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 24 }}>Store Settings</h1>
+    <section className="max-w-[560px] space-y-6">
+      <h1 className="text-xl font-semibold text-slate-900">Store Settings</h1>
       <SettingsForm tenant={tenant as TenantProfile} />
-    </div>
+    </section>
   )
 }

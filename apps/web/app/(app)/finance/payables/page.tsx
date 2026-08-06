@@ -1,18 +1,25 @@
 import { createClient } from '../../../../utils/supabase/server'
 import { getPayableStatus } from '../../../../lib/accounts-payable'
 import { getAgingBucket, type AgingBucket } from '../../../../lib/purchase-returns'
-import { postPayout } from './actions'
 import { AgingCards, type BucketSummary } from './aging-cards'
 import { AgingCsvButton } from './aging-csv-button'
+import { PayoutDialog } from './payout-dialog'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
-const statusColors: Record<string, string> = {
-  UNPAID: '#f59e0b',
-  PARTIAL: '#3b82f6',
-  PAID: '#0d9488',
-  OVERDUE: '#ef4444',
+const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+  UNPAID: 'outline',
+  PARTIAL: 'secondary',
+  PAID: 'default',
+  OVERDUE: 'destructive',
 }
-
-const paymentMethods = ['CASH', 'TRANSFER', 'CARD', 'QRIS']
 
 const buckets: AgingBucket[] = ['CURRENT', '1-30', '31-60', '61-90', '90+']
 
@@ -35,7 +42,7 @@ export default async function PayablesPage() {
     supabase.from('purchase_returns').select('supplier_id, total_amount, applied_amount'),
   ])
 
-  if (payablesRes.error) return <p style={{ color: 'var(--danger)' }}>Payables unavailable</p>
+  if (payablesRes.error) return <p className="text-sm text-destructive">Payables unavailable</p>
 
   const rows = payablesRes.data || []
   const now = new Date().toISOString()
@@ -79,144 +86,67 @@ export default async function PayablesPage() {
     })
 
   return (
-    <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h1 style={{ fontSize: 20, margin: 0 }}>Accounts Payable</h1>
+    <section className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold text-slate-900">Accounts Payable</h1>
         {csvRows.length > 0 && <AgingCsvButton rows={csvRows} />}
       </div>
       <AgingCards summaries={summaries} />
       {rows.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)' }}>No payables yet</p>
+        <p className="text-sm text-slate-500">No payables yet</p>
       ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--card)' }}>
-          <thead>
-            <tr style={{ textAlign: 'left', color: 'var(--text-secondary)' }}>
-              <th style={thStyle}>Invoice</th>
-              <th style={thStyle}>Supplier</th>
-              <th style={thStyle}>Due Date</th>
-              <th style={thStyle}>Total</th>
-              <th style={thStyle}>Paid</th>
-              <th style={thStyle}>Remaining</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Payout</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row: any) => {
-              const status = getPayableStatus({
-                paidAmount: Number(row.paid_amount),
-                remainingAmount: Number(row.remaining_amount),
-                dueDate: row.due_date,
-                now,
-              })
-              const paidOut = status === 'PAID' || Number(row.remaining_amount) <= 0
-              const unappliedCredit = unappliedBySupplier.get(row.supplier_id) || 0
-              return (
-                <tr key={row.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={tdStyle}>{row.invoice_number}</td>
-                  <td style={tdStyle}>
-                    {row.supplier?.name || '-'}
-                    {unappliedCredit > 0 && (
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          marginLeft: 8,
-                          background: '#0d9488',
-                          color: '#fff',
-                          fontSize: 11,
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        Credit Rp {unappliedCredit.toFixed(2)}
-                      </span>
-                    )}
-                  </td>
-                  <td style={tdStyle}>{parseDate(row.due_date)}</td>
-                  <td style={tdStyle}>{Number(row.receipt_total_amount).toFixed(2)}</td>
-                  <td style={tdStyle}>{Number(row.paid_amount).toFixed(2)}</td>
-                  <td style={tdStyle}>{Number(row.remaining_amount).toFixed(2)}</td>
-                  <td style={tdStyle}>
-                    <span style={badgeStyle(statusColors[status] || '#64748b')}>{status}</span>
-                  </td>
-                  <td style={tdStyle}>
-                    {!paidOut && (
-                      <form action={postPayout} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <input type="hidden" name="accounts_payable_id" value={row.id} />
-                        <input
-                          name="amount"
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          max={Number(row.remaining_amount)}
-                          required
-                          placeholder="Amount"
-                          style={miniInputStyle}
-                        />
-                        <select name="method" style={miniInputStyle}>
-                          {paymentMethods.map((m) => (
-                            <option key={m} value={m}>
-                              {m}
-                            </option>
-                          ))}
-                        </select>
-                        <input name="notes" placeholder="Notes" style={miniInputStyle} />
-                        <button type="submit" style={payoutButtonStyle}>
-                          Pay
-                        </button>
-                      </form>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+          <Table>
+            <TableHeader className="bg-slate-50">
+              <TableRow>
+                <TableHead>Invoice</TableHead>
+                <TableHead>Supplier</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
+                <TableHead className="text-right">Remaining</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Payout</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row: any) => {
+                const status = getPayableStatus({
+                  paidAmount: Number(row.paid_amount),
+                  remainingAmount: Number(row.remaining_amount),
+                  dueDate: row.due_date,
+                  now,
+                })
+                const paidOut = status === 'PAID' || Number(row.remaining_amount) <= 0
+                const unappliedCredit = unappliedBySupplier.get(row.supplier_id) || 0
+                return (
+                  <TableRow key={row.id} className="h-10">
+                    <TableCell>{row.invoice_number}</TableCell>
+                    <TableCell>
+                      {row.supplier?.name || '-'}
+                      {unappliedCredit > 0 && (
+                        <span className="ml-2 inline-block rounded bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
+                          Credit Rp {unappliedCredit.toFixed(2)}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>{parseDate(row.due_date)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{Number(row.receipt_total_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{Number(row.paid_amount).toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{Number(row.remaining_amount).toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusBadge[status] || 'secondary'}>{status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      {!paidOut && <PayoutDialog payableId={row.id} remainingAmount={Number(row.remaining_amount)} />}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </section>
   )
-}
-
-const thStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 12,
-  fontWeight: 600,
-  borderBottom: '1px solid var(--border)',
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: '8px 12px',
-  fontSize: 14,
-}
-
-const miniInputStyle: React.CSSProperties = {
-  width: 72,
-  padding: '4px 8px',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  fontSize: 13,
-  background: '#fff',
-}
-
-const payoutButtonStyle: React.CSSProperties = {
-  background: 'var(--primary)',
-  color: '#fff',
-  padding: '4px 10px',
-  border: 'none',
-  borderRadius: 6,
-  fontSize: 13,
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-}
-
-function badgeStyle(color: string): React.CSSProperties {
-  return {
-    background: color,
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 600,
-    padding: '2px 8px',
-    borderRadius: 4,
-  }
 }
