@@ -74,6 +74,7 @@ export function CartBuilder({
   const [patientAddress, setPatientAddress] = useState('')
   const [patientPhone, setPatientPhone] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [invalid, setInvalid] = useState<string[]>([])
 
   const productById = useMemo(() => {
     const m = new Map<string, ProductLite>()
@@ -157,35 +158,38 @@ export function CartBuilder({
 
   function submit(formData: FormData) {
     // Client-side sanity on the hard gate before submitting.
+    // Validate on submit: mark the fields the block depends on with
+    // aria-invalid and move focus to the first one.
+    function fail(bad: string[], message: string) {
+      setError(message)
+      setInvalid(bad)
+      requestAnimationFrame(() => document.getElementById(bad[0])?.focus())
+    }
+
     if (effectiveType === 'RESEP') {
       const doctorOk = Boolean(doctorId || doctorName.trim())
       const patientOk = Boolean(patientId || patientName.trim())
-      if (!doctorOk || !patientOk) {
-        setError('A RESEP sale needs a doctor and a patient.')
-        return
-      }
+      const bad: string[] = []
+      if (!doctorOk) bad.push('doctor_id')
+      if (!patientOk) bad.push('patient_id')
+      if (bad.length) return fail(bad, 'A RESEP sale needs a doctor and a patient.')
       if (hardGate && !patientAddress.trim() && !(patientId && patientById.get(patientId)?.address)) {
-        setError('Narcotic sales need the patient address.')
-        return
+        return fail(['patient_id', 'patient-address'], 'Narcotic sales need the patient address.')
       }
     }
     if (effectiveType === 'SARANA') {
       const facilityOk = Boolean(patientId || patientName.trim())
-      if (!facilityOk) {
-        setError('A SARANA sale needs a facility name.')
-        return
-      }
+      if (!facilityOk) return fail(['facility_id'], 'A SARANA sale needs a facility name.')
     }
     if (effectiveType === 'BPJS') {
       const doctorOk = Boolean(doctorId || doctorName.trim())
       const patientOk = Boolean(patientId || patientName.trim())
-      if (!doctorOk || !patientOk) {
-        setError('A BPJS sale needs a doctor and a patient.')
-        return
-      }
+      const bad: string[] = []
+      if (!doctorOk) bad.push('doctor_id')
+      if (!patientOk) bad.push('patient_id')
+      if (bad.length) return fail(bad, 'A BPJS sale needs a doctor and a patient.')
       if (bpjsBlocked) {
-        setError(`Patient is missing No. Peserta BPJS — update the patient record before processing a BPJS sale.`)
-        return
+        return fail(['patient_id'], `Patient is missing No. Peserta BPJS — update the patient record before processing a BPJS sale.`)
       }
     }
     setError(null)
@@ -507,7 +511,17 @@ export function CartBuilder({
               <label htmlFor="doctor_id" className={labelCls}>
                 Doctor
               </label>
-              <select id="doctor_id" value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className={fieldCls}>
+              <select
+                id="doctor_id"
+                value={doctorId}
+                onChange={(e) => {
+                  setDoctorId(e.target.value)
+                  setInvalid((v) => v.filter((i) => i !== 'doctor_id'))
+                }}
+                aria-invalid={invalid.includes('doctor_id') || undefined}
+                aria-describedby={invalid.includes('doctor_id') ? 'cart-error' : undefined}
+                className={fieldCls}
+              >
                 <option value="">— pick existing —</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -536,7 +550,17 @@ export function CartBuilder({
               <label htmlFor="patient_id" className={labelCls}>
                 Patient
               </label>
-              <select id="patient_id" value={patientId} onChange={(e) => handlePatientSelect(e.target.value)} className={fieldCls}>
+              <select
+                id="patient_id"
+                value={patientId}
+                onChange={(e) => {
+                  handlePatientSelect(e.target.value)
+                  setInvalid((v) => v.filter((i) => i !== 'patient_id' && i !== 'patient-address'))
+                }}
+                aria-invalid={invalid.includes('patient_id') || undefined}
+                aria-describedby={invalid.includes('patient_id') ? 'cart-error' : undefined}
+                className={fieldCls}
+              >
                 <option value="">— pick existing —</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -562,15 +586,20 @@ export function CartBuilder({
               </div>
               {hardGate ? (
                 <input
+                  id="patient-address"
                   value={patientAddress}
-                  onChange={(e) => setPatientAddress(e.target.value)}
+                  onChange={(e) => {
+                    setPatientAddress(e.target.value)
+                    setInvalid((v) => v.filter((i) => i !== 'patient-address'))
+                  }}
                   aria-label="Patient address"
+                  aria-invalid={invalid.includes('patient-address') || undefined}
                   placeholder="Patient address (required)"
                   className={`${fieldCls} mt-1.5`}
                 />
               ) : null}
               {ihsStatus ? (
-                <p className="mt-1.5 text-xs text-slate-500">{ihsStatus}</p>
+                <p role="status" className="mt-1.5 text-xs text-slate-500">{ihsStatus}</p>
               ) : null}
             </div>
           </div>
@@ -586,7 +615,17 @@ export function CartBuilder({
               <label htmlFor="facility_id" className={labelCls}>
                 Facility
               </label>
-              <select id="facility_id" value={patientId} onChange={(e) => setPatientId(e.target.value)} className={fieldCls}>
+              <select
+                id="facility_id"
+                value={patientId}
+                onChange={(e) => {
+                  setPatientId(e.target.value)
+                  setInvalid((v) => v.filter((i) => i !== 'facility_id'))
+                }}
+                aria-invalid={invalid.includes('facility_id') || undefined}
+                aria-describedby={invalid.includes('facility_id') ? 'cart-error' : undefined}
+                className={fieldCls}
+              >
                 <option value="">— pick existing —</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -616,15 +655,17 @@ export function CartBuilder({
       ) : null}
 
       {error && (
-        <p role="alert" className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p id="cart-error" role="alert" className="mx-4 mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
         </p>
       )}
 
       <div className="px-4 pt-4">
-        <SubmitButton disabled={bpjsBlocked}>Create Draft Sale</SubmitButton>
+        <SubmitButton disabled={bpjsBlocked} aria-describedby={bpjsBlocked ? 'bpjs-note' : undefined}>
+          Create Draft Sale
+        </SubmitButton>
         {bpjsBlocked && (
-          <p className="mt-1 text-xs text-red-700">
+          <p id="bpjs-note" className="mt-1 text-xs text-red-700">
             Patient is missing No. Peserta BPJS — update the patient record first.
           </p>
         )}
