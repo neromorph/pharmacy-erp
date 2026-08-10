@@ -54,14 +54,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # DL3006 is ignored: the distroless runtime base (nodejs24-debian13)
+      # has no versioned tags — only the rolling stable tag. The node
+      # deps-stage tag is managed by Dependabot.
       - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: apps/web/Dockerfile
           failure-threshold: warning
+          ignore: DL3006
       - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
         with:
           dockerfile: apps/api/Dockerfile
           failure-threshold: warning
+          ignore: DL3006
 
   trivy-fs-config:
     name: Trivy filesystem and IaC

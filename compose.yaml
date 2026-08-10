@@ -3,6 +3,8 @@
 # NestJS API is an optional service-layer image (built, not routed yet).
 # Web is served through the VPS Traefik (network traefik_web, Cloudflare TLS).
 #
+# CI/CD: deployed by the GitHub Actions Container security workflow.
+#
 # Build-time: NEXT_PUBLIC_SUPABASE_* are inlined into the web client bundle.
 # Runtime:    the Supabase server client reads the same vars from env.
 # Secrets live in .env (VPS-side), never committed.
