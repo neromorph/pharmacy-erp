@@ -5,7 +5,7 @@
 # Install API workspace deps with a frozen lockfile.
 # Cached on lockfile/manifest changes only.
 # ---------------------------------------------------------------------------
-FROM node:24-trixie-slim AS deps
+FROM node:26-trixie-slim AS deps
 ENV PNPM_VERSION=11.18.0
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 WORKDIR /app
