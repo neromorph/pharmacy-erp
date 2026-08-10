@@ -13,12 +13,16 @@ The integration chain is built and verified against the sandbox API. Production 
 
 ### Human checklist
 
-1. Open the Kemenkes SATUSEHAT Partner System portal.
-2. Register the Apotek as a production partner (Faskes / Apotek entity).
-3. Get the production `client_id` and `client_secret`.
-4. Note the `org_id` for the Apotek location.
+1. Open the Kemenkes SATUSEHAT Platform portal: `https://satusehat.kemkes.go.id/platform` (login with the same account used for sandbox).
+2. On the Beranda page, switch the environment toggle (top-left) from Sandbox(Staging) to Production.
+3. In the sidebar, open Kode Akses API → Production endpoint.
+4. Copy the production `client_id`, `client_secret`, and `org_id`.
 5. Save the values into `apps/web/.env.local` (never commit).
 6. Tell the agent the production values are ready.
+
+Note: the fasyankes + partner system must be verified in DFO/REGFASYANKES/RS ONLINE. If the Production codes do not appear, verification has not propagated to Production yet.
+
+Docs: <https://satusehat.kemkes.go.id/platform/docs/id/api-code/access-production/>
 
 ### Agent steps after keys arrive
 
