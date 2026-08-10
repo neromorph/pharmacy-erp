@@ -8,6 +8,7 @@
     "types": ["node", "jest"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
     "ignoreDeprecations": "6.0"
   },
   "include": ["src/**/*.ts"]

@@ -1,0 +1,18 @@
+# CODEOWNERS — placeholder owners. Replace @pharmacy-erp-maintainers with
+# the real owner team or usernames before this is enforced. Until then,
+# GitHub shows a warning in Settings but PRs keep working.
+#
+# The placeholder is a deliberate stand-in: this repo has no GitHub team
+# defined yet, and inventing usernames would be wrong.
+
+* @pharmacy-erp-maintainers
+
+# CI/CD and security configuration — changes need a security-aware review.
+/.github/ @pharmacy-erp-maintainers
+/.github/workflows/ @pharmacy-erp-maintainers
+/.github/dependabot.yml @pharmacy-erp-maintainers
+
+# Container definitions
+Dockerfile* @pharmacy-erp-maintainers
+apps/*/Dockerfile @pharmacy-erp-maintainers
+compose.yaml @pharmacy-erp-maintainers
