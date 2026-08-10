@@ -69,7 +69,7 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Email autoconfirm is ON for dev provisioning — revisit for production
 
 ### Env vars (never commit real values)
-- `.env.local`, `apps/web/.env.local`, `apps/api/.env.local` hold live credentials — see `pharmacy-erp-vault/supabase-deployment.md`
+- `.env.local`, `apps/web/.env.local`, `apps/api/.env.local` hold live credentials — the VPS `~/pharmacy-erp/.env` is the source of truth for production values. `pharmacy-erp-vault/supabase-deployment.md` holds **placeholders only** (real values were purged from git history in 2026-08; rotate the Cloudflare API token, Supabase service_role key, and JWT secret if they may have been scraped while public)
 
 ## Rules for agents
 
