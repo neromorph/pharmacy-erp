@@ -109,11 +109,11 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       {/* Store Identity */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Store Identity</CardTitle>
+          <CardTitle className="text-sm font-semibold">Identitas Toko</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="name">Store Name</Label>
+            <Label htmlFor="name">Nama Toko</Label>
             <Input id="name" name="name" type="text" defaultValue={tenant.name} required />
           </div>
         </CardContent>
@@ -129,11 +129,11 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
             <div className="flex items-center gap-3">
               <img
                 src={tenant.logo_url}
-                alt="Store logo"
+                alt="Logo toko"
                 className="h-20 w-20 rounded-md border border-border object-contain"
               />
               <Button type="button" variant="destructive" size="sm" onClick={handleRemoveLogo}>
-                Remove
+                Hapus
               </Button>
             </div>
           )}
@@ -146,7 +146,7 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
               disabled={uploadingLogo}
               className="text-[13px]"
             />
-            {uploadingLogo && <span className="text-xs text-slate-500">Uploading…</span>}
+            {uploadingLogo && <span className="text-xs text-slate-500">Mengunggah…</span>}
           </div>
         </CardContent>
       </Card>
@@ -154,15 +154,15 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       {/* Contact */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Contact</CardTitle>
+          <CardTitle className="text-sm font-semibold">Kontak</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="address">Address</Label>
+            <Label htmlFor="address">Alamat</Label>
             <Input id="address" name="address" type="text" defaultValue={tenant.address ?? ''} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="phone">Phone</Label>
+            <Label htmlFor="phone">Telepon</Label>
             <Input id="phone" name="phone" type="text" defaultValue={tenant.phone ?? ''} />
           </div>
         </CardContent>
@@ -171,15 +171,15 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       {/* License Numbers */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">License Numbers</CardTitle>
+          <CardTitle className="text-sm font-semibold">Nomor Izin</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label htmlFor="sia_number">SIA Number</Label>
+            <Label htmlFor="sia_number">Nomor SIA</Label>
             <Input id="sia_number" name="sia_number" type="text" defaultValue={tenant.sia_number ?? ''} />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="sipa_number">SIPA Number</Label>
+            <Label htmlFor="sipa_number">Nomor SIPA</Label>
             <Input id="sipa_number" name="sipa_number" type="text" defaultValue={tenant.sipa_number ?? ''} />
           </div>
         </CardContent>
@@ -188,16 +188,16 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       {/* Receipt */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold">Receipt Footer</CardTitle>
+          <CardTitle className="text-sm font-semibold">Kaki Struk</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-1.5">
           <Textarea
             name="receipt_footer"
             rows={3}
             defaultValue={tenant.receipt_footer ?? ''}
-            placeholder="Text shown at the bottom of every receipt (optional)"
+            placeholder="Teks di bagian bawah setiap struk (opsional)"
           />
-          <p className="text-xs text-slate-500">Leave empty to hide the footer on receipts.</p>
+          <p className="text-xs text-slate-500">Kosongkan untuk menyembunyikan kaki struk.</p>
         </CardContent>
       </Card>
 
@@ -224,10 +224,10 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
               id="satusehat_client_secret"
               name="satusehat_client_secret"
               type="password"
-              placeholder="Leave blank to keep the current value"
+              placeholder="Kosongkan untuk mempertahankan nilai saat ini"
               autoComplete="off"
             />
-            <p className="text-xs text-muted-foreground">The stored secret is never shown. Leave blank to keep it.</p>
+            <p className="text-xs text-muted-foreground">Rahasia tersimpan tidak pernah ditampilkan. Kosongkan untuk mempertahankannya.</p>
           </div>
           <div className="grid gap-1.5">
             <Label htmlFor="satusehat_org_id">Org ID</Label>
@@ -241,7 +241,7 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
           </div>
           <div className="grid gap-1.5">
             <Button type="button" variant="outline" size="sm" onClick={handleTestConnection} disabled={testing}>
-              {testing ? 'Testing…' : 'Test connection'}
+              {testing ? 'Menguji…' : 'Uji koneksi'}
             </Button>
             {testResult && (
               <p className={`text-xs ${testResult.type === 'success' ? 'text-green-700' : 'text-red-800'}`}>
@@ -263,7 +263,7 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
       )}
 
       <Button type="submit" disabled={saving}>
-        {saving ? 'Saving…' : 'Save'}
+        {saving ? 'Menyimpan…' : 'Simpan'}
       </Button>
     </form>
   )

@@ -79,10 +79,10 @@ export default async function DestructionDetailPage({
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Product</TableHead>
+                <TableHead>Produk</TableHead>
                 <TableHead>Batch</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead className="text-right">Qty Destroyed</TableHead>
+                <TableHead>Kedaluwarsa</TableHead>
+                <TableHead className="text-right">Jml Dimusnahkan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

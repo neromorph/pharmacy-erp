@@ -47,11 +47,11 @@ export default async function StockOpnamePage() {
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Type</TableHead>
+                <TableHead>Nomor</TableHead>
+                <TableHead>Jenis</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead>Created At</TableHead>
+                <TableHead>Item</TableHead>
+                <TableHead>Dibuat Pada</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

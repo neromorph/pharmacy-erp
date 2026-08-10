@@ -33,13 +33,13 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
     <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-6">
       <Sheet>
         <SheetTrigger
-          render={<Button variant="ghost" size="icon" aria-label="Open menu" />}
+          render={<Button variant="ghost" size="icon" aria-label="Buka menu" />}
           className="md:hidden"
         >
           <Menu className="size-5" />
         </SheetTrigger>
         <SheetContent side="left" className="w-72 p-0">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
+          <SheetTitle className="sr-only">Navigasi</SheetTitle>
           <SidebarNav />
         </SheetContent>
       </Sheet>
@@ -51,7 +51,7 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-3 md:flex-none">
-        <div className="flex items-center gap-2" title={shift.open ? 'Shift open' : 'No open shift'}>
+        <div className="flex items-center gap-2" title={shift.open ? 'Shift Aktif' : 'Tidak ada shift aktif'}>
           <span
             className={
               shift.open
@@ -60,7 +60,7 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
             }
           />
           <span className="hidden text-xs text-slate-500 sm:inline">
-            {shift.open ? `Shift open · ${opened ?? ''}` : 'No open shift'}
+            {shift.open ? `Shift Aktif · ${opened ?? ''}` : 'Tidak ada shift aktif'}
           </span>
         </div>
 

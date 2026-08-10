@@ -54,7 +54,7 @@ export default async function ReceiptPage({
     .single()
 
   if (!sale) {
-    return <p>Sale not found</p>
+    return <p>Transaksi tidak ditemukan</p>
   }
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -99,7 +99,7 @@ export default async function ReceiptPage({
       {/* Screen preview — hidden when printing */}
       <section style={{ maxWidth: 480, margin: '24px auto', padding: '0 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }} className="no-print">
-          <h1 style={{ fontSize: 18, margin: 0 }}>Payment receipt</h1>
+          <h1 style={{ fontSize: 18, margin: 0 }}>Struk Pembayaran</h1>
           <PrintButton />
         </div>
         <div style={{ marginBottom: 8 }} className="no-print">
@@ -107,7 +107,7 @@ export default async function ReceiptPage({
             href={`/receipts/${saleId}${width === '58' ? '?w=80' : '?w=58'}`}
             style={{ color: 'var(--text-secondary)', fontSize: 13, textDecoration: 'none' }}
           >
-            {width === '58' ? 'Switch to 80mm' : 'Switch to 58mm'}
+            {width === '58' ? 'Ganti ke 80mm' : 'Ganti ke 58mm'}
           </a>
         </div>
 
@@ -129,7 +129,7 @@ export default async function ReceiptPage({
             {tenant?.logo_url && (
               <img
                 src={tenant.logo_url}
-                alt="Store logo"
+                alt="Logo toko"
                 style={{ width: 48, height: 48, objectFit: 'contain', marginBottom: 4 }}
               />
             )}
@@ -311,7 +311,7 @@ export default async function ReceiptPage({
             href={`/sales/${saleId}`}
             style={{ color: 'var(--primary)', fontSize: 13, textDecoration: 'none' }}
           >
-            ← Back to sale detail
+            ← Kembali ke detail transaksi
           </a>
         </div>
       </section>

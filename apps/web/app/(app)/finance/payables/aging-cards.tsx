@@ -31,7 +31,7 @@ export function AgingCards({ summaries }: { summaries: BucketSummary[] }) {
           <CardContent className="pt-1">
             <p className="text-xs text-slate-500">{bucketLabels[s.bucket]}</p>
             <p className="my-1 text-lg font-semibold tabular-nums text-slate-900">{s.total.toFixed(2)}</p>
-            <p className="text-xs text-slate-500">{s.count} invoice(s)</p>
+            <p className="text-xs text-slate-500">{s.count} faktur</p>
           </CardContent>
         </Card>
       ))}

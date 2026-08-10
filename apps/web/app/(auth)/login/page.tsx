@@ -21,15 +21,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-2 text-center">
         <Logo name="Pharmacy ERP" />
-        <p className="text-sm text-slate-500">Point of Sale · Stock · Compliance</p>
+        <p className="text-sm text-slate-500">Kasir · Persediaan · Pelaporan</p>
       </div>
 
       <Card className="w-full">
         <CardHeader>
           <h1 data-slot="card-title" className="font-heading text-lg leading-snug font-medium">
-            Sign in
+            Masuk
           </h1>
-          <CardDescription>Use your branch account to continue.</CardDescription>
+          <CardDescription>Gunakan akun cabang Anda untuk melanjutkan.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={login} className="flex flex-col gap-4">
@@ -52,7 +52,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 {error}
               </p>
             )}
-            <SubmitButton className="mt-1 w-full">Sign In</SubmitButton>
+            <SubmitButton className="mt-1 w-full">Masuk</SubmitButton>
           </form>
         </CardContent>
       </Card>

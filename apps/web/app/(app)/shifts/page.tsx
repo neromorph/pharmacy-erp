@@ -85,19 +85,19 @@ export default async function ShiftsPage() {
       <div className="space-y-3">
         <h2 className="text-base font-medium text-slate-900">Shift History</h2>
         {pastShifts.length === 0 ? (
-          <p className="text-sm text-slate-500">No past shifts</p>
+          <p className="text-sm text-slate-500">Belum ada shift sebelumnya</p>
         ) : (
           <Table>
             <TableHeader className="sticky top-14 z-10 bg-slate-50">
               <TableRow>
                 <TableHead>Status</TableHead>
-                <TableHead>Cashier</TableHead>
-                <TableHead>Opened</TableHead>
-                <TableHead>Closed</TableHead>
-                <TableHead className="text-right">Opening Cash</TableHead>
-                <TableHead className="text-right">Closing Cash</TableHead>
-                <TableHead className="text-right">Variance</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead>Kasir</TableHead>
+                <TableHead>Dibuka</TableHead>
+                <TableHead>Ditutup</TableHead>
+                <TableHead className="text-right">Kas Pembukaan</TableHead>
+                <TableHead className="text-right">Kas Penutupan</TableHead>
+                <TableHead className="text-right">Selisih</TableHead>
+                <TableHead>Catatan</TableHead>
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>

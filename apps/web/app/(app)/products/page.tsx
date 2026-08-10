@@ -45,12 +45,12 @@ export default async function ProductsPage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Products</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Data Obat</h1>
 
       {canEdit ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base font-medium text-slate-900">New Product</CardTitle>
+            <CardTitle className="text-base font-medium text-slate-900">Tambah Obat Baru</CardTitle>
           </CardHeader>
           <CardContent>
             <form
@@ -58,7 +58,7 @@ export default async function ProductsPage() {
               className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4"
             >
               <div className="grid gap-1.5">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Nama Obat / Barang</Label>
                 <Input id="name" name="name" required />
               </div>
               <div className="grid gap-1.5">
@@ -66,23 +66,23 @@ export default async function ProductsPage() {
                 <Input id="sku" name="sku" required />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="base_unit">Base Unit</Label>
+                <Label htmlFor="base_unit">Satuan Dasar</Label>
                 <Input id="base_unit" name="base_unit" required placeholder="tablet / ml" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="category">Category</Label>
-                <Input id="category" name="category" placeholder="e.g. Analgesic" />
+                <Label htmlFor="category">Kategori Terapi</Label>
+                <Input id="category" name="category" placeholder="cth. Analgesik" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="min_stock_level">Min Stock</Label>
+                <Label htmlFor="min_stock_level">Stok Minimum</Label>
                 <Input id="min_stock_level" name="min_stock_level" type="number" defaultValue={0} />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="rack_location">Rack</Label>
+                <Label htmlFor="rack_location">Rak / Etalase</Label>
                 <Input id="rack_location" name="rack_location" placeholder="A-2" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="regulatory_category">Regulatory Category</Label>
+                <Label htmlFor="regulatory_category">Golongan Obat</Label>
                 <select name="regulatory_category" defaultValue="BEBAS" className={selectClass}>
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -91,9 +91,9 @@ export default async function ProductsPage() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="kfa_code">KFA Code</Label>
-                <Input id="kfa_code" name="kfa_code" placeholder="e.g. 93000515" />
+                <Input id="kfa_code" name="kfa_code" placeholder="cth. 93000515" />
                 <p className="text-xs text-slate-500">
-                  SATUSEHAT: products without KFA are skipped from submission.
+                  SATUSEHAT: produk tanpa KFA dilewati dari pengiriman.
                 </p>
               </div>
               <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
@@ -104,10 +104,10 @@ export default async function ProductsPage() {
                     name="allow_fractional"
                     className="size-4 rounded border-slate-300"
                   />
-                  Allow decimals
+                  Izinkan Satuan Pecahan
                 </Label>
                 <Button type="submit" className="ml-auto">
-                  Add Product
+                  Simpan Data Obat
                 </Button>
               </div>
             </form>
@@ -116,18 +116,18 @@ export default async function ProductsPage() {
       ) : null}
 
       {!products || products.length === 0 ? (
-        <p className="text-sm text-slate-500">No products yet</p>
+        <p className="text-sm text-slate-500">Belum ada data obat</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Name / SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Base Unit</TableHead>
-                <TableHead>Min Stock</TableHead>
-                <TableHead>Rack</TableHead>
-                <TableHead>Fractional</TableHead>
+                <TableHead>Nama Obat / SKU</TableHead>
+                <TableHead>Kategori Terapi</TableHead>
+                <TableHead>Satuan Dasar</TableHead>
+                <TableHead>Stok Minimum</TableHead>
+                <TableHead>Rak / Etalase</TableHead>
+                <TableHead>Pecahan</TableHead>
                 <TableHead>KFA</TableHead>
                 {canEdit ? <TableHead></TableHead> : null}
               </TableRow>
@@ -147,15 +147,15 @@ export default async function ProductsPage() {
                   <TableCell>{p.base_unit}</TableCell>
                   <TableCell>{p.min_stock_level}</TableCell>
                   <TableCell>{p.rack_location || '-'}</TableCell>
-                  <TableCell>{p.allow_fractional ? 'Yes' : 'No'}</TableCell>
+                  <TableCell>{p.allow_fractional ? 'Ya' : 'Tidak'}</TableCell>
                   <TableCell>
-                    {p.kfa_code || <span className="text-amber-600">none</span>}
+                    {p.kfa_code || <span className="text-amber-600">tidak ada</span>}
                   </TableCell>
                   {canEdit ? (
                     <TableCell>
                       <details>
                         <summary className="cursor-pointer text-sm text-primary">
-                          Edit
+                          Ubah
                         </summary>
                         <form
                           action={updateProduct}
@@ -163,7 +163,7 @@ export default async function ProductsPage() {
                         >
                           <input type="hidden" name="id" value={p.id} />
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`name-${p.id}`}>Name</Label>
+                            <Label htmlFor={`name-${p.id}`}>Nama Obat / Barang</Label>
                             <Input id={`name-${p.id}`} name="name" required defaultValue={p.name} />
                           </div>
                           <div className="grid gap-1.5">
@@ -171,7 +171,7 @@ export default async function ProductsPage() {
                             <Input id={`sku-${p.id}`} name="sku" required defaultValue={p.sku} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`base_unit-${p.id}`}>Base Unit</Label>
+                            <Label htmlFor={`base_unit-${p.id}`}>Satuan Dasar</Label>
                             <Input
                               id={`base_unit-${p.id}`}
                               name="base_unit"
@@ -180,11 +180,11 @@ export default async function ProductsPage() {
                             />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`category-${p.id}`}>Category</Label>
+                            <Label htmlFor={`category-${p.id}`}>Kategori Terapi</Label>
                             <Input id={`category-${p.id}`} name="category" defaultValue={p.category} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`min_stock_level-${p.id}`}>Min Stock</Label>
+                            <Label htmlFor={`min_stock_level-${p.id}`}>Stok Minimum</Label>
                             <Input
                               id={`min_stock_level-${p.id}`}
                               name="min_stock_level"
@@ -193,7 +193,7 @@ export default async function ProductsPage() {
                             />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`rack_location-${p.id}`}>Rack</Label>
+                            <Label htmlFor={`rack_location-${p.id}`}>Rak / Etalase</Label>
                             <Input
                               id={`rack_location-${p.id}`}
                               name="rack_location"
@@ -201,7 +201,7 @@ export default async function ProductsPage() {
                             />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`regulatory_category-${p.id}`}>Regulatory Category</Label>
+                            <Label htmlFor={`regulatory_category-${p.id}`}>Golongan Obat</Label>
                             <select
                               name="regulatory_category"
                               defaultValue={p.regulatory_category}
@@ -213,7 +213,7 @@ export default async function ProductsPage() {
                             </select>
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`fractional-${p.id}`}>Fractional</Label>
+                            <Label htmlFor={`fractional-${p.id}`}>Pecahan</Label>
                             <label className="flex items-center gap-2">
                               <input
                                 id={`fractional-${p.id}`}
@@ -222,7 +222,7 @@ export default async function ProductsPage() {
                                 defaultChecked={p.allow_fractional}
                                 className="size-4 rounded border-slate-300"
                               />
-                              Allow decimals
+                              Izinkan Satuan Pecahan
                             </label>
                           </div>
                           <div className="grid gap-1.5">
@@ -231,12 +231,12 @@ export default async function ProductsPage() {
                               id={`kfa_code-${p.id}`}
                               name="kfa_code"
                               defaultValue={p.kfa_code ?? ''}
-                              placeholder="e.g. 93000515"
+                              placeholder="cth. 93000515"
                             />
                           </div>
                           <div className="flex items-end">
                             <Button type="submit" variant="outline">
-                              Save
+                              Simpan
                             </Button>
                           </div>
                         </form>

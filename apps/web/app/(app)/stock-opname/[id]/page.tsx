@@ -106,7 +106,7 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
           <span className="text-sm text-slate-500">{op.type}</span>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Created: {parseDate(op.created_at)} • Approved: {op.approved_at ? parseDate(op.approved_at) : '-'}
+          Dibuat: {parseDate(op.created_at)} • Disetujui: {op.approved_at ? parseDate(op.approved_at) : '-'}
         </p>
       </div>
 
@@ -114,13 +114,13 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Product</TableHead>
+              <TableHead>Produk</TableHead>
               <TableHead>Batch</TableHead>
-              <TableHead>Expiry</TableHead>
-              <TableHead className="text-right">System</TableHead>
-              <TableHead className="text-right">Physical</TableHead>
-              <TableHead className="text-right">Variance</TableHead>
-              <TableHead>Reason</TableHead>
+              <TableHead>Kedaluwarsa</TableHead>
+              <TableHead className="text-right">Sistem</TableHead>
+              <TableHead className="text-right">Fisik</TableHead>
+              <TableHead className="text-right">Selisih</TableHead>
+              <TableHead>Alasan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,11 +146,11 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
           <>
             <form action={submitStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <Button type="submit">Submit for Approval</Button>
+              <Button type="submit">Ajukan untuk Disetujui</Button>
             </form>
             <form action={cancelStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <Button type="submit" variant="destructive">Cancel</Button>
+              <Button type="submit" variant="destructive">Batalkan</Button>
             </form>
           </>
         )}
@@ -158,16 +158,16 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
           <>
             <form action={approveStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <Button type="submit">Approve</Button>
+              <Button type="submit">Setujui</Button>
             </form>
             <form action={cancelStockOpname}>
               <input type="hidden" name="id" value={op.id} />
-              <Button type="submit" variant="destructive">Cancel</Button>
+              <Button type="submit" variant="destructive">Batalkan</Button>
             </form>
           </>
         )}
         {op.status === 'PENDING_APPROVAL' && !canApproveOpname(role) && (
-          <p className="text-sm text-slate-500">Waiting for owner or pharmacist approval.</p>
+          <p className="text-sm text-slate-500">Menunggu persetujuan pemilik atau apoteker.</p>
         )}
       </div>
     </section>

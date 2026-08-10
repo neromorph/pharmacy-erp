@@ -28,31 +28,31 @@ export default async function DoctorsPage() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Doctors</h1>
-        <Button render={<Link href="/" />} variant="outline" size="sm">Back</Button>
+        <h1 className="text-xl font-semibold text-slate-900">Dokter</h1>
+        <Button render={<Link href="/" />} variant="outline" size="sm">Kembali</Button>
       </div>
 
       {isOwner ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-semibold">New Doctor</CardTitle>
+            <CardTitle className="text-sm font-semibold">Dokter Baru</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={createDoctor} className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
               <div className="grid gap-1.5">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Nama</Label>
                 <Input id="name" name="name" required />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="sip_number">SIP Number</Label>
+                <Label htmlFor="sip_number">Nomor SIP</Label>
                 <Input id="sip_number" name="sip_number" placeholder="SIP.02.xxxx" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Telepon</Label>
                 <Input id="phone" name="phone" />
               </div>
               <div className="flex items-end">
-                <Button type="submit">Add Doctor</Button>
+                <Button type="submit">Simpan Dokter</Button>
               </div>
             </form>
           </CardContent>
@@ -60,15 +60,15 @@ export default async function DoctorsPage() {
       ) : null}
 
       {!doctors || doctors.length === 0 ? (
-        <p className="text-sm text-slate-500">No doctors yet</p>
+        <p className="text-sm text-slate-500">Belum ada data dokter</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>SIP Number</TableHead>
-                <TableHead>Phone</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Nomor SIP</TableHead>
+                <TableHead>Telepon</TableHead>
                 {isOwner ? <TableHead></TableHead> : null}
               </TableRow>
             </TableHeader>
@@ -81,28 +81,28 @@ export default async function DoctorsPage() {
                   {isOwner ? (
                     <TableCell>
                       <details>
-                        <summary className="cursor-pointer text-sm font-medium text-primary">Edit</summary>
+                        <summary className="cursor-pointer text-sm font-medium text-primary">Ubah</summary>
                         <form action={updateDoctor} className="grid gap-3 py-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                           <input type="hidden" name="id" value={d.id} />
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-name-${d.id}`}>Name</Label>
+                            <Label htmlFor={`edit-name-${d.id}`}>Nama</Label>
                             <Input id={`edit-name-${d.id}`} name="name" required defaultValue={d.name} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-sip-${d.id}`}>SIP Number</Label>
+                            <Label htmlFor={`edit-sip-${d.id}`}>Nomor SIP</Label>
                             <Input id={`edit-sip-${d.id}`} name="sip_number" defaultValue={d.sip_number ?? ''} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-phone-${d.id}`}>Phone</Label>
+                            <Label htmlFor={`edit-phone-${d.id}`}>Telepon</Label>
                             <Input id={`edit-phone-${d.id}`} name="phone" defaultValue={d.phone ?? ''} />
                           </div>
                           <div className="flex items-end gap-2">
-                            <Button type="submit" size="sm">Save</Button>
+                            <Button type="submit" size="sm">Simpan</Button>
                           </div>
                         </form>
                         <form action={deleteDoctor} className="pb-2">
                           <input type="hidden" name="id" value={d.id} />
-                          <Button type="submit" variant="destructive" size="sm">Remove</Button>
+                          <Button type="submit" variant="destructive" size="sm">Hapus</Button>
                         </form>
                       </details>
                     </TableCell>

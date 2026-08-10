@@ -30,20 +30,20 @@ export default async function ProcurementPage() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Procurement</h1>
-        <Button render={<Link href="/procurement/new" />}>New PO</Button>
+        <h1 className="text-xl font-semibold text-slate-900">Pengadaan</h1>
+        <Button render={<Link href="/procurement/new" />}>PO Baru</Button>
       </div>
       {!pos || pos.length === 0 ? (
-        <p className="text-sm text-slate-500">No purchase orders yet</p>
+        <p className="text-sm text-slate-500">Belum ada pesanan pembelian</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>PO Number</TableHead>
-                <TableHead>Supplier</TableHead>
+                <TableHead>Nomor PO</TableHead>
+                <TableHead>Pemasok</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Ordered At</TableHead>
+                <TableHead>Dipesan Pada</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -42,7 +42,7 @@ export default async function PayablesPage() {
     supabase.from('purchase_returns').select('supplier_id, total_amount, applied_amount'),
   ])
 
-  if (payablesRes.error) return <p className="text-sm text-destructive">Payables unavailable</p>
+  if (payablesRes.error) return <p className="text-sm text-destructive">Hutang dagang tidak tersedia</p>
 
   const rows = payablesRes.data || []
   const now = new Date().toISOString()
@@ -88,25 +88,25 @@ export default async function PayablesPage() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Accounts Payable</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Hutang Dagang</h1>
         {csvRows.length > 0 && <AgingCsvButton rows={csvRows} />}
       </div>
       <AgingCards summaries={summaries} />
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No payables yet</p>
+        <p className="text-sm text-slate-500">Belum ada hutang dagang</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Supplier</TableHead>
-                <TableHead>Due Date</TableHead>
+                <TableHead>Faktur</TableHead>
+                <TableHead>Pemasok</TableHead>
+                <TableHead>Jatuh Tempo</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right">Remaining</TableHead>
+                <TableHead className="text-right">Dibayar</TableHead>
+                <TableHead className="text-right">Sisa</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Payout</TableHead>
+                <TableHead>Pembayaran</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

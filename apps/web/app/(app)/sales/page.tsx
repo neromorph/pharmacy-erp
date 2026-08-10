@@ -31,21 +31,21 @@ export default async function SalesPage() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Sales</h1>
-        <Button render={<Link href="/sales/new" />}>New Sale</Button>
+        <h1 className="text-xl font-semibold text-slate-900">Kasir</h1>
+        <Button render={<Link href="/sales/new" />}>Transaksi Baru</Button>
       </div>
       {!sales || sales.length === 0 ? (
-        <p className="text-sm text-slate-500">No sales yet</p>
+        <p className="text-sm text-slate-500">Belum ada transaksi penjualan</p>
       ) : (
         <Table>
           <TableHeader className="sticky top-14 z-10 bg-slate-50">
             <TableRow>
-              <TableHead>Sale Number</TableHead>
+              <TableHead>Nomor Transaksi</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Items</TableHead>
-              <TableHead className="text-right">Grand Total</TableHead>
-              <TableHead className="text-right">Paid</TableHead>
-              <TableHead>Sold At</TableHead>
+              <TableHead>Item</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Dibayar</TableHead>
+              <TableHead>Waktu</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

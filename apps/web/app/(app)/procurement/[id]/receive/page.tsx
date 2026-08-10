@@ -118,11 +118,11 @@ export default async function ReceiveGoodsPage({
     return (
       <section className="space-y-2">
         <Link href="/procurement" className="text-sm text-primary hover:underline">
-          Back to Procurement
+          Kembali ke Pengadaan
         </Link>
-        <p className="text-sm text-destructive">Only an approved purchase order can be received</p>
+        <p className="text-sm text-destructive">Hanya pesanan pembelian yang disetujui yang dapat diterima</p>
         <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
-          Back to purchase order
+          Kembali ke pesanan pembelian
         </Link>
       </section>
     )
@@ -132,11 +132,11 @@ export default async function ReceiveGoodsPage({
     <section className="space-y-6">
       <div>
         <Link href={`/procurement/${id}`} className="text-sm text-primary hover:underline">
-          Back to Purchase Order
+          Kembali ke Pesanan Pembelian
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">Receive Goods</h1>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">Terima Barang</h1>
         <p className="mt-1 text-sm text-slate-500">
-          {po.po_number} • Supplier: {po.suppliers?.name || '-'}
+          {po.po_number} • Pemasok: {po.suppliers?.name || '-'}
         </p>
       </div>
 
@@ -145,16 +145,16 @@ export default async function ReceiveGoodsPage({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="receipt_number">Receipt Number</Label>
+            <Label htmlFor="receipt_number">Nomor Penerimaan</Label>
             <Input id="receipt_number" name="receipt_number" required placeholder="GR-2026-0001" />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="invoice_number">Invoice Number</Label>
+            <Label htmlFor="invoice_number">Nomor Faktur</Label>
             <Input id="invoice_number" name="invoice_number" required placeholder="INV-2026-0001" />
           </div>
         </div>
 
-        <h2 className="text-sm font-medium text-slate-900">Items</h2>
+        <h2 className="text-sm font-medium text-slate-900">Item Barang</h2>
         <div className="grid gap-3">
           {(items || []).map((it: any) => (
             <div
@@ -164,21 +164,21 @@ export default async function ReceiveGoodsPage({
               <input type="hidden" name="purchase_order_item_id" value={it.id} />
               <input type="hidden" name="product_id" value={it.product_id} />
               <div className="grid gap-1">
-                <Label className="text-xs">Product</Label>
+                <Label className="text-xs">Produk</Label>
                 <span className="text-sm">
                   {it.products?.name || '-'} ({it.products?.sku || '-'})
                 </span>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor={`batch-${it.id}`} className="text-xs">Batch</Label>
-                <Input id={`batch-${it.id}`} name="batch_number" required placeholder="Batch no" />
+                <Input id={`batch-${it.id}`} name="batch_number" required placeholder="Nomor batch" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor={`expiry-${it.id}`} className="text-xs">Expiry</Label>
+                <Label htmlFor={`expiry-${it.id}`} className="text-xs">Kedaluwarsa</Label>
                 <Input id={`expiry-${it.id}`} name="expiry_date" type="date" required />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor={`qty-${it.id}`} className="text-xs">Qty</Label>
+                <Label htmlFor={`qty-${it.id}`} className="text-xs">Jumlah</Label>
                 <Input
                   id={`qty-${it.id}`}
                   name="qty_received"
@@ -191,7 +191,7 @@ export default async function ReceiveGoodsPage({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor={`cost-${it.id}`} className="text-xs">Unit Cost</Label>
+                <Label htmlFor={`cost-${it.id}`} className="text-xs">Harga Satuan</Label>
                 <Input
                   id={`cost-${it.id}`}
                   name="unit_cost"
@@ -207,7 +207,7 @@ export default async function ReceiveGoodsPage({
           ))}
         </div>
 
-        <Button type="submit">Receive Goods</Button>
+        <Button type="submit">Terima Barang</Button>
       </form>
     </section>
   )

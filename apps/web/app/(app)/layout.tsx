@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         href="#content"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary"
       >
-        Skip to content
+        Lewati ke konten
       </a>
       <div className="hidden md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col border-r bg-white">
         <Sidebar />

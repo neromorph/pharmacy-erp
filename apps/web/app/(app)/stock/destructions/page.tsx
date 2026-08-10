@@ -34,21 +34,21 @@ export default async function DestructionsPage() {
     <section className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Pemusnahan</h1>
-        <Button render={<Link href="/stock/destructions/new" />}>New Destruction</Button>
+        <Button render={<Link href="/stock/destructions/new" />}>Pemusnahan Baru</Button>
       </div>
 
       {(destructions || []).length === 0 ? (
-        <p className="text-sm text-slate-500">No destruction records yet.</p>
+        <p className="text-sm text-slate-500">Belum ada data pemusnahan.</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>BAP Number</TableHead>
-                <TableHead>BAP Date</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Witnesses</TableHead>
-                <TableHead>Recorded By</TableHead>
+                <TableHead>Nomor BAP</TableHead>
+                <TableHead>Tanggal BAP</TableHead>
+                <TableHead>Alasan</TableHead>
+                <TableHead>Saksi</TableHead>
+                <TableHead>Dicatat Oleh</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

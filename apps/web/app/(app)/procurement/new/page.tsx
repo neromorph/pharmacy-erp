@@ -71,21 +71,21 @@ export default async function NewPurchaseOrderPage() {
     <section className="space-y-6">
       <div>
         <Link href="/procurement" className="text-sm text-primary hover:underline">
-          Back to Procurement
+          Kembali ke Pengadaan
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Order</h1>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">Pesanan Pembelian Baru</h1>
       </div>
 
       <form action={createPurchaseOrder} className="max-w-2xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <div className="grid gap-1.5">
-          <Label htmlFor="po_number">PO Number</Label>
+          <Label htmlFor="po_number">Nomor PO</Label>
           <Input id="po_number" name="po_number" required placeholder="PO-2026-0001" />
         </div>
 
         <div className="grid gap-1.5">
-          <Label htmlFor="supplier_id">Supplier</Label>
+          <Label htmlFor="supplier_id">Pemasok</Label>
           <select id="supplier_id" name="supplier_id" required className={selectClass}>
-            <option value="">Select supplier</option>
+            <option value="">Pilih pemasok</option>
             {(suppliers || []).map((s: any) => (
               <option key={s.id} value={s.id}>
                 {s.name}
@@ -94,23 +94,23 @@ export default async function NewPurchaseOrderPage() {
           </select>
         </div>
 
-        <h2 className="text-sm font-medium text-slate-900">Items</h2>
+        <h2 className="text-sm font-medium text-slate-900">Item Barang</h2>
         <div id="items" className="grid gap-2">
           <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
             <select name="product_id" required className={selectClass}>
-              <option value="">Product</option>
+              <option value="">Produk</option>
               {(products || []).map((p: any) => (
                 <option key={p.id} value={p.id}>
                   {p.name} ({p.sku})
                 </option>
               ))}
             </select>
-            <Input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Qty" />
-            <Input name="unit_price" type="number" step="0.01" min="0" required placeholder="Price" />
+            <Input name="qty_ordered" type="number" step="0.001" min="0" required placeholder="Jumlah" />
+            <Input name="unit_price" type="number" step="0.01" min="0" required placeholder="Harga" />
           </div>
         </div>
 
-        <Button type="submit">Create PO (Draft)</Button>
+        <Button type="submit">Buat PO (Draft)</Button>
       </form>
     </section>
   )

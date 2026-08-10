@@ -41,11 +41,11 @@ export default async function SupplierStatementPage({ params }: { params: Promis
   const supabase = await createClient()
   const role = await getUserRole(supabase)
   if (!role || role === 'CASHIER') {
-    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+    return <p className="text-sm text-destructive">Akses ditolak. Hanya Owner, Apoteker, atau staf Inventori.</p>
   }
 
   const { data: supplier } = await supabase.from('suppliers').select('*').eq('id', id).single()
-  if (!supplier) return <p className="text-sm text-slate-500">Supplier not found</p>
+  if (!supplier) return <p className="text-sm text-slate-500">Pemasok tidak ditemukan</p>
 
   const { data: payables } = await supabase
     .from('accounts_payables')
@@ -79,13 +79,13 @@ export default async function SupplierStatementPage({ params }: { params: Promis
     invoices: (payables || []).map((p: any) => ({
       date: p.goods_receipts?.received_at || p.due_date,
       ref: p.invoice_number,
-      description: 'Invoice',
+      description: 'Faktur',
       amount: Number(p.receipt_total_amount),
     })),
     payments: (payments || []).map((pm: any) => ({
       date: pm.paid_at,
       ref: pm.method,
-      description: pm.notes || 'Payment',
+      description: pm.notes || 'Pembayaran',
       amount: Number(pm.amount),
       creditApplied: Number(pm.credit_applied_amount || 0),
     })),
@@ -109,7 +109,7 @@ export default async function SupplierStatementPage({ params }: { params: Promis
       <section className="space-y-6">
         <div className="no-print flex items-center justify-between">
           <Link href="/suppliers" className="text-sm text-primary hover:underline">
-            Back to Suppliers
+            Kembali ke Pemasok
           </Link>
           <PrintButton />
         </div>
@@ -117,16 +117,16 @@ export default async function SupplierStatementPage({ params }: { params: Promis
 
         <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
           <div>
-            PBF: <strong>{supplier.is_pbf ? 'Yes' : 'No'}</strong>
+            PBF: <strong>{supplier.is_pbf ? 'Ya' : 'Tidak'}</strong>
           </div>
           <div>
-            License: <strong>{supplier.pbf_license_number || '-'}</strong>
+            Izin: <strong>{supplier.pbf_license_number || '-'}</strong>
           </div>
           <div>
-            Phone: <strong>{supplier.phone || '-'}</strong>
+            Telepon: <strong>{supplier.phone || '-'}</strong>
           </div>
           <div>
-            Payment Terms: <strong>{supplier.payment_terms_days} days</strong>
+            Termin Pembayaran: <strong>{supplier.payment_terms_days} hari</strong>
           </div>
         </div>
 
@@ -134,20 +134,20 @@ export default async function SupplierStatementPage({ params }: { params: Promis
           <h2 className="mb-3 text-base font-semibold text-slate-900">Statement (Kartu Hutang)</h2>
           <div className="statement-print overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
             <div className="px-4 pt-3 text-xs text-slate-500">
-              Supplier: {supplier.name} • Generated: {new Date().toLocaleDateString()}
+              Supplier: {supplier.name} • Dicetak: {new Date().toLocaleDateString()}
             </div>
             {ledger.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">No transactions yet</p>
+              <p className="p-4 text-sm text-slate-500">Belum ada transaksi</p>
             ) : (
               <Table>
                 <TableHeader className="bg-slate-50">
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Description</TableHead>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Referensi</TableHead>
+                    <TableHead>Keterangan</TableHead>
                     <TableHead className="text-right">Debit</TableHead>
-                    <TableHead className="text-right">Credit</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
+                    <TableHead className="text-right">Kredit</TableHead>
+                    <TableHead className="text-right">Saldo</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -175,11 +175,11 @@ export default async function SupplierStatementPage({ params }: { params: Promis
                 </TableBody>
                 <TableFooter>
                   <TableRow>
-                    <TableCell colSpan={5}>Closing Balance</TableCell>
+                    <TableCell colSpan={5}>Saldo Akhir</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {closingBalance.toFixed(2)}
                       {balance < 0 && (
-                        <span className="text-xs text-slate-500"> (credit balance)</span>
+                        <span className="text-xs text-slate-500"> (saldo kredit)</span>
                       )}
                     </TableCell>
                   </TableRow>

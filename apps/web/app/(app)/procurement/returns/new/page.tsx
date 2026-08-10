@@ -7,7 +7,7 @@ export default async function NewReturnPage() {
   const supabase = await createClient()
   const role = await getUserRole(supabase)
   if (!role || role === 'CASHIER') {
-    return <p className="text-sm text-destructive">Access denied. Owner, pharmacist, or inventory only.</p>
+    return <p className="text-sm text-destructive">Akses ditolak. Hanya Owner, Apoteker, atau staf Inventori.</p>
   }
 
   const [{ data: suppliers }, { data: products }, { data: batches }] = await Promise.all([
@@ -24,11 +24,11 @@ export default async function NewReturnPage() {
     <section className="space-y-6">
       <div>
         <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
-          Back to Returns
+          Kembali ke Retur
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">New Purchase Return</h1>
+        <h1 className="mt-1 text-xl font-semibold text-slate-900">Retur Pembelian Baru</h1>
         <p className="mt-1 text-sm text-slate-500">
-          A return creates a supplier credit note. It does not change the original invoice.
+          Retur membuat nota kredit pemasok. Nota asli tidak berubah.
         </p>
       </div>
       <ReturnForm suppliers={suppliers || []} products={products || []} batches={batches || []} />

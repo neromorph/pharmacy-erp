@@ -144,33 +144,33 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
         className="flex flex-wrap items-end gap-4 rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
       >
         <div className="grid gap-1.5">
-          <Label htmlFor="q">Product</Label>
+          <Label htmlFor="q">Produk</Label>
           <Input
             id="q"
             type="text"
             name="q"
             defaultValue={filters.q ?? ''}
-            placeholder="Search by product name or SKU"
+            placeholder="Cari berdasarkan nama produk atau SKU"
             className="min-w-48"
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="date_from">Date From</Label>
+          <Label htmlFor="date_from">Tanggal Dari</Label>
           <Input id="date_from" type="date" name="date_from" defaultValue={filters.date_from ?? ''} />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="date_to">Date To</Label>
+          <Label htmlFor="date_to">Tanggal Sampai</Label>
           <Input id="date_to" type="date" name="date_to" defaultValue={filters.date_to ?? ''} />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="regulatory_category">Regulatory Category</Label>
+          <Label htmlFor="regulatory_category">Golongan Obat</Label>
           <select
             id="regulatory_category"
             name="regulatory_category"
             defaultValue={filters.regulatory_category ?? ''}
             className={selectClass}
           >
-            <option value="">All</option>
+            <option value="">Semua</option>
             {REGULATORY_CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -208,7 +208,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
 
       {/* Table */}
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">No movements found for the selected filters.</p>
+        <p className="text-sm text-slate-500">Tidak ada mutasi ditemukan untuk filter yang dipilih.</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           {Object.entries(grouped).map(([productId, productRows]) => (
@@ -234,10 +234,10 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                       <Table>
                         <TableHeader className="bg-slate-50">
                           <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Qty</TableHead>
-                            <TableHead className="text-right">Balance</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Jenis</TableHead>
+                            <TableHead className="text-right">Jml</TableHead>
+                            <TableHead className="text-right">Saldo</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -269,12 +269,12 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Jenis</TableHead>
                       <TableHead>Batch</TableHead>
-                      <TableHead>Expiry</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead>Kedaluwarsa</TableHead>
+                      <TableHead className="text-right">Jml</TableHead>
+                      <TableHead className="text-right">Saldo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

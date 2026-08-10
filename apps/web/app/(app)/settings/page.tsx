@@ -33,7 +33,7 @@ export default async function SettingsPage() {
 
   return (
     <section className="max-w-[560px] space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Store Settings</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Pengaturan</h1>
       <SettingsForm tenant={tenant as TenantProfile} />
     </section>
   )

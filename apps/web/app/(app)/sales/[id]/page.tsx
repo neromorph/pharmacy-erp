@@ -251,7 +251,7 @@ export default async function SaleDetailPage({
     .maybeSingle()
 
   if (!sale) {
-    return <p className="text-sm text-destructive">Sale not found</p>
+    return <p className="text-sm text-destructive">Transaksi tidak ditemukan</p>
   }
 
   // Shift gate: draft sale with no shift cannot be paid — keep read-only.
@@ -264,7 +264,7 @@ export default async function SaleDetailPage({
     <section className="space-y-6">
       <div>
         <Link href="/sales" className="inline-block text-sm text-primary hover:underline">
-          Back to Sales
+          Kembali ke Kasir
         </Link>
       </div>
       <div className="flex items-center gap-3">
@@ -277,13 +277,13 @@ export default async function SaleDetailPage({
           {sale.sale_type}
         </Badge>
       </div>
-      <p className="text-sm text-slate-500">Sold at: {parseDate(sale.sold_at || sale.created_at)}</p>
+      <p className="text-sm text-slate-500">Terjual: {parseDate(sale.sold_at || sale.created_at)}</p>
       {(sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && (
         <p className="text-sm text-slate-500">
           {sale.sale_type === 'BPJS' && (
             <Badge className="mr-1.5 bg-emerald-700 text-white">BPJS / JKN</Badge>
           )}
-          Doctor: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Patient:{' '}
+          Dokter: {sale.doctors?.name || '-'}{sale.doctors?.sip_number ? ` (${sale.doctors.sip_number})` : ''} · Pasien:{' '}
           {sale.patients?.name || '-'}
           {sale.sale_type === 'BPJS' && sale.patients?.bpjs_number && (
             <> · No. Peserta: {sale.patients.bpjs_number}</>
@@ -291,7 +291,7 @@ export default async function SaleDetailPage({
         </p>
       )}
       {sale.sale_type === 'SARANA' && (
-        <p className="text-sm text-slate-500">Facility: {sale.patients?.name || '-'}</p>
+        <p className="text-sm text-slate-500">Fasilitas: {sale.patients?.name || '-'}</p>
       )}
 
       {satusehatSubmission && (
@@ -303,7 +303,7 @@ export default async function SaleDetailPage({
               </Badge>
               {satusehatSubmission.sent_at && (
                 <span className="text-xs text-slate-500">
-                  Sent: {parseDate(satusehatSubmission.sent_at)}
+                  Terkirim: {parseDate(satusehatSubmission.sent_at)}
                 </span>
               )}
             </CardTitle>
@@ -316,7 +316,7 @@ export default async function SaleDetailPage({
               (userRole === 'OWNER' || userRole === 'PHARMACIST') && (
                 <form action={retrySatusehatSubmission.bind(null, sale.id)}>
                   <SubmitButton variant="outline" size="sm">
-                    Retry
+                    Kirim Ulang
                   </SubmitButton>
                 </form>
               )}
@@ -327,12 +327,12 @@ export default async function SaleDetailPage({
       <Table>
         <TableHeader className="sticky top-14 z-10 bg-slate-50">
           <TableRow>
-            <TableHead>Product</TableHead>
+            <TableHead>Produk</TableHead>
             <TableHead>Batch</TableHead>
-            <TableHead>Expiry</TableHead>
-            <TableHead className="text-right">Qty</TableHead>
-            <TableHead className="text-right">Unit Price</TableHead>
-            <TableHead className="text-right">Line Total</TableHead>
+            <TableHead>Kedaluwarsa</TableHead>
+            <TableHead className="text-right">Jml</TableHead>
+            <TableHead className="text-right">Harga Satuan</TableHead>
+            <TableHead className="text-right">Subtotal Baris</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -373,7 +373,7 @@ export default async function SaleDetailPage({
         </p>
         {sale.status === 'PAID' && (
           <p className="mt-1 text-sm tabular-nums text-slate-500">
-            Paid: {formatRupiah(Number(sale.paid_amount))} • Change: {formatRupiah(Number(sale.change_amount))}
+            Dibayar: {formatRupiah(Number(sale.paid_amount))} • Kembalian: {formatRupiah(Number(sale.change_amount))}
           </p>
         )}
       </div>
@@ -381,13 +381,13 @@ export default async function SaleDetailPage({
       {sale.status === 'DRAFT' && canPay && (
         <Card className="max-w-sm">
           <CardHeader>
-            <CardTitle className="text-sm">Complete Sale</CardTitle>
+            <CardTitle className="text-sm">Selesaikan Transaksi</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={paySale} className="grid gap-3">
               <input type="hidden" name="sale_id" value={sale.id} />
               <div className="grid gap-1.5">
-                <Label htmlFor="payment_method">Payment method</Label>
+                <Label htmlFor="payment_method">Metode pembayaran</Label>
                 <select
                   id="payment_method"
                   name="payment_method"
@@ -402,7 +402,7 @@ export default async function SaleDetailPage({
                 </select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="paid_amount">Paid amount</Label>
+                <Label htmlFor="paid_amount">Jumlah dibayar</Label>
                 <Input
                   id="paid_amount"
                   name="paid_amount"
@@ -412,7 +412,7 @@ export default async function SaleDetailPage({
                   required
                 />
               </div>
-              <SubmitButton className="w-fit">Complete Sale (Paid)</SubmitButton>
+              <SubmitButton className="w-fit">Selesaikan Transaksi (Lunas)</SubmitButton>
             </form>
           </CardContent>
         </Card>
@@ -421,33 +421,33 @@ export default async function SaleDetailPage({
       {(shiftMissing || (sale.status === 'DRAFT' && !canPay)) && (
         <div className="flex items-center gap-3 rounded-xl bg-red-50 px-4 py-3 ring-1 ring-red-200">
           <span className="text-sm text-red-700">
-            Cannot pay: {shiftMissing ? 'this draft sale has no associated shift.' : 'no open shift.'}
+            Tidak dapat membayar: {shiftMissing ? 'draft transaksi ini tidak memiliki shift.' : 'tidak ada shift terbuka.'}
           </span>
           <Link
             href="/shifts/new"
             className="whitespace-nowrap text-sm font-medium text-primary hover:underline"
           >
-            Open Shift →
+            Buka Shift →
           </Link>
         </div>
       )}
 
       {sale.status === 'PAID' && (
         <div>
-          <Button render={<Link href={`/receipts/${sale.id}`} />}>Print receipt</Button>
+          <Button render={<Link href={`/receipts/${sale.id}`} />}>Cetak struk</Button>
         </div>
       )}
 
       {sale.status === 'PAID' && (sale.sale_type === 'RESEP' || sale.sale_type === 'BPJS') && canVoidSale(userRole) && (
         <Card className="max-w-lg">
           <CardHeader>
-            <CardTitle className="text-sm">Edit Prescription Info</CardTitle>
+            <CardTitle className="text-sm">Ubah Info Resep</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={updateSaleClinicalInfo} className="grid gap-3">
               <input type="hidden" name="sale_id" value={sale.id} />
               <div className="grid gap-1.5">
-                <Label htmlFor="doctor_id">Doctor</Label>
+                <Label htmlFor="doctor_id">Dokter</Label>
                 <select
                   id="doctor_id"
                   name="doctor_id"
@@ -464,7 +464,7 @@ export default async function SaleDetailPage({
                 </select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="patient_id">Patient</Label>
+                <Label htmlFor="patient_id">Pasien</Label>
                 <select
                   id="patient_id"
                   name="patient_id"
@@ -480,7 +480,7 @@ export default async function SaleDetailPage({
                   ))}
                 </select>
               </div>
-              <SubmitButton className="w-fit">Save</SubmitButton>
+              <SubmitButton className="w-fit">Simpan</SubmitButton>
             </form>
           </CardContent>
         </Card>

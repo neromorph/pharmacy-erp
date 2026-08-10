@@ -18,23 +18,23 @@ interface VoidSaleDialogProps {
   action: (formData: FormData) => void | Promise<void>
 }
 
-// Voiding a PAID sale restores batch stock and cannot be undone — confirm first.
+// Membatalkan penjualan PAID mengembalikan stok batch dan tidak dapat dibatalkan — konfirmasi dulu.
 export function VoidSaleDialog({ saleId, action }: VoidSaleDialogProps) {
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="destructive" />}>Void Sale</DialogTrigger>
+      <DialogTrigger render={<Button variant="destructive" />}>Batalkan Transaksi</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Void this sale?</DialogTitle>
+          <DialogTitle>Batalkan transaksi ini?</DialogTitle>
           <DialogDescription>
-            Stock returns to its FEFO batches. The sale stays in the record as VOID.
+            Stok kembali ke batch FEFO-nya. Transaksi tetap tercatat sebagai VOID.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter showCloseButton={false}>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
           <form action={action}>
             <input type="hidden" name="sale_id" value={saleId} />
-            <SubmitButton variant="destructive">Void sale</SubmitButton>
+            <SubmitButton variant="destructive">Batalkan transaksi</SubmitButton>
           </form>
         </DialogFooter>
       </DialogContent>

@@ -38,17 +38,17 @@ export default async function HomePage() {
 
   const cards = [
     {
-      label: 'Daily Sales',
+      label: 'Penjualan Harian',
       value: available ? currency.format(dailySales!) : '—',
       Icon: Banknote,
     },
     {
-      label: 'Low Stock',
+      label: 'Stok Menipis',
       value: available ? String(lowStockCount!) : '—',
       Icon: AlertTriangle,
     },
     {
-      label: 'Near Expiry',
+      label: 'Mendekati Kedaluwarsa',
       value: available ? String(nearExpiryCount!) : '—',
       Icon: CalendarClock,
     },
@@ -56,10 +56,10 @@ export default async function HomePage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Dashboard</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Dasbor</h1>
       {!available ? (
         <p className="text-sm text-slate-500">
-          Dashboard unavailable{error ? `: ${error.message}` : ''}
+          Dasbor tidak tersedia{error ? `: ${error.message}` : ''}
         </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-3">

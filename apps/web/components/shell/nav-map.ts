@@ -12,47 +12,47 @@ export interface NavGroup {
 // Approved navigation map: 7 groups, fixed order.
 export const NAV_GROUPS: NavGroup[] = [
   {
-    title: 'Operations',
+    title: 'Operasional',
     items: [
-      { label: 'Dashboard', href: '/' },
-      { label: 'Sales', href: '/sales', primary: true },
-      { label: 'Shifts', href: '/shifts' },
+      { label: 'Dasbor', href: '/' },
+      { label: 'Kasir', href: '/sales', primary: true },
+      { label: 'Shift Kasir', href: '/shifts' },
     ],
   },
   {
-    title: 'Inventory',
+    title: 'Persediaan',
     items: [
-      { label: 'Products', href: '/products' },
+      { label: 'Data Obat', href: '/products' },
       { label: 'Kartu Stok', href: '/kartu-stok' },
       { label: 'Stock Opname', href: '/stock-opname' },
       { label: 'Pemusnahan', href: '/stock/destructions' },
     ],
   },
   {
-    title: 'Procurement',
+    title: 'Pengadaan',
     items: [
-      { label: 'Suppliers', href: '/suppliers' },
-      { label: 'Purchase Orders', href: '/procurement' },
-      { label: 'Returns', href: '/procurement/returns' },
+      { label: 'Data Pemasok', href: '/suppliers' },
+      { label: 'Pesanan Pembelian (PO)', href: '/procurement' },
+      { label: 'Retur Pembelian', href: '/procurement/returns' },
     ],
   },
   {
-    title: 'Finance',
-    items: [{ label: 'Payables', href: '/finance/payables' }],
+    title: 'Keuangan',
+    items: [{ label: 'Hutang Dagang', href: '/finance/payables' }],
   },
   {
-    title: 'Compliance',
+    title: 'Pelaporan',
     items: [{ label: 'SIPNAP', href: '/reports/sipnap' }],
   },
   {
-    title: 'Master Data',
+    title: 'Data Master',
     items: [
-      { label: 'Doctors', href: '/doctors' },
-      { label: 'Patients', href: '/patients' },
+      { label: 'Dokter', href: '/doctors' },
+      { label: 'Pasien', href: '/patients' },
     ],
   },
   {
-    title: 'System',
-    items: [{ label: 'Settings', href: '/settings' }],
+    title: 'Sistem',
+    items: [{ label: 'Pengaturan', href: '/settings' }],
   },
 ]

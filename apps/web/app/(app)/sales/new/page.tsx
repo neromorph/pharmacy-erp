@@ -19,11 +19,11 @@ async function PosBlock() {
   return (
     <div className="flex min-h-80 flex-col items-center justify-center rounded-xl bg-card px-8 py-8 text-center ring-1 ring-foreground/10">
       <CircleAlert className="mb-4 size-12 text-slate-400" aria-hidden />
-      <h2 className="mb-2 text-base font-semibold text-slate-900">No Open Shift</h2>
+      <h2 className="mb-2 text-base font-semibold text-slate-900">Tidak Ada Shift Aktif</h2>
       <p className="mb-5 text-sm text-slate-500">
-        Open a shift before you can start a sale.
+        Buka shift terlebih dahulu sebelum memulai transaksi.
       </p>
-      <Button render={<Link href="/shifts/new" />}>Open Shift</Button>
+      <Button render={<Link href="/shifts/new" />}>Buka Shift</Button>
     </div>
   )
 }
@@ -57,9 +57,9 @@ export default async function NewSalePage({
       <section className="mx-auto max-w-md space-y-6">
         <div>
           <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
-            Back to Sales
+            Kembali ke Kasir
           </Link>
-          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
+          <h1 className="text-xl font-semibold text-slate-900">Transaksi Baru</h1>
         </div>
         <PosBlock />
       </section>
@@ -93,12 +93,12 @@ export default async function NewSalePage({
     <section className="mx-auto max-w-3xl space-y-6">
       <div>
         <Link href="/sales" className="mb-4 inline-block text-sm text-primary hover:underline">
-          Back to Sales
+          Kembali ke Kasir
         </Link>
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">New Sale</h1>
+          <h1 className="text-xl font-semibold text-slate-900">Transaksi Baru</h1>
           <span className="text-xs text-slate-500">
-            Shift: {openShift.id.slice(0, 8)}… · Opened {parseDate(openShift.opened_at)}
+            Shift: {openShift.id.slice(0, 8)}… · Dibuka {parseDate(openShift.opened_at)}
           </span>
         </div>
       </div>
@@ -116,17 +116,17 @@ export default async function NewSalePage({
       />
 
       <div className="space-y-3">
-        <h2 className="text-sm font-medium text-slate-900">Available stock (FEFO)</h2>
+        <h2 className="text-sm font-medium text-slate-900">Stok tersedia (FEFO)</h2>
         {(products || []).length === 0 ? (
-          <p className="text-sm text-slate-500">No products yet</p>
+          <p className="text-sm text-slate-500">Belum ada data obat</p>
         ) : (
           <Table>
             <TableHeader className="sticky top-14 z-10 bg-slate-50">
               <TableRow>
-                <TableHead>Product</TableHead>
+                <TableHead>Produk</TableHead>
                 <TableHead>Batch</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
+                <TableHead>Kedaluwarsa</TableHead>
+                <TableHead className="text-right">Stok</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -25,18 +25,18 @@ interface PayoutDialogProps {
 export function PayoutDialog({ payableId, remainingAmount }: PayoutDialogProps) {
   return (
     <Dialog>
-      <DialogTrigger render={<Button variant="outline" size="sm" />}>Pay</DialogTrigger>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>Bayar</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Record payout</DialogTitle>
+          <DialogTitle>Catat pembayaran</DialogTitle>
           <DialogDescription>
-            Remaining balance: Rp {remainingAmount.toFixed(2)}. Unapplied supplier credit is applied first.
+            Sisa tagihan: Rp {remainingAmount.toFixed(2)}. Kredit pemasok yang belum dipakai diaplikasikan lebih dulu.
           </DialogDescription>
         </DialogHeader>
         <form action={postPayout} className="grid gap-3">
           <input type="hidden" name="accounts_payable_id" value={payableId} />
           <div className="grid gap-1.5">
-            <Label htmlFor={`amount-${payableId}`}>Amount</Label>
+            <Label htmlFor={`amount-${payableId}`}>Jumlah</Label>
             <Input
               id={`amount-${payableId}`}
               name="amount"
@@ -45,11 +45,11 @@ export function PayoutDialog({ payableId, remainingAmount }: PayoutDialogProps) 
               min="0.01"
               max={remainingAmount}
               required
-              placeholder="Amount"
+              placeholder="Jumlah"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`method-${payableId}`}>Method</Label>
+            <Label htmlFor={`method-${payableId}`}>Metode</Label>
             <select
               id={`method-${payableId}`}
               name="method"
@@ -63,10 +63,10 @@ export function PayoutDialog({ payableId, remainingAmount }: PayoutDialogProps) 
             </select>
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`notes-${payableId}`}>Notes</Label>
-            <Input id={`notes-${payableId}`} name="notes" placeholder="Notes" />
+            <Label htmlFor={`notes-${payableId}`}>Catatan</Label>
+            <Input id={`notes-${payableId}`} name="notes" placeholder="Catatan" />
           </div>
-          <Button type="submit" className="mt-1 justify-self-end">Pay</Button>
+          <Button type="submit" className="mt-1 justify-self-end">Bayar</Button>
         </form>
       </DialogContent>
     </Dialog>

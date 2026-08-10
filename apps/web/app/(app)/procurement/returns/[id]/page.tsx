@@ -26,7 +26,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
     .eq('id', id)
     .single()
 
-  if (!ret) return <p className="text-sm text-slate-500">Return not found</p>
+  if (!ret) return <p className="text-sm text-slate-500">Retur tidak ditemukan</p>
 
   const { data: items } = await supabase
     .from('purchase_return_items')
@@ -41,33 +41,33 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
     <section className="space-y-6">
       <div>
         <Link href="/procurement/returns" className="text-sm text-primary hover:underline">
-          Back to Returns
+          Kembali ke Retur
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">{ret.return_number}</h1>
       </div>
 
       <div className="grid max-w-2xl grid-cols-1 gap-x-4 gap-y-2 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10 sm:grid-cols-2">
         <div>
-          Supplier: <strong>{ret.supplier?.name || '-'}</strong>
+          Pemasok: <strong>{ret.supplier?.name || '-'}</strong>
         </div>
         <div>
-          Reason: <strong>{ret.reason}</strong>
+          Alasan: <strong>{ret.reason}</strong>
         </div>
         <div>
-          Date: <strong>{parseDate(ret.returned_at)}</strong>
+          Tanggal: <strong>{parseDate(ret.returned_at)}</strong>
         </div>
         <div>
-          PBF Credit Note: <strong>{ret.pbf_credit_note_number || '-'}</strong>
+          Nota Kredit PBF: <strong>{ret.pbf_credit_note_number || '-'}</strong>
         </div>
         <div>
           Total: <strong className="tabular-nums">{total.toFixed(2)}</strong>
         </div>
         <div>
-          Remaining credit: <strong className="tabular-nums">{remaining.toFixed(2)}</strong>
+          Sisa kredit: <strong className="tabular-nums">{remaining.toFixed(2)}</strong>
         </div>
         {ret.notes && (
           <div className="sm:col-span-2">
-            Notes: {ret.notes}
+            Catatan: {ret.notes}
           </div>
         )}
       </div>
@@ -76,12 +76,12 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Product</TableHead>
+              <TableHead>Produk</TableHead>
               <TableHead>Batch</TableHead>
-              <TableHead>Expiry</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Unit Cost</TableHead>
-              <TableHead className="text-right">Line Total</TableHead>
+              <TableHead>Kedaluwarsa</TableHead>
+              <TableHead className="text-right">Jumlah</TableHead>
+              <TableHead className="text-right">Harga Satuan</TableHead>
+              <TableHead className="text-right">Subtotal</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

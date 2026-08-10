@@ -120,22 +120,22 @@ export default async function SipnapReportPage({
           <Input type="number" name="month" min={1} max={12} defaultValue={month} className="w-24" />
         </div>
         <div className="grid gap-1.5">
-          <span className="text-sm font-medium text-slate-500">Year</span>
+          <span className="text-sm font-medium text-slate-500">Tahun</span>
           <Input type="number" name="year" min={2020} max={2100} defaultValue={year} className="w-24" />
         </div>
-        <Button type="submit">Load</Button>
+        <Button type="submit">Muat</Button>
       </form>
 
       {report.missing.length > 0 ? (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-slate-900">Missing Data</h2>
-          <p className="text-sm text-slate-500">Fix these transactions before export is enabled.</p>
+          <h2 className="text-sm font-semibold text-slate-900">Data Tidak Lengkap</h2>
+          <p className="text-sm text-slate-500">Perbaiki transaksi ini sebelum ekspor dapat dibuat.</p>
           <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
             <Table>
               <TableHeader className="bg-slate-50">
                 <TableRow>
-                  <TableHead>Invoice</TableHead>
-                  <TableHead>Missing fields</TableHead>
+                  <TableHead>Faktur</TableHead>
+                  <TableHead>Kolom kosong</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

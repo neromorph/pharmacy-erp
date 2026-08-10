@@ -64,10 +64,10 @@ export function ReturnForm({
     <form action={createPurchaseReturn} className="max-w-4xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="grid gap-1.5">
-          <Label htmlFor="supplier_id">Supplier</Label>
+          <Label htmlFor="supplier_id">Pemasok</Label>
           <select id="supplier_id" name="supplier_id" required className={selectClass} defaultValue="">
             <option value="" disabled>
-              Select supplier
+              Pilih pemasok
             </option>
             {suppliers.map((s) => (
               <option key={s.id} value={s.id}>
@@ -77,35 +77,35 @@ export function ReturnForm({
           </select>
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="return_number">Return Number</Label>
+          <Label htmlFor="return_number">Nomor Retur</Label>
           <Input id="return_number" name="return_number" required placeholder="RTR-2608-001" />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="reason">Reason</Label>
+          <Label htmlFor="reason">Alasan</Label>
           <select id="reason" name="reason" required className={selectClass} defaultValue="">
             <option value="" disabled>
-              Select reason
+              Pilih alasan
             </option>
-            <option value="EXPIRED">Expired</option>
-            <option value="DAMAGED">Damaged</option>
-            <option value="RECALL">Recall</option>
+            <option value="EXPIRED">Kedaluwarsa</option>
+            <option value="DAMAGED">Rusak</option>
+            <option value="RECALL">Penarikan (Recall)</option>
           </select>
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="pbf_credit_note_number">PBF Credit Note Number</Label>
-          <Input id="pbf_credit_note_number" name="pbf_credit_note_number" placeholder="Optional" />
+          <Label htmlFor="pbf_credit_note_number">Nomor Nota Kredit PBF</Label>
+          <Input id="pbf_credit_note_number" name="pbf_credit_note_number" placeholder="Opsional" />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="returned_at">Returned At</Label>
+          <Label htmlFor="returned_at">Tanggal Retur</Label>
           <Input id="returned_at" name="returned_at" type="date" required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="notes">Notes</Label>
-          <Input id="notes" name="notes" placeholder="Optional" />
+          <Label htmlFor="notes">Catatan</Label>
+          <Input id="notes" name="notes" placeholder="Opsional" />
         </div>
       </div>
 
-      <h2 className="text-sm font-medium text-slate-900">Items</h2>
+      <h2 className="text-sm font-medium text-slate-900">Item Barang</h2>
       <div className="grid gap-3">
         {rows.map((row, index) => (
           <div
@@ -113,7 +113,7 @@ export function ReturnForm({
             className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-end gap-2 rounded-lg border border-border/60 p-3"
           >
             <div className="grid gap-1.5">
-              <Label className="text-xs">Product</Label>
+              <Label className="text-xs">Produk</Label>
               <select
                 value={row.productId}
                 required
@@ -121,7 +121,7 @@ export function ReturnForm({
                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
               >
                 <option value="" disabled>
-                  Select product
+                  Pilih produk
                 </option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -141,7 +141,7 @@ export function ReturnForm({
                 onChange={(e) => updateRow(index, { batchId: e.target.value })}
               >
                 <option value="" disabled>
-                  Select batch
+                  Pilih batch
                 </option>
                 {batchesFor(row.productId).map((b) => (
                   <option key={b.id} value={b.id}>
@@ -151,7 +151,7 @@ export function ReturnForm({
               </select>
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-xs">Qty</Label>
+              <Label className="text-xs">Jumlah</Label>
               <Input
                 name="qty_returned"
                 type="number"
@@ -164,7 +164,7 @@ export function ReturnForm({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-xs">Unit Cost</Label>
+              <Label className="text-xs">Harga Satuan</Label>
               <Input
                 name="unit_cost"
                 type="number"
@@ -178,7 +178,7 @@ export function ReturnForm({
             </div>
             <div>
               <Button type="button" variant="outline" onClick={() => removeRow(index)}>
-                Remove
+                Hapus
               </Button>
             </div>
             <input type="hidden" name="product_id" value={row.productId} />
@@ -188,9 +188,9 @@ export function ReturnForm({
 
       <div className="flex gap-2">
         <Button type="button" variant="outline" onClick={addRow}>
-          Add Item
+          Tambah Item
         </Button>
-        <Button type="submit">Create Return</Button>
+        <Button type="submit">Buat Retur</Button>
       </div>
     </form>
   )

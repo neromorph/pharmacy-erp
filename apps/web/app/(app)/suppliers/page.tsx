@@ -19,19 +19,19 @@ export default async function SuppliersPage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">Suppliers (PBF)</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Pemasok (PBF)</h1>
       {!suppliers || suppliers.length === 0 ? (
-        <p className="text-sm text-slate-500">No suppliers yet</p>
+        <p className="text-sm text-slate-500">Belum ada data pemasok</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Nama</TableHead>
                 <TableHead>PBF</TableHead>
-                <TableHead>License Number</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead className="text-right">Payment Terms (days)</TableHead>
+                <TableHead>Nomor Izin</TableHead>
+                <TableHead>Telepon</TableHead>
+                <TableHead className="text-right">Termin Pembayaran (hari)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

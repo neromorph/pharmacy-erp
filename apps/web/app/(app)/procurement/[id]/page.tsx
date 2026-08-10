@@ -78,21 +78,21 @@ export default async function PurchaseOrderDetailPage({
     .eq('purchase_order_id', id)
 
   if (!po) {
-    return <p className="text-sm text-destructive">Purchase order not found</p>
+    return <p className="text-sm text-destructive">Pesanan pembelian tidak ditemukan</p>
   }
 
   return (
     <section className="space-y-6">
       <div>
         <Link href="/procurement" className="text-sm text-primary hover:underline">
-          Back to Procurement
+          Kembali ke Pengadaan
         </Link>
         <div className="mt-1 flex items-center gap-3">
           <h1 className="text-xl font-semibold text-slate-900">{po.po_number}</h1>
           <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Supplier: {po.suppliers?.name || '-'} • Ordered: {parseDate(po.ordered_at || po.created_at)}
+          Pemasok: {po.suppliers?.name || '-'} • Dipesan: {parseDate(po.ordered_at || po.created_at)}
         </p>
       </div>
 
@@ -100,11 +100,11 @@ export default async function PurchaseOrderDetailPage({
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Product</TableHead>
+              <TableHead>Produk</TableHead>
               <TableHead>SKU</TableHead>
-              <TableHead className="text-right">Qty</TableHead>
-              <TableHead className="text-right">Unit Price</TableHead>
-              <TableHead className="text-right">Line Total</TableHead>
+              <TableHead className="text-right">Jumlah</TableHead>
+              <TableHead className="text-right">Harga Satuan</TableHead>
+              <TableHead className="text-right">Subtotal</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -125,7 +125,7 @@ export default async function PurchaseOrderDetailPage({
         <form>
           <input type="hidden" name="id" value={po.id} />
           <Button type="submit" formAction={submitPurchaseOrder}>
-            Submit for Approval
+            Ajukan Persetujuan
           </Button>
         </form>
       )}
@@ -133,12 +133,12 @@ export default async function PurchaseOrderDetailPage({
         <form>
           <input type="hidden" name="id" value={po.id} />
           <Button type="submit" formAction={approvePurchaseOrder}>
-            Approve
+            Setujui
           </Button>
         </form>
       )}
       {po.status === 'APPROVED' && (
-        <Button render={<Link href={`/procurement/${po.id}/receive`} />}>Receive Goods</Button>
+        <Button render={<Link href={`/procurement/${po.id}/receive`} />}>Terima Barang</Button>
       )}
     </section>
   )

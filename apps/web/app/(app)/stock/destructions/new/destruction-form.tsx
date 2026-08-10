@@ -69,7 +69,7 @@ export function DestructionForm({
           <Input id="bap_date" name="bap_date" type="date" required />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="witness_names">Witness Names</Label>
+          <Label htmlFor="witness_names">Nama Saksi</Label>
           <Input
             id="witness_names"
             name="witness_names"
@@ -78,22 +78,22 @@ export function DestructionForm({
           />
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="reason">Reason</Label>
+          <Label htmlFor="reason">Alasan</Label>
           <select name="reason" required className={selectClass} defaultValue="">
             <option value="" disabled>
-              Select reason
+              Pilih alasan
             </option>
             <option value="EXPIRED">Expired</option>
             <option value="DAMAGED">Damaged</option>
           </select>
         </div>
         <div className="grid gap-1.5">
-          <Label htmlFor="notes">Notes</Label>
-          <Input id="notes" name="notes" placeholder="Optional" />
+          <Label htmlFor="notes">Catatan</Label>
+          <Input id="notes" name="notes" placeholder="Opsional" />
         </div>
       </div>
 
-      <h2 className="mt-6 mb-3 text-base font-medium text-slate-900">Items</h2>
+      <h2 className="mt-6 mb-3 text-base font-medium text-slate-900">Item</h2>
       <div className="grid gap-3">
         {rows.map((row, index) => (
           <div
@@ -101,7 +101,7 @@ export function DestructionForm({
             className="grid items-end gap-x-3 gap-y-2 rounded-lg border border-border/60 p-3 sm:grid-cols-[2fr_1.5fr_1fr_auto]"
           >
             <div className="grid gap-1.5">
-              <Label htmlFor={`product-${index}`}>Product</Label>
+              <Label htmlFor={`product-${index}`}>Produk</Label>
               <select
                 id={`product-${index}`}
                 value={row.productId}
@@ -110,7 +110,7 @@ export function DestructionForm({
                 onChange={(e) => updateRow(index, { productId: e.target.value, batchId: '' })}
               >
                 <option value="" disabled>
-                  Select product
+                  Pilih produk
                 </option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -141,7 +141,7 @@ export function DestructionForm({
               </select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor={`qty-${index}`}>Qty Destroyed</Label>
+              <Label htmlFor={`qty-${index}`}>Jml Dimusnahkan</Label>
               <Input
                 id={`qty-${index}`}
                 name="qty_destroyed"

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 export function PrintButton() {
   return (
     <Button type="button" variant="outline" onClick={() => window.print()}>
-      Print (A4)
+      Cetak (A4)
     </Button>
   )
 }

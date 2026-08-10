@@ -35,43 +35,43 @@ export default async function PatientsPage() {
   return (
     <section className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Patients</h1>
-        <Button render={<Link href="/" />} variant="outline" size="sm">Back</Button>
+        <h1 className="text-xl font-semibold text-slate-900">Pasien</h1>
+        <Button render={<Link href="/" />} variant="outline" size="sm">Kembali</Button>
       </div>
 
       {canEdit ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm font-semibold">New Patient</CardTitle>
+            <CardTitle className="text-sm font-semibold">Pasien Baru</CardTitle>
           </CardHeader>
           <CardContent>
             <form action={createPatient} className="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
               <div className="grid gap-1.5">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name">Nama</Label>
                 <Input id="name" name="name" required />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">Alamat</Label>
                 <Input id="address" name="address" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Telepon</Label>
                 <Input id="phone" name="phone" />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="birth_date">Birth Date</Label>
+                <Label htmlFor="birth_date">Tanggal Lahir</Label>
                 <Input id="birth_date" name="birth_date" type="date" />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="bpjs_number">No. Peserta BPJS</Label>
-                <Input id="bpjs_number" name="bpjs_number" placeholder="e.g. 0001234567890" />
+                <Input id="bpjs_number" name="bpjs_number" placeholder="cth. 0001234567890" />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="nik">NIK</Label>
-                <Input id="nik" name="nik" placeholder="16-digit national ID" />
+                <Input id="nik" name="nik" placeholder="NIK 16 digit" />
               </div>
               <div className="flex items-end">
-                <Button type="submit">Add Patient</Button>
+                <Button type="submit">Simpan Pasien</Button>
               </div>
             </form>
           </CardContent>
@@ -79,16 +79,16 @@ export default async function PatientsPage() {
       ) : null}
 
       {!patients || patients.length === 0 ? (
-        <p className="text-sm text-slate-500">No patients yet</p>
+        <p className="text-sm text-slate-500">Belum ada data pasien</p>
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Address</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Birth Date</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Alamat</TableHead>
+                <TableHead>Telepon</TableHead>
+                <TableHead>Tanggal Lahir</TableHead>
                 <TableHead>No. Peserta BPJS</TableHead>
                 <TableHead>NIK</TableHead>
                 {canEdit ? <TableHead></TableHead> : null}
@@ -106,23 +106,23 @@ export default async function PatientsPage() {
                   {canEdit ? (
                     <TableCell>
                       <details>
-                        <summary className="cursor-pointer text-sm font-medium text-primary">Edit</summary>
+                        <summary className="cursor-pointer text-sm font-medium text-primary">Ubah</summary>
                         <form action={updatePatient} className="grid gap-3 py-3 sm:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
                           <input type="hidden" name="id" value={p.id} />
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-name-${p.id}`}>Name</Label>
+                            <Label htmlFor={`edit-name-${p.id}`}>Nama</Label>
                             <Input id={`edit-name-${p.id}`} name="name" required defaultValue={p.name} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-address-${p.id}`}>Address</Label>
+                            <Label htmlFor={`edit-address-${p.id}`}>Alamat</Label>
                             <Input id={`edit-address-${p.id}`} name="address" defaultValue={p.address ?? ''} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-phone-${p.id}`}>Phone</Label>
+                            <Label htmlFor={`edit-phone-${p.id}`}>Telepon</Label>
                             <Input id={`edit-phone-${p.id}`} name="phone" defaultValue={p.phone ?? ''} />
                           </div>
                           <div className="grid gap-1.5">
-                            <Label htmlFor={`edit-dob-${p.id}`}>Birth Date</Label>
+                            <Label htmlFor={`edit-dob-${p.id}`}>Tanggal Lahir</Label>
                             <Input id={`edit-dob-${p.id}`} name="birth_date" type="date" defaultValue={p.birth_date ?? ''} />
                           </div>
                           <div className="grid gap-1.5">
@@ -131,19 +131,19 @@ export default async function PatientsPage() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label htmlFor={`edit-nik-${p.id}`}>NIK</Label>
-                            <Input id={`edit-nik-${p.id}`} name="nik" defaultValue={p.nik ?? ''} placeholder="16-digit national ID" />
+                            <Input id={`edit-nik-${p.id}`} name="nik" defaultValue={p.nik ?? ''} placeholder="NIK 16 digit" />
                             {p.ihs_number ? (
                               <p className="text-xs text-slate-500">IHS: {p.ihs_number}</p>
                             ) : null}
                           </div>
                           <div className="flex items-end">
-                            <Button type="submit" size="sm">Save</Button>
+                            <Button type="submit" size="sm">Simpan</Button>
                           </div>
                         </form>
                         {isOwner ? (
                           <form action={deletePatient} className="pb-2">
                             <input type="hidden" name="id" value={p.id} />
-                            <Button type="submit" variant="destructive" size="sm">Remove</Button>
+                            <Button type="submit" variant="destructive" size="sm">Hapus</Button>
                           </form>
                         ) : null}
                       </details>

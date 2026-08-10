@@ -126,7 +126,7 @@ export default async function ShiftDetailPage({
     { label: 'Opening Cash', value: opening.toFixed(2) },
     { label: 'Total Sales Received', value: totalPaid.toFixed(2) },
     closing !== null
-      ? { label: 'Closing Cash', value: closing.toFixed(2) }
+      ? { label: 'Kas Penutupan', value: closing.toFixed(2) }
       : { label: 'Expected Closing', value: expectedClosing.toFixed(2) },
   ]
 
@@ -185,7 +185,7 @@ export default async function ShiftDetailPage({
           Sales ({sales?.length ?? 0})
           {draftCount != null && draftCount > 0 && (
             <span className="ml-2 text-sm font-normal text-amber-600">
-              ({draftCount} draft — must be completed or cancelled before close)
+              ({draftCount} draft — harus diselesaikan atau dibatalkan sebelum tutup)
             </span>
           )}
         </h2>
@@ -193,7 +193,7 @@ export default async function ShiftDetailPage({
           <Table>
             <TableHeader className="sticky top-14 z-10 bg-slate-50">
               <TableRow>
-                <TableHead>Sale Number</TableHead>
+                <TableHead>Nomor Transaksi</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Grand Total</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
@@ -233,12 +233,12 @@ export default async function ShiftDetailPage({
       {shift.status === 'OPEN' && (
         <Card>
           <CardHeader>
-            <CardTitle>Close Shift</CardTitle>
+            <CardTitle>Tutup Shift</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {draftCount != null && draftCount > 0 && (
               <p className="text-sm text-amber-600">
-                Cannot close: {draftCount} draft sale(s) exist. Complete or cancel all draft sales
+                Tidak dapat menutup: {draftCount} transaksi draft masih ada. Selesaikan atau batalkan semua transaksi draft
                 first.
               </p>
             )}
@@ -247,7 +247,7 @@ export default async function ShiftDetailPage({
               <form action={handleClose} className="flex items-end gap-3">
                 <input type="hidden" name="shift_id" value={shift.id} />
                 <div className="grid gap-1.5">
-                  <Label htmlFor="closing_cash">Closing Cash</Label>
+                  <Label htmlFor="closing_cash">Kas Penutupan</Label>
                   <Input
                     id="closing_cash"
                     name="closing_cash"
@@ -260,7 +260,7 @@ export default async function ShiftDetailPage({
                   />
                 </div>
                 <Button type="submit" disabled={!!(draftCount != null && draftCount > 0)}>
-                  Close Shift
+                  Tutup Shift
                 </Button>
               </form>
             )}
@@ -268,12 +268,12 @@ export default async function ShiftDetailPage({
             {canForce && !isOwnShift && (
               <>
                 <p className="text-sm text-slate-500">
-                  This shift belongs to another user. Use force-close as owner.
+                  Shift ini milik pengguna lain. Gunakan tutup paksa sebagai pemilik.
                 </p>
                 <form action={handleForceClose} className="flex items-end gap-3">
                   <input type="hidden" name="shift_id" value={shift.id} />
                   <div className="grid gap-1.5">
-                    <Label htmlFor="force_closing_cash">Closing Cash</Label>
+                    <Label htmlFor="force_closing_cash">Kas Penutupan</Label>
                     <Input
                       id="force_closing_cash"
                       name="closing_cash"
@@ -286,7 +286,7 @@ export default async function ShiftDetailPage({
                     />
                   </div>
                   <Button type="submit" variant="destructive">
-                    Force Close (Owner)
+                    Tutup Paksa (Pemilik)
                   </Button>
                 </form>
               </>

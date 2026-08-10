@@ -17,7 +17,7 @@ export function AgingCsvButton({ rows }: { rows: PayableCsvRow[] }) {
 
   return (
     <Button variant="outline" size="sm" onClick={download}>
-      Download CSV
+      Unduh CSV
     </Button>
   )
 }

@@ -87,22 +87,22 @@ export default async function NewStockOpnamePage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-xl font-semibold text-slate-900">New Stock Opname</h1>
+      <h1 className="text-xl font-semibold text-slate-900">Opname Stok Baru</h1>
       <form
         action={createStockOpname}
         className="rounded-xl bg-card px-4 py-4 ring-1 ring-foreground/10"
       >
         <div className="grid gap-1.5">
-          <Label htmlFor="type">Opname type</Label>
+          <Label htmlFor="type">Jenis opname</Label>
           <select
             id="type"
             name="type"
             className={`${selectClass} max-w-64`}
             defaultValue="FULL_STORE"
           >
-            <option value="FULL_STORE">Full Store</option>
-            <option value="RACK_BASED">Rack Based</option>
-            <option value="AD_HOC_SINGLE">Ad Hoc Single</option>
+            <option value="FULL_STORE">Seluruh Toko</option>
+            <option value="RACK_BASED">Per Rak</option>
+            <option value="AD_HOC_SINGLE">Item Tunggal</option>
           </select>
         </div>
 
@@ -110,12 +110,12 @@ export default async function NewStockOpnamePage() {
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead>Product</TableHead>
+                <TableHead>Produk</TableHead>
                 <TableHead>Batch</TableHead>
-                <TableHead>Expiry</TableHead>
-                <TableHead className="text-right">System</TableHead>
-                <TableHead>Physical</TableHead>
-                <TableHead>Reason</TableHead>
+                <TableHead>Kedaluwarsa</TableHead>
+                <TableHead className="text-right">Sistem</TableHead>
+                <TableHead>Fisik</TableHead>
+                <TableHead>Alasan</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

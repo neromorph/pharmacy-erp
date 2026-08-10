@@ -37,8 +37,8 @@ export default async function NewShiftPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Shift Details</CardTitle>
-          <CardDescription>Enter the cash in the drawer at shift start.</CardDescription>
+          <CardTitle>Detail Shift</CardTitle>
+          <CardDescription>Masukkan uang tunai di laci saat shift dimulai.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={openShift} className="grid gap-4">
@@ -59,12 +59,12 @@ export default async function NewShiftPage({
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Catatan</Label>
               <Textarea
                 id="notes"
                 name="notes"
                 rows={3}
-                placeholder="Optional notes for this shift"
+                placeholder="Catatan opsional untuk shift ini"
               />
             </div>
 
