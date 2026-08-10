@@ -6,6 +6,11 @@
 # Build-time: NEXT_PUBLIC_SUPABASE_* are inlined into the web client bundle.
 # Runtime:    the Supabase server client reads the same vars from env.
 # Secrets live in .env (VPS-side), never committed.
+#
+# Deploy flow (GitHub Actions): CI builds and pushes the images to Docker Hub
+# under ${DOCKERHUB_USERNAME}, then the VPS runs `docker compose pull` and
+# `docker compose up -d`. Set DOCKERHUB_USERNAME in .env on the VPS (and in
+# your local .env if you build via compose).
 
 networks:
   traefik_web:
@@ -19,7 +24,7 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    image: pharmacy-erp-web:latest
+    image: ${DOCKERHUB_USERNAME:?set DOCKERHUB_USERNAME in .env}/pharmacy-erp-web:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -56,7 +61,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    image: pharmacy-erp-api:latest
+    image: ${DOCKERHUB_USERNAME:?set DOCKERHUB_USERNAME in .env}/pharmacy-erp-api:latest
     restart: unless-stopped
     env_file:
       - .env
