@@ -1,7 +1,6 @@
 export interface NavItem {
   label: string
   href: string
-  primary?: boolean
 }
 
 export interface NavGroup {
@@ -15,7 +14,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Operasional',
     items: [
       { label: 'Dasbor', href: '/' },
-      { label: 'Kasir', href: '/sales', primary: true },
+      { label: 'Kasir', href: '/sales' },
       { label: 'Shift Kasir', href: '/shifts' },
     ],
   },

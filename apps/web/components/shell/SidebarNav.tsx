@@ -52,22 +52,6 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
   const Icon = ICONS[item.href] ?? Dot
   const active = isActive(pathname, item.href)
 
-  if (item.primary) {
-    return (
-      <Link
-        href={item.href}
-        className={cn(
-          'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white',
-          'bg-primary hover:bg-primary-hover',
-          active && 'ring-2 ring-primary-hover ring-offset-1'
-        )}
-      >
-        <Icon className="size-4" />
-        {item.label}
-      </Link>
-    )
-  }
-
   return (
     <Link
       href={item.href}
