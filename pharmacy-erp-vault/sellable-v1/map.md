@@ -25,10 +25,8 @@ Sellable pharmacy retail ERP v1. Goal: core retail flow feels fast, safe, and cl
 - Implementation shipped (2026-08-11): PO receive row validation + prefill + PO summary cards + error banner; shared EmptyState component on payables/procurement/sales/opname/kartu-stok; audit actors on PO + opname details (PO approve now records approved_by); role label + permission hints on header badge and settings gate. Deployed via CI to pharmacy.nmrooms.biz.id.
 ## Not yet specified
 
-- Exact order for Phase 1 tickets.
-- Which pages need keyboard flow first.
-- Which onboarding steps need wizard UI versus simple empty-state help.
-- Which reports are mandatory for first sale.
+- None. All fog resolved by tickets 01-07 and shipped.
+- Reports beyond SIPNAP (sales summary, stock valuation) were not required for first sale; revisit as a fresh effort.
 
 ## Out of scope
 
