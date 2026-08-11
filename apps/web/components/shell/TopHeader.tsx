@@ -1,6 +1,8 @@
 import { Menu } from 'lucide-react'
 
 import { Badge } from '@/components/ui/badge'
+import { ROLE_LABELS } from '@/utils/auth'
+import type { UserRole } from '@pharmacy/domain'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -64,7 +66,14 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
           </span>
         </div>
 
-        {user.role && <Badge variant="secondary">{user.role}</Badge>}
+        {user.role && (
+          <Badge
+            variant="secondary"
+            title={`${ROLE_LABELS[user.role as UserRole]?.name ?? user.role}: ${ROLE_LABELS[user.role as UserRole]?.hint ?? ''}`}
+          >
+            {user.role}
+          </Badge>
+        )}
 
         <div className="grid size-7 place-items-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
           {initial}

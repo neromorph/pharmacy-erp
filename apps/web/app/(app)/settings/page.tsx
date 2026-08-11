@@ -1,5 +1,5 @@
 import { createClient } from '../../../utils/supabase/server'
-import { getUserRole } from '../../../utils/auth'
+import { getUserRole, ROLE_LABELS } from '../../../utils/auth'
 import { SettingsForm } from './settings-form'
 import type { TenantProfile } from '../../../lib/settings'
 
@@ -10,7 +10,8 @@ export default async function SettingsPage() {
   if (role !== 'OWNER') {
     return (
       <div className="mx-auto mt-10 max-w-[480px] text-center">
-        <p className="text-sm text-slate-500">Settings: Owner only</p>
+        <p className="text-sm text-slate-500">Pengaturan hanya untuk Pemilik</p>
+        <p className="mt-1 text-xs text-slate-400">{role ? ROLE_LABELS[role].hint : ''}</p>
       </div>
     )
   }

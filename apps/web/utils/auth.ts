@@ -1,6 +1,14 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { UserRole } from '@pharmacy/domain'
 
+// Human-readable role names and one-line permission hints.
+export const ROLE_LABELS: Record<UserRole, { name: string; hint: string }> = {
+  OWNER: { name: 'Pemilik', hint: 'Semua akses: pengaturan, persetujuan, laporan.' },
+  PHARMACIST: { name: 'Apoteker', hint: 'Persetujuan opname, pembatalan transaksi, pemusnahan.' },
+  INVENTORY: { name: 'Inventori', hint: 'Pengadaan, stok, dan penerimaan barang.' },
+  CASHIER: { name: 'Kasir', hint: 'POS dan shift kasir.' },
+}
+
 // Return the current user's role, or null when not signed in.
 export async function getUserRole(supabase: SupabaseClient): Promise<UserRole | null> {
   const { data: { user } } = await supabase.auth.getUser()
