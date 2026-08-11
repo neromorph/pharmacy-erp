@@ -11,10 +11,14 @@
             "id": "4209aa80590835d1",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "type": "markdown",
+              "state": {
+                "file": "agents/issue-tracker.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "issue-tracker"
             }
           }
         ]
@@ -183,6 +187,21 @@
   },
   "active": "4209aa80590835d1",
   "lastOpenFiles": [
+    "sellable-v1/issues/07-role-clarity-access-control-ui.md",
+    "sellable-v1/issues/06-audit-trail-sensitive-action-logs.md",
+    "sellable-v1/issues/05-error-empty-loading-states.md",
+    "sellable-v1/issues/04-procurement-receive-polish.md",
+    "sellable-v1/issues/03-stock-opname-batch-ux.md",
+    "sellable-v1/issues/02-onboarding-first-run-setup.md",
+    "sellable-v1/issues/01-pos-speed-keyboard-flow.md",
+    "sellable-v1/map.md",
+    "sellable-v1/issues",
+    "sellable-v1",
+    "manufacturing-gap/issues/02-compliance-boundary.md",
+    "manufacturing-gap/issues/01-scope-first-slice.md",
+    "manufacturing-gap/map.md",
+    "manufacturing-gap/issues",
+    "manufacturing-gap",
     "superpowers/specs/2025-08-03-master-data-design.md",
     "adr/0005-operator-ui-language.md",
     "superpowers/specs/2025-08-03-tenant-auth-design.md",
@@ -198,26 +217,11 @@
     "staff-management/issues/06-server-actions.md",
     "staff-management/issues/05-schema-triggers-migration.md",
     "staff-management/issues/04-password-change-policy.md",
-    "staff-management/issues/03-self-modification-prevention.md",
-    "staff-management/issues/02-deactivation-mechanism.md",
-    "staff-management/issues/01-public-staff-table.md",
     "staff-management/issues",
-    "staff-management/map.md",
     "staff-management",
-    "satusehat/issues/09-design-credentials-status-ui.md",
-    "satusehat/issues/08-design-ihs-integration.md",
-    "satusehat/issues/07-design-fhir-mapping.md",
-    "satusehat/issues/06-design-async-job.md",
-    "satusehat/issues/05-research-ihs-lookup.md",
-    "satusehat/issues/04-research-kfa-catalog.md",
-    "satusehat/issues/03-research-oauth-fhir-api.md",
     "satusehat/issues",
     "satusehat",
     "sipnap-v2/issues",
-    "sipnap-v2",
-    "accounts-payable-v2/issues",
-    "accounts-payable-v2",
-    "sipnap-reporting/issues",
-    "sipnap-reporting"
+    "sipnap-v2"
   ]
 }
