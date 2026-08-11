@@ -126,8 +126,24 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
 
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload results to Code Scanning
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Set the SEMGREP_APP_TOKEN secret to publish findings to Semgrep App;
+      # without it, results still go to GitHub Code Scanning as SARIF.
+      - name: Semgrep
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
+        with:
+          config: p/default
+          publish_token: ${{ secrets.SEMGREP_APP_TOKEN }}
+
   hadolint:
-    name: Hadolint Dockerfiles
+    name: Hadolint ${{ matrix.component }} Dockerfile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -144,8 +160,8 @@ jobs:
           failure-threshold: warning
           ignore: DL3006
 
-  trivy-fs-config:
-    name: Trivy filesystem and IaC
+  trivy-fs:
+    name: Trivy lockfile scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -157,42 +173,41 @@ jobs:
           scanners: vuln
           severity: CRITICAL,HIGH
           exit-code: '1'
-      - name: Scan web Dockerfile (misconfig)
+
+  trivy-config:
+    name: Trivy IaC misconfig scan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one target failing must not cancel the others
+      matrix:
+        target: [apps/web/Dockerfile, apps/api/Dockerfile, compose.yaml]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Scan ${{ matrix.target }} (misconfig)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
-          scan-ref: apps/web/Dockerfile
-          severity: CRITICAL,HIGH
-          exit-code: '1'
-      - name: Scan API Dockerfile (misconfig)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: config
-          scan-ref: apps/api/Dockerfile
-          severity: CRITICAL,HIGH
-          exit-code: '1'
-      - name: Scan compose.yaml (misconfig)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: config
-          scan-ref: compose.yaml
+          scan-ref: ${{ matrix.target }}
           severity: CRITICAL,HIGH
           exit-code: '1'
 
   build-scan-publish:
-    name: Build, scan, SBOM, publish
+    name: Build, scan, SBOM, publish (${{ matrix.component }})
     if: github.event_name != 'pull_request' # no image build on PRs
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write # attestation
       attestations: write # attestation
+    strategy:
+      fail-fast: false # one component failing must not cancel the other
+      matrix:
+        component: [web, api]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Resolve Docker Hub image names
+      - name: Resolve Docker Hub image name
         run: |
-          echo "IMAGE_WEB=${{ secrets.DOCKERHUB_USERNAME }}/pharmacy-erp-web" >> "$GITHUB_ENV"
-          echo "IMAGE_API=${{ secrets.DOCKERHUB_USERNAME }}/pharmacy-erp-api" >> "$GITHUB_ENV"
+          echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/pharmacy-erp-${{ matrix.component }}" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to Docker Hub
@@ -202,84 +217,61 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build web image
-        id: build-web
+      # build-args are only consumed by apps/web/Dockerfile; passing them to
+      # the API build is harmless and keeps this step single and DRY.
+      - name: Build image
+        id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
-          file: apps/web/Dockerfile
+          file: apps/${{ matrix.component }}/Dockerfile
           push: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
           load: true
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
           tags: |
-            ${{ env.IMAGE_WEB }}:${{ github.sha }}
-            ${{ env.IMAGE_WEB }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Scan web image
+      - name: Scan image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: ${{ env.IMAGE_WEB }}:${{ github.sha }}
+          image-ref: ${{ env.IMAGE }}:${{ github.sha }}
           severity: CRITICAL,HIGH
           exit-code: '1'
 
-      - name: Build API image
-        id: build-api
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      - name: Attest image provenance
+        if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          context: .
-          file: apps/api/Dockerfile
-          push: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
-          load: true
-          tags: |
-            ${{ env.IMAGE_API }}:${{ github.sha }}
-            ${{ env.IMAGE_API }}:latest
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.build.outputs.digest }}
 
-      - name: Scan API image
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: image
-          image-ref: ${{ env.IMAGE_API }}:${{ github.sha }}
-          severity: CRITICAL,HIGH
-          exit-code: '1'
-
-      - name: Generate web SBOM (SPDX)
+      - name: Generate SBOM (SPDX)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          image: ${{ env.IMAGE_WEB }}:${{ github.sha }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
           format: spdx-json
-          output-file: sbom-web.spdx.json
+          output-file: sbom-${{ matrix.component }}.spdx.json
 
-      - name: Generate API SBOM (SPDX)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
-        with:
-          image: ${{ env.IMAGE_API }}:${{ github.sha }}
-          format: spdx-json
-          output-file: sbom-api.spdx.json
-
-      - name: Upload SBOMs
+      - name: Upload SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sboms
-          path: sbom-*.spdx.json
+          name: sbom-${{ matrix.component }}
+          path: sbom-${{ matrix.component }}.spdx.json
           if-no-files-found: error
           retention-days: 30
 
-      - name: Attest web SBOM provenance
+      - name: Attest SBOM provenance
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          subject-path: sbom-web.spdx.json
-          subject-name: pharmacy-erp-web-sbom
-
-      - name: Attest API SBOM provenance
-        if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-path: sbom-api.spdx.json
-          subject-name: pharmacy-erp-api-sbom
+          subject-path: sbom-${{ matrix.component }}.spdx.json
+          subject-name: pharmacy-erp-${{ matrix.component }}-sbom
 
   deploy:
     name: Deploy to VPS (compose pull + up)
@@ -323,27 +315,45 @@ jobs:
           ssh -i "$HOME/.ssh/deploy_key" "$VPS_USER@$VPS_HOST" \
             "cd '$VPS_DEPLOY_DIR' && docker compose pull && docker compose up -d"
 
+  # k6-load-test:
+  #   name: k6 load test (staging)
+  #   if: github.event_name == 'workflow_dispatch'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #     - name: Run k6 load test
+  #       uses: grafana/k6-action@v0.5.1 # pin SHA before enabling
+  #       with:
+  #         filename: load-tests/smoke.js
+  #         flags: --vus 50 --duration 2m
+  #       env:
+  #         TARGET_URL: ${{ inputs.target_url }}
+  #
+  # Enable by: (1) uncommenting, (2) adding load-tests/smoke.js,
+  # (3) pinning grafana/k6-action to a commit SHA.
+
   zap:
     name: OWASP ZAP ${{ inputs.scan_type }}
     if: github.event_name == 'workflow_dispatch' && inputs.target_url != ''
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
+    permissions:
+      contents: read
+      issues: write # ZAP action files alerts as GitHub issues
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Run ZAP scan
-        env:
-          TARGET_URL: ${{ inputs.target_url }}
-          SCAN_TYPE: ${{ inputs.scan_type }}
-        run: |
-          docker run --rm -v "$PWD:/zap/wrk/:rw" -t ghcr.io/zaproxy/zaproxy:stable \
-            "zap-${SCAN_TYPE}.py" -t "${TARGET_URL}" \
-            -r zap-report.html -J zap-report.json
-      - name: Upload ZAP report
-        if: always() # upload even when the scan fails its threshold
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - name: ZAP baseline scan
+        if: inputs.scan_type == 'baseline'
+        uses: zaproxy/action-baseline@6c5a007541891231cd9e0ddec25d4f25c59c9874 # v0.15.0
         with:
-          name: zap-report-${{ inputs.scan_type }}
-          path: zap-report.html
-          if-no-files-found: warn
-          retention-days: 30
+          target: ${{ inputs.target_url }}
+          fail_action: true # fail the job when ZAP reports alerts
+          allow_issue_writing: true # keep alerts as GitHub issues
+          artifact_name: zap-baseline
+      - name: ZAP full scan
+        if: inputs.scan_type == 'full'
+        uses: zaproxy/action-full-scan@bee4e5be916301228d2b1b2dcad73aab6fa6a25b # v0.13.0
+        with:
+          target: ${{ inputs.target_url }}
+          fail_action: true # fail the job when ZAP reports alerts
+          allow_issue_writing: true # keep alerts as GitHub issues
+          artifact_name: zap-full
