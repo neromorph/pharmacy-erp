@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
 import { parseDate } from './status'
 import { formatRupiah } from '@/lib/receipt'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,7 +36,11 @@ export default async function SalesPage() {
         <Button render={<Link href="/sales/new" />}>Transaksi Baru</Button>
       </div>
       {!sales || sales.length === 0 ? (
-        <p className="text-sm text-slate-500">Belum ada transaksi penjualan</p>
+        <EmptyState
+          title="Belum ada transaksi penjualan"
+          description="Buka shift kasir, lalu buat transaksi pertama."
+          action={<Button render={<Link href="/sales/new" />}>Transaksi Baru</Button>}
+        />
       ) : (
         <Table>
           <TableHeader className="sticky top-14 z-10 bg-slate-50">

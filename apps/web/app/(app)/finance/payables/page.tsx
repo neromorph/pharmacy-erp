@@ -4,6 +4,7 @@ import { getAgingBucket, type AgingBucket } from '../../../../lib/purchase-retur
 import { AgingCards, type BucketSummary } from './aging-cards'
 import { AgingCsvButton } from './aging-csv-button'
 import { PayoutDialog } from './payout-dialog'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -93,7 +94,10 @@ export default async function PayablesPage() {
       </div>
       <AgingCards summaries={summaries} />
       {rows.length === 0 ? (
-        <p className="text-sm text-slate-500">Belum ada hutang dagang</p>
+        <EmptyState
+          title="Belum ada hutang dagang"
+          description="Hutang muncul otomatis saat barang dari PO diterima."
+        />
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>

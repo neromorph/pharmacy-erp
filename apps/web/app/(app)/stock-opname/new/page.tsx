@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '../../../../utils/supabase/server'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { QtyInput } from './qty-input'
@@ -94,7 +96,16 @@ export default async function NewStockOpnamePage() {
     .order('product_id', { ascending: true })
 
   if (!batches || batches.length === 0) {
-    return <p className="text-sm text-slate-500">No batches in stock to count.</p>
+    return (
+      <section className="space-y-6">
+        <h1 className="text-xl font-semibold text-slate-900">Opname Stok Baru</h1>
+        <EmptyState
+          title="Belum ada batch untuk dihitung"
+          description="Terima barang dari PO agar stok batch tersedia."
+          action={<Button render={<Link href="/procurement" />}>Ke Pengadaan</Button>}
+        />
+      </section>
+    )
   }
 
   return (

@@ -4,6 +4,7 @@ import { createClient } from '../../../../utils/supabase/server'
 import { requireOpenShift } from '../../shifts/actions'
 import { ShiftRow } from '@pharmacy/domain'
 import { CartBuilder } from './cart-builder'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -118,7 +119,11 @@ export default async function NewSalePage({
       <div className="space-y-3">
         <h2 className="text-sm font-medium text-slate-900">Stok tersedia (FEFO)</h2>
         {(products || []).length === 0 ? (
-          <p className="text-sm text-slate-500">Belum ada data obat</p>
+          <EmptyState
+            title="Belum ada data obat"
+            description="Tambah produk dulu sebelum berjualan."
+            action={<Button render={<Link href="/products" />}>Tambah Produk</Button>}
+          />
         ) : (
           <Table>
             <TableHeader className="sticky top-14 z-10 bg-slate-50">

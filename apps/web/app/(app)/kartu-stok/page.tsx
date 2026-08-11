@@ -3,6 +3,7 @@ import { createClient } from '../../../utils/supabase/server'
 import { getKartuStokRows } from './actions'
 import { buildKartuStokRows, formatKartuStokMovement, REGULATORY_CATEGORIES } from '../../../lib/kartu-stok'
 import { Badge } from '@/components/ui/badge'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -81,15 +82,11 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
     return (
       <section className="space-y-6">
         <h1 className="text-xl font-semibold text-slate-900">Kartu Stok</h1>
-        <div className="rounded-xl bg-card px-6 py-12 text-center ring-1 ring-foreground/10">
-          <p className="mb-4 text-sm text-slate-500">
-            No approved stock opname found for this store.
-          </p>
-          <p className="mb-6 text-xs text-slate-500">
-            Run an initial stock opname to seed the opening balance.
-          </p>
-          <Button render={<Link href="/stock-opname/new" />}>New Stock Opname</Button>
-        </div>
+        <EmptyState
+          title="Belum ada opname yang disetujui"
+          description="Opname pertama yang disetujui menjadi saldo awal kartu stok."
+          action={<Button render={<Link href="/stock-opname/new" />}>Opname Baru</Button>}
+        />
       </section>
     )
   }

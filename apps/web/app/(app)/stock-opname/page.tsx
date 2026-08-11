@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '../../../utils/supabase/server'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +42,11 @@ export default async function StockOpnamePage() {
         <Button render={<Link href="/stock-opname/new" />}>New Opname</Button>
       </div>
       {!opnames || opnames.length === 0 ? (
-        <p className="text-sm text-slate-500">No stock opname sessions yet</p>
+        <EmptyState
+          title="Belum ada sesi opname"
+          description="Opname pertama menjadi dasar saldo awal kartu stok."
+          action={<Button render={<Link href="/stock-opname/new" />}>Opname Baru</Button>}
+        />
       ) : (
         <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
           <Table>
