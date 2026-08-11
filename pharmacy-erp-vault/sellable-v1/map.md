@@ -22,6 +22,7 @@ Sellable pharmacy retail ERP v1. Goal: core retail flow feels fast, safe, and cl
 - Audit ticket answer: show actor and timestamp on sensitive actions with existing fields; no new audit subsystem yet.
 - Role ticket answer: show role and permission hints near actions, and keep restrictions explicit; no full permission matrix UI.
 - Implementation shipped (2026-08-07, three commits): POS scan+shortcuts (Alt+A/Alt+R/Escape, auto-focus), dashboard first-run checklist, opname expiry badges + FEFO hint + qty-diff highlight.
+- Implementation shipped (2026-08-11): PO receive row validation + prefill + PO summary cards + error banner; shared EmptyState component on payables/procurement/sales/opname/kartu-stok; audit actors on PO + opname details (PO approve now records approved_by); role label + permission hints on header badge and settings gate. Deployed via CI to pharmacy.nmrooms.biz.id.
 ## Not yet specified
 
 - Exact order for Phase 1 tickets.
