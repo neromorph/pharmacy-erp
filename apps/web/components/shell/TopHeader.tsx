@@ -60,11 +60,11 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
           <span
             className={
               shift.open
-                ? 'size-2 animate-pulse rounded-full bg-emerald-500'
+                ? 'size-2 motion-safe:animate-pulse rounded-full bg-emerald-500'
                 : 'size-2 rounded-full bg-slate-300'
             }
           />
-          <span className="hidden text-xs text-slate-500 sm:inline">
+          <span className="text-xs text-slate-500">
             {shift.open ? `Shift Aktif · ${opened ?? ''}` : 'Tidak ada shift aktif'}
           </span>
         </div>
