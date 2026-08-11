@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { lookupIhsForPatient } from './ihs-actions'
 import { createDraftSale } from './actions'
 import {
@@ -64,6 +64,46 @@ export function CartBuilder({
   patients: PatientLite[]
 }) {
   const [lines, setLines] = useState<Line[]>([emptyLine('item')])
+  const [pendingFocus, setPendingFocus] = useState<{ idx: number; field: 'product' | 'qty' } | null>(null)
+  const [scan, setScan] = useState('')
+
+  // Move focus to a field on a newly added line.
+  useEffect(() => {
+    if (!pendingFocus) return
+    const id = pendingFocus.field === 'product' ? `line-${pendingFocus.idx}-product` : `line-${pendingFocus.idx}-qty`
+    requestAnimationFrame(() => document.getElementById(id)?.focus())
+    setPendingFocus(null)
+  }, [pendingFocus])
+
+  // Scan input: enter matches a product, adds it, and focuses its qty.
+  function handleScan(value: string) {
+    setScan(value)
+    const q = value.trim().toLowerCase()
+    if (!q) return
+    const hit = products.find((p) => p.sku.trim().toLowerCase() === q)
+    if (!hit) return
+    setScan('')
+    const idx = lines.length
+    setLines((ls) => [...ls, { kind: 'item', product_id: hit.id, qty: '', unit_price: '' }])
+    setPendingFocus({ idx, field: 'qty' })
+  }
+
+  // Keyboard shortcuts: Alt+A add item, Alt+R add racikan, Escape clears scan.
+  function handleShortcut(e: React.KeyboardEvent) {
+    if (e.altKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault()
+      const idx = lines.length
+      setLines((ls) => [...ls, emptyLine('item')])
+      setPendingFocus({ idx, field: 'product' })
+    } else if (e.altKey && e.key.toLowerCase() === 'r') {
+      e.preventDefault()
+      setLines((ls) => [...ls, emptyLine('racikan')])
+    } else if (e.key === 'Escape') {
+      const el = document.activeElement as HTMLElement | null
+      if (el?.id === 'scan-input') setScan('')
+    }
+  }
+
   const [saleType, setSaleType] = useState<'OTC' | 'RESEP' | 'BPJS' | 'SARANA'>('OTC')
   const [tuslah, setTuslah] = useState('')
   const [doctorId, setDoctorId] = useState('')
@@ -213,6 +253,7 @@ export function CartBuilder({
         e.preventDefault()
         submit(new FormData(e.currentTarget))
       }}
+      onKeyDown={handleShortcut}
       className="rounded-xl bg-card py-4 ring-1 ring-foreground/10"
     >
       <div className="flex items-center justify-between px-4 pb-3">
@@ -225,6 +266,24 @@ export function CartBuilder({
             + Racikan
           </Button>
         </div>
+      </div>
+
+      {/* Scan-first entry: barcode scanner or SKU typing. */}
+      <div className="px-4 pb-3">
+        <label htmlFor="scan-input" className={labelCls}>
+          Scan / SKU
+        </label>
+        <input
+          id="scan-input"
+          value={scan}
+          onChange={(e) => handleScan(e.target.value)}
+          placeholder="Pindai barcode atau ketik SKU, lalu Enter"
+          autoFocus
+          className={fieldCls}
+        />
+        <p className="mt-1 text-[11px] text-slate-400">
+          Alt+A tambah item · Alt+R tambah racikan
+        </p>
       </div>
 
       <div className="grid gap-3 px-4">

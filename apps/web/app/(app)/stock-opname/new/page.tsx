@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
+import { QtyInput } from './qty-input'
 import {
   Table,
   TableBody,
@@ -16,6 +17,17 @@ const opnameReasons = ['DAMAGE', 'EXPIRED', 'LOST', 'COUNT_ERROR', 'MISC']
 
 const selectClass =
   'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
+
+// FEFO hint: shorter shelf life rates the batch higher risk.
+function expiryBadge(expiry: string | null) {
+  if (!expiry) return <Badge variant="secondary">Tanpa kedaluwarsa</Badge>
+  const days = Math.floor((new Date(expiry).getTime() - Date.now()) / 86_400_000)
+  const label = new Date(expiry).toLocaleDateString()
+  if (days < 0) return <Badge variant="destructive">{label} — LEWAT</Badge>
+  if (days <= 30) return <Badge variant="destructive">{label} ≤30 hari</Badge>
+  if (days <= 90) return <Badge variant="secondary">{label} ≤90 hari</Badge>
+  return <Badge variant="outline">{label}</Badge>
+}
 
 async function createStockOpname(formData: FormData) {
   'use server'
@@ -107,6 +119,9 @@ export default async function NewStockOpnamePage() {
         </div>
 
         <div className="mt-6 overflow-x-auto">
+          <p className="mb-2 text-xs text-slate-500">
+            Ubah jumlah fisik hanya jika hitungan berbeda dari sistem. Urutkan FEFO: batch dengan kedaluwarsa terdekat harus habis lebih dulu.
+          </p>
           <Table>
             <TableHeader className="bg-slate-50">
               <TableRow>
@@ -124,18 +139,17 @@ export default async function NewStockOpnamePage() {
                   <TableCell>{b.products?.name || b.sku}</TableCell>
                   <TableCell>{b.batch_number}</TableCell>
                   <TableCell>
-                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '-'}
+                    {expiryBadge(b.expiry_date)}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {Number(b.current_qty).toFixed(3)}
                   </TableCell>
                   <TableCell className="w-36">
                     <input type="hidden" name="batch_id" value={b.id} />
-                    <Input
-                      type="number"
-                      step="0.001"
+                    <QtyInput
                       name="physical_qty"
                       defaultValue={Number(b.current_qty)}
+                      systemQty={Number(b.current_qty)}
                     />
                   </TableCell>
                   <TableCell className="w-36">

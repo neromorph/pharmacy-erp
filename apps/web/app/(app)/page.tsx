@@ -1,5 +1,6 @@
 import { Banknote, AlertTriangle, CalendarClock } from 'lucide-react'
 import { createClient } from '../../utils/supabase/server'
+import { SetupChecklist } from '@/components/shell/SetupChecklist'
 import {
   Card,
   CardAction,
@@ -57,6 +58,7 @@ export default async function HomePage() {
   return (
     <section className="space-y-6">
       <h1 className="text-xl font-semibold text-slate-900">Dasbor</h1>
+      <SetupChecklist />
       {!available ? (
         <p className="text-sm text-slate-500">
           Dasbor tidak tersedia{error ? `: ${error.message}` : ''}
