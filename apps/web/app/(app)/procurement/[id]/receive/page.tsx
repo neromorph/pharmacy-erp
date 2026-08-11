@@ -34,6 +34,31 @@ async function receiveGoods(formData: FormData) {
     return
   }
 
+  // Row-level validation: qty and cost must be positive, qty within order,
+  // batch and expiry mandatory.
+  const { data: poItems } = await supabase
+    .from('purchase_order_items')
+    .select('id, qty_ordered')
+    .eq('purchase_order_id', id)
+  const orderedById = new Map((poItems || []).map((r: any) => [r.id, Number(r.qty_ordered)]))
+  for (let i = 0; i < purchaseOrderItemIds.length; i++) {
+    const qty = Number(qtys[i] || 0)
+    const cost = Number(unitCosts[i] || 0)
+    const ordered = orderedById.get(purchaseOrderItemIds[i]) ?? Infinity
+    if (qty <= 0 || qty > ordered) {
+      redirect(`/procurement/${id}/receive?error=Jumlah tidak valid (harus antara 0 dan ${ordered})`)
+      return
+    }
+    if (cost < 0) {
+      redirect(`/procurement/${id}/receive?error=Harga satuan tidak boleh negatif`)
+      return
+    }
+    if (!batchNumbers[i]?.trim() || !expiryDates[i]) {
+      redirect(`/procurement/${id}/receive?error=Batch dan kedaluwarsa wajib diisi`)
+      return
+    }
+  }
+
   const { data: gr, error: gErr } = await supabase
     .from('goods_receipts')
     .insert([
@@ -99,10 +124,13 @@ async function receiveGoods(formData: FormData) {
 
 export default async function ReceiveGoodsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ error?: string }>
 }) {
   const { id } = await params
+  const { error: errorParam } = await searchParams
   const supabase = await createClient()
   const { data: po } = await supabase
     .from('purchase_orders')
@@ -128,6 +156,11 @@ export default async function ReceiveGoodsPage({
     )
   }
 
+  const poTotal = (items || []).reduce(
+    (sum: number, it: any) => sum + Number(it.qty_ordered) * Number(it.unit_price),
+    0
+  )
+
   return (
     <section className="space-y-6">
       <div>
@@ -135,9 +168,33 @@ export default async function ReceiveGoodsPage({
           Kembali ke Pesanan Pembelian
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">Terima Barang</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {po.po_number} • Pemasok: {po.suppliers?.name || '-'}
-        </p>
+        {errorParam && (
+          <p role="alert" className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errorParam}
+          </p>
+        )}
+      </div>
+
+      {/* PO summary: one glance at what is being received. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-lg border border-border/60 p-3">
+          <p className="text-xs text-slate-500">Nomor PO</p>
+          <p className="mt-0.5 text-sm font-medium text-slate-900">{po.po_number}</p>
+        </div>
+        <div className="rounded-lg border border-border/60 p-3">
+          <p className="text-xs text-slate-500">Pemasok</p>
+          <p className="mt-0.5 text-sm font-medium text-slate-900">{po.suppliers?.name || '-'}</p>
+        </div>
+        <div className="rounded-lg border border-border/60 p-3">
+          <p className="text-xs text-slate-500">Status</p>
+          <p className="mt-0.5 text-sm font-medium text-emerald-700">APPROVED</p>
+        </div>
+        <div className="rounded-lg border border-border/60 p-3">
+          <p className="text-xs text-slate-500">Nilai PO</p>
+          <p className="mt-0.5 text-sm font-medium tabular-nums text-slate-900">
+            {poTotal.toLocaleString('id-ID')}
+          </p>
+        </div>
       </div>
 
       <form action={receiveGoods} className="max-w-3xl space-y-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -185,8 +242,9 @@ export default async function ReceiveGoodsPage({
                   type="number"
                   step="0.001"
                   min="0"
+                  max={Number(it.qty_ordered)}
                   required
-                  placeholder={String(it.qty_ordered)}
+                  defaultValue={Number(it.qty_ordered)}
                   className="w-24"
                 />
               </div>
@@ -199,7 +257,7 @@ export default async function ReceiveGoodsPage({
                   step="0.01"
                   min="0"
                   required
-                  placeholder={String(Number(it.unit_price).toFixed(2))}
+                  defaultValue={Number(it.unit_price).toFixed(2)}
                   className="w-24"
                 />
               </div>
@@ -207,7 +265,12 @@ export default async function ReceiveGoodsPage({
           ))}
         </div>
 
-        <Button type="submit">Terima Barang</Button>
+        <div className="flex items-center gap-3">
+          <Button type="submit">Terima Barang</Button>
+          <p className="text-xs text-slate-500">
+            Setelah diterima, PO terkunci sebagai RECEIVED.
+          </p>
+        </div>
       </form>
     </section>
   )
