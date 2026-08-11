@@ -53,9 +53,12 @@ async function approvePurchaseOrder(formData: FormData) {
     redirect(`/procurement/${id}`)
     return
   }
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   await supabase
     .from('purchase_orders')
-    .update({ status: 'APPROVED', approved_at: new Date().toISOString() })
+    .update({ status: 'APPROVED', approved_by: user?.id, approved_at: new Date().toISOString() })
     .eq('id', id)
   redirect(`/procurement/${id}`)
 }
@@ -93,6 +96,7 @@ export default async function PurchaseOrderDetailPage({
         </div>
         <p className="mt-1 text-sm text-slate-500">
           Pemasok: {po.suppliers?.name || '-'} • Dipesan: {parseDate(po.ordered_at || po.created_at)}
+          {po.approved_at ? ` • Disetujui: ${parseDate(po.approved_at)} oleh ${(po.approved_by || '').toString().slice(0, 8)}` : ''}
         </p>
       </div>
 

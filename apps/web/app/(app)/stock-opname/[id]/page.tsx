@@ -106,7 +106,8 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
           <span className="text-sm text-slate-500">{op.type}</span>
         </div>
         <p className="mt-1 text-sm text-slate-500">
-          Dibuat: {parseDate(op.created_at)} • Disetujui: {op.approved_at ? parseDate(op.approved_at) : '-'}
+          Dibuat: {parseDate(op.created_at)} oleh {(op.created_by || '').toString().slice(0, 8)}
+          {' '}• Disetujui: {op.approved_at ? `${parseDate(op.approved_at)} oleh ${(op.approved_by || '').toString().slice(0, 8)}` : '-'}
         </p>
       </div>
 
