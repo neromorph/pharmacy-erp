@@ -10,4 +10,5 @@ coverage
 .DS_Store
 # agent artifacts
 .pi-subagents/
+.worktrees/
 *.tsbuildinfo
