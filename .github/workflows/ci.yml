@@ -154,11 +154,6 @@ jobs:
           dockerfile: apps/web/Dockerfile
           failure-threshold: warning
           ignore: DL3006
-      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
-        with:
-          dockerfile: apps/api/Dockerfile
-          failure-threshold: warning
-          ignore: DL3006
 
   trivy-fs:
     name: Trivy lockfile scan
@@ -180,7 +175,7 @@ jobs:
     strategy:
       fail-fast: false # one target failing must not cancel the others
       matrix:
-        target: [apps/web/Dockerfile, apps/api/Dockerfile, compose.yaml]
+        target: [apps/web/Dockerfile, compose.yaml]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Scan ${{ matrix.target }} (misconfig)
@@ -202,7 +197,7 @@ jobs:
     strategy:
       fail-fast: false # one component failing must not cancel the other
       matrix:
-        component: [web, api]
+        component: [web]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve Docker Hub image name
@@ -217,8 +212,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # build-args are only consumed by apps/web/Dockerfile; passing them to
-      # the API build is harmless and keeps this step single and DRY.
+      # build-args are only consumed by apps/web/Dockerfile.
       - name: Build image
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0

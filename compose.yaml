@@ -1,6 +1,6 @@
-# Pharmacy ERP — web frontend + NestJS API, both in nonroot distroless
-# containers. The web app talks to the self-hosted Supabase API; the
-# NestJS API is an optional service-layer image (built, not routed yet).
+# Pharmacy ERP — web frontend in a nonroot distroless container.
+# The web app talks to the self-hosted Supabase API directly (RLS-scoped);
+# there is no separate backend service in production.
 # Web is served through the VPS Traefik (network traefik_web, Cloudflare TLS).
 #
 # CI/CD: deployed by the GitHub Actions Container security workflow.
@@ -54,35 +54,6 @@ services:
         - /nodejs/bin/node
         - -e
         - "fetch('http://localhost:3000/').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  api:
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    image: ${DOCKERHUB_USERNAME:?set DOCKERHUB_USERNAME in .env}/pharmacy-erp-api:latest
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
-    networks:
-      - traefik_web
-    # Not exposed through Traefik yet. Public /health route answers.
-    healthcheck:
-      test:
-        - CMD
-        - /nodejs/bin/node
-        - -e
-        - "fetch('http://localhost:3001/health').then(r => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"
       interval: 30s
       timeout: 5s
       retries: 3
