@@ -74,7 +74,7 @@ function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
       className={cn(
         'flex items-center gap-2 rounded-md px-3 py-2 text-sm',
         active
-          ? 'border-l-2 border-primary bg-primary/5 font-medium text-primary'
+          ? 'bg-primary/5 font-medium text-primary'
           : 'text-slate-700 hover:bg-slate-100'
       )}
     >
