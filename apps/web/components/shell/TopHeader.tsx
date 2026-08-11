@@ -1,6 +1,9 @@
 import { Menu } from 'lucide-react'
+import Link from 'next/link'
 
 import { Badge } from '@/components/ui/badge'
+import { SubmitButton } from '@/components/submit-button'
+import { logout } from './actions'
 import { ROLE_LABELS } from '@/utils/auth'
 import type { UserRole } from '@pharmacy/domain'
 import { Button } from '@/components/ui/button'
@@ -75,6 +78,12 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
           </Badge>
         )}
 
+        <Button render={<Link href="/account" />} variant="ghost" size="sm">
+          Akun
+        </Button>
+        <form action={logout}>
+          <SubmitButton variant="ghost" size="sm">Keluar</SubmitButton>
+        </form>
         <div className="grid size-7 place-items-center rounded-full bg-slate-200 text-xs font-medium text-slate-600">
           {initial}
         </div>
