@@ -9,8 +9,8 @@ import {
   computeSaleTotals,
   ingredientTotalQty,
   isBpjsCheckoutBlocked,
-  RegulatoryCategory,
-} from '../../../../lib/cart'
+  type RegulatoryCategory,
+} from '../../../../lib/sale-cart'
 import { Button } from '@/components/ui/button'
 import { SubmitButton } from '@/components/submit-button'
 import { formatRupiah } from '@/lib/receipt'

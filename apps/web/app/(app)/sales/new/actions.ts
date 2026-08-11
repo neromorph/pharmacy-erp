@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '../../../../utils/supabase/server'
 import { requireOpenShift } from '../../shifts/actions'
-import { computeSaleTotals, requiresAddress, requiresResep, RegulatoryCategory } from '../../../../lib/cart'
+import { computeSaleTotals, requiresAddress, requiresResep, type RegulatoryCategory } from '../../../../lib/sale-cart'
 
 // Upsert a doctor/patient. When a new record name is provided and no existing
 // id, create it and return the new id. When given an existing id, return it.
