@@ -37,6 +37,10 @@ services:
       # .env file also supplies them, but this is an explicit guard.
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      # Server-side Supabase calls use the in-VPS Kong endpoint (same Docker
+      # network) to skip the public DNS + Cloudflare round trip. Unset =
+      # fall back to the public URL (local dev).
+      SUPABASE_INTERNAL_URL: ${SUPABASE_INTERNAL_URL:-}
     networks:
       - traefik_web
     labels:

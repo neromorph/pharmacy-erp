@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '../../../utils/supabase/server'
+import { createClient, toPublicUrl } from '../../../utils/supabase/server'
 import { getUserRole } from '../../../utils/auth'
 import { buildSatusehatPatch, buildTenantPatch, logoPath } from '../../../lib/settings'
 
@@ -69,7 +69,7 @@ export async function uploadLogo(file: File) {
     .from('tenant-logos')
     .getPublicUrl(path)
 
-  const logoUrl = urlData.publicUrl
+  const logoUrl = toPublicUrl(urlData.publicUrl)
 
   const { error: updateError } = await supabase
     .from('tenants')

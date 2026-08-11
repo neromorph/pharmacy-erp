@@ -1,7 +1,7 @@
 'use server'
 
 import { createHash } from 'crypto'
-import { createClient } from '../../../../utils/supabase/server'
+import { createClient, toPublicUrl } from '../../../../utils/supabase/server'
 import { buildSipnapV2Csv, type SipnapV2Report } from '../../../../lib/sipnap-v2'
 
 // Store the exact export CSV in the private sipnap-archives bucket and record
@@ -66,7 +66,7 @@ export async function getStoredExport(id: string): Promise<{ url?: string; csv?:
     const { data, error } = await supabase.storage
       .from('sipnap-archives')
       .createSignedUrl(row.storage_url, 60 * 5)
-    if (!error && data) return { url: data.signedUrl }
+    if (!error && data) return { url: toPublicUrl(data.signedUrl) }
   }
 
   const csv = row?.payload?.csv
