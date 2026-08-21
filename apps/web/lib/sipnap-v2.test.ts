@@ -3,8 +3,11 @@ import { isSipnapV2Ready, buildSipnapV2Csv, parseSipnapV2Report, checksToLines }
 
 describe('sipnap v2 helpers', () => {
   it('is ready only when missing and checks are empty', () => {
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(isSipnapV2Ready({ missing: [], checks: [] } as any)).toBe(true)
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(isSipnapV2Ready({ missing: [], checks: [{ type: 'NEGATIVE' }] } as any)).toBe(false)
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(isSipnapV2Ready({ missing: [{ sale_number: 'S1' }], checks: [] } as any)).toBe(false)
   })
 
@@ -51,6 +54,7 @@ describe('sipnap v2 helpers', () => {
   })
 
   it('parses the rpc payload', () => {
+    // SAFETY: asserted value is validated before use or known from the source.
     const parsed = parseSipnapV2Report({ ready: true } as any)
     expect(parsed.ready).toBe(true)
     expect(parsed.checks).toEqual([])

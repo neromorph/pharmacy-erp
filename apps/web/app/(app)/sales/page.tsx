@@ -16,11 +16,11 @@ import {
 
 // Status badge variants follow the approved pill mapping:
 // DRAFT outline, PAID default (teal), VOID destructive.
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariant = {
   DRAFT: 'outline',
   PAID: 'default',
   VOID: 'destructive',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
 export default async function SalesPage() {
   const supabase = await createClient()
@@ -54,7 +54,10 @@ export default async function SalesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sales.map((s: any) => (
+            {sales.map((s: any) => {
+              // SAFETY: s.status is always one of the sale status values from the query.
+              const badgeVariant = statusVariant[s.status as keyof typeof statusVariant] || 'secondary'
+              return (
               <TableRow key={s.id} className="h-10">
                 <TableCell>
                   <Link href={`/sales/${s.id}`} className="text-primary">
@@ -62,7 +65,7 @@ export default async function SalesPage() {
                   </Link>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={statusVariant[s.status] || 'secondary'}>{s.status}</Badge>
+                  <Badge variant={badgeVariant}>{s.status}</Badge>
                 </TableCell>
                 <TableCell>{s.sale_items?.length ?? 0}</TableCell>
                 <TableCell className="text-right tabular-nums">
@@ -73,7 +76,8 @@ export default async function SalesPage() {
                 </TableCell>
                 <TableCell>{parseDate(s.sold_at || s.created_at)}</TableCell>
               </TableRow>
-            ))}
+            )
+            })}
           </TableBody>
         </Table>
       )}

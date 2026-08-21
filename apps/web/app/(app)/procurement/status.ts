@@ -1,10 +1,10 @@
-export const statusColors: Record<string, string> = {
+export const statusColors = {
   DRAFT: '#64748b',
   PENDING_APPROVAL: '#f59e0b',
   APPROVED: '#0d9488',
   RECEIVED: '#10b981',
   CANCELLED: '#ef4444',
-}
+} satisfies Record<string, string>
 
 export function parseDate(value: string | null | undefined): string {
   if (!value) return '-'

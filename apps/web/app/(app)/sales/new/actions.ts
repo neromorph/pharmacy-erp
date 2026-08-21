@@ -55,6 +55,7 @@ async function createDraftSale(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
   if (!tenantId) redirect('/sales/new?error=No tenant context')
 

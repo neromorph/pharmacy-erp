@@ -22,13 +22,13 @@ import {
 
 const CATEGORIES = ['BEBAS', 'BEBAS_TERBATAS', 'KERAS', 'PSIKOTROPIKA', 'NARKOTIKA']
 
-const catClass: Record<string, string> = {
+const catClass = {
   BEBAS: 'bg-teal-600 text-white border-teal-600',
   BEBAS_TERBATAS: 'bg-amber-500 text-white border-amber-500',
   KERAS: 'bg-red-500 text-white border-red-500',
   PSIKOTROPIKA: 'bg-purple-500 text-white border-purple-500',
   NARKOTIKA: 'bg-red-700 text-white border-red-700',
-}
+} satisfies Record<string, string>
 
 const selectClass =
   'h-8 w-full rounded-md border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
@@ -133,14 +133,17 @@ export default async function ProductsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((p: any) => (
+              {products.map((p: any) => {
+                // SAFETY: p.regulatory_category is always one of the product categories.
+                const catCls = catClass[p.regulatory_category as keyof typeof catClass] || ''
+                return (
                 <TableRow key={p.id} className="h-10">
                   <TableCell>
                     <div className="font-medium text-slate-900">{p.name}</div>
                     <div className="text-xs text-slate-500">{p.sku}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={catClass[p.regulatory_category] || ''}>
+                    <Badge variant="outline" className={catCls}>
                       {p.regulatory_category}
                     </Badge>
                   </TableCell>
@@ -244,7 +247,8 @@ export default async function ProductsPage() {
                     </TableCell>
                   ) : null}
                 </TableRow>
-              ))}
+              )
+              })}
             </TableBody>
           </Table>
         </div>

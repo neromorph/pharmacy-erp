@@ -7,6 +7,9 @@ set -e
 echo "==> pnpm run lint"
 pnpm run lint
 
+echo "==> oxlint anti-slop check"
+pnpm exec oxlint .
+
 echo "==> pnpm run build"
 pnpm run build
 

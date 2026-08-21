@@ -12,6 +12,7 @@ describe('perProductQuantities', () => {
     const map = perProductQuantities(items)
     expect(map.get('p1')).toBeCloseTo(0.833)
     expect(map.get('p2')).toBe(3)
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(map.has(null as any)).toBe(false)
     expect(map.size).toBe(2)
   })

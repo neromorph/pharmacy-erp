@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils'
 import { NAV_GROUPS, type NavItem } from './nav-map'
 
 // Map each nav href to its icon. Unknown links fall back to a dot.
-const ICONS: Record<string, LucideIcon> = {
+const ICONS = {
   '/': LayoutDashboard,
   '/sales': ShoppingCart,
   '/shifts': Clock,
@@ -41,7 +41,7 @@ const ICONS: Record<string, LucideIcon> = {
   '/doctors': Stethoscope,
   '/patients': Users,
   '/settings': Settings,
-}
+} satisfies Record<string, LucideIcon>
 
 function isActive(pathname: string, href: string): boolean {
   if (href === '/') return pathname === '/'
@@ -49,7 +49,8 @@ function isActive(pathname: string, href: string): boolean {
 }
 
 function NavLink({ item, pathname }: { item: NavItem; pathname: string }) {
-  const Icon = ICONS[item.href] ?? Dot
+  // SAFETY: item.href matches a known nav href from NAV_GROUPS.
+  const Icon = ICONS[item.href as keyof typeof ICONS] ?? Dot
   const active = isActive(pathname, item.href)
 
   return (

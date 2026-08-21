@@ -14,6 +14,7 @@ export async function lookupIhsForPatient(
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
   if (!tenantId) return { ok: false, message: 'No tenant context.' }
 

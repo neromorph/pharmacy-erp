@@ -15,7 +15,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+interface StatusBadgeMap {
+  UNPAID: 'outline'
+  PARTIAL: 'secondary'
+  PAID: 'default'
+  OVERDUE: 'destructive'
+}
+const statusBadge: StatusBadgeMap = {
   UNPAID: 'outline',
   PARTIAL: 'secondary',
   PAID: 'default',
@@ -123,6 +129,8 @@ export default async function PayablesPage() {
                 })
                 const paidOut = status === 'PAID' || Number(row.remaining_amount) <= 0
                 const unappliedCredit = unappliedBySupplier.get(row.supplier_id) || 0
+                // SAFETY: status is one of the payable status values from getPayableStatus.
+                const badgeVariant = statusBadge[status as keyof StatusBadgeMap] || 'secondary'
                 return (
                   <TableRow key={row.id} className="h-10">
                     <TableCell>{row.invoice_number}</TableCell>
@@ -139,7 +147,7 @@ export default async function PayablesPage() {
                     <TableCell className="text-right tabular-nums">{Number(row.paid_amount).toFixed(2)}</TableCell>
                     <TableCell className="text-right tabular-nums">{Number(row.remaining_amount).toFixed(2)}</TableCell>
                     <TableCell>
-                      <Badge variant={statusBadge[status] || 'secondary'}>{status}</Badge>
+                      <Badge variant={badgeVariant}>{status}</Badge>
                     </TableCell>
                     <TableCell>
                       {!paidOut && <PayoutDialog payableId={row.id} remainingAmount={Number(row.remaining_amount)} />}

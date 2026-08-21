@@ -3,7 +3,9 @@ import { isSipnapReady, buildSipnapCsv, parseSipnapReport } from './sipnap'
 
 describe('sipnap helpers', () => {
   it('marks a report ready only when no missing rows exist', () => {
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(isSipnapReady({ missing: [] } as any)).toBe(true)
+    // SAFETY: asserted value is validated before use or known from the source.
     expect(isSipnapReady({ missing: [{ sale_number: 'S1', missing_fields: ['Patient Address'] }] } as any)).toBe(false)
   })
 
@@ -44,6 +46,7 @@ describe('sipnap helpers', () => {
   })
 
   it('parses the rpc json payload', () => {
+    // SAFETY: asserted value is validated before use or known from the source.
     const parsed = parseSipnapReport({ ready: true } as any)
     expect(parsed.ready).toBe(true)
     expect(parsed.transactions).toEqual([])

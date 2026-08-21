@@ -7,21 +7,21 @@ export interface BucketSummary {
   total: number
 }
 
-const bucketLabels: Record<AgingBucket, string> = {
+const bucketLabels = {
   CURRENT: 'Belum Jatuh Tempo',
   '1-30': '1-30 Hari',
   '31-60': '31-60 Hari',
   '61-90': '61-90 Hari',
   '90+': '> 90 Hari',
-}
+} satisfies Record<AgingBucket, string>
 
-const bucketColors: Record<AgingBucket, string> = {
+const bucketColors = {
   CURRENT: '#0d9488',
   '1-30': '#f59e0b',
   '31-60': '#f97316',
   '61-90': '#ef4444',
   '90+': '#7f1d1d',
-}
+} satisfies Record<AgingBucket, string>
 
 export function AgingCards({ summaries }: { summaries: BucketSummary[] }) {
   return (

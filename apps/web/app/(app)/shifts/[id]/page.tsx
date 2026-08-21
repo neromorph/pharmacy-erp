@@ -30,13 +30,23 @@ function parseDate(value: string | null | undefined): string {
   return d.toLocaleDateString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+interface StatusVariantMap {
+  OPEN: 'default'
+  CLOSED: 'secondary'
+  FORCE_CLOSED: 'destructive'
+}
+const statusVariant: StatusVariantMap = {
   OPEN: 'default',
   CLOSED: 'secondary',
   FORCE_CLOSED: 'destructive',
 }
 
-const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+interface SaleStatusVariantMap {
+  DRAFT: 'outline'
+  PAID: 'default'
+  VOID: 'destructive'
+}
+const saleStatusVariant: SaleStatusVariantMap = {
   DRAFT: 'outline',
   PAID: 'default',
   VOID: 'destructive',
@@ -44,6 +54,7 @@ const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' 
 
 async function handleClose(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const shiftId = formData.get('shift_id') as string
   const closingCash = Number(formData.get('closing_cash') || 0)
   try {
@@ -57,6 +68,7 @@ async function handleClose(formData: FormData) {
 
 async function handleForceClose(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const shiftId = formData.get('shift_id') as string
   const closingCash = Number(formData.get('closing_cash') || 0)
   try {
@@ -130,6 +142,8 @@ export default async function ShiftDetailPage({
       : { label: 'Expected Closing', value: expectedClosing.toFixed(2) },
   ]
 
+  // SAFETY: shift.status is always one of the shift status values from the query.
+  const badgeVariant = statusVariant[shift.status as keyof typeof statusVariant] || 'secondary'
   return (
     <section className="space-y-6">
       <div>
@@ -144,7 +158,7 @@ export default async function ShiftDetailPage({
       {/* Header */}
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold text-slate-900">Shift</h1>
-        <Badge variant={statusVariant[shift.status] || 'secondary'}>{shift.status}</Badge>
+        <Badge variant={badgeVariant}>{shift.status}</Badge>
       </div>
       <p className="text-sm text-slate-500">
         Opened: {parseDate(shift.opened_at)}
@@ -201,7 +215,10 @@ export default async function ShiftDetailPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sales.map((s) => (
+              {sales.map((s) => {
+                // SAFETY: s.status is always one of the sale status values from the query.
+                const saleVariant = saleStatusVariant[s.status as keyof SaleStatusVariantMap] || 'secondary'
+                return (
                 <TableRow key={s.id} className="h-10">
                   <TableCell>
                     <Link href={`/sales/${s.id}`} className="text-primary">
@@ -209,7 +226,7 @@ export default async function ShiftDetailPage({
                     </Link>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={saleStatusVariant[s.status as string] || 'secondary'}>
+                    <Badge variant={saleVariant}>
                       {s.status}
                     </Badge>
                   </TableCell>
@@ -221,7 +238,8 @@ export default async function ShiftDetailPage({
                   </TableCell>
                   <TableCell>{parseDate(s.sold_at || s.created_at)}</TableCell>
                 </TableRow>
-              ))}
+                )
+              })}
             </TableBody>
           </Table>
         ) : (

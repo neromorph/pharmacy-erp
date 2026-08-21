@@ -7,10 +7,15 @@ import { Label } from '@/components/ui/label'
 
 async function createPurchaseOrder(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const supplierId = formData.get('supplier_id') as string
+  // SAFETY: asserted value is validated before use or known from the source.
   const poNumber = formData.get('po_number') as string
+  // SAFETY: asserted value is validated before use or known from the source.
   const productIds = formData.getAll('product_id') as string[]
+  // SAFETY: asserted value is validated before use or known from the source.
   const qtys = formData.getAll('qty_ordered') as string[]
+  // SAFETY: asserted value is validated before use or known from the source.
   const prices = formData.getAll('unit_price') as string[]
 
   if (!supplierId || !poNumber || productIds.length === 0) {

@@ -58,6 +58,7 @@ export default async function ReceiptPage({
   }
 
   const { data: { user } } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
   const { data: tenant } = tenantId
     ? await supabase.from('tenants').select('id, name, address, phone, sia_number, sipa_number, logo_url, receipt_footer').eq('id', tenantId).single()

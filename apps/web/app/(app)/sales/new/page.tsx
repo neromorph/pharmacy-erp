@@ -68,6 +68,7 @@ export default async function NewSalePage({
   }
 
   // Non-null here: requireOpenShift throws or we returned above.
+  // SAFETY: asserted value is validated before use or known from the source.
   const openShift = openShiftData as ShiftRow
 
   const supabase = await createClient()

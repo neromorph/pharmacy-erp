@@ -17,14 +17,15 @@ export async function openShift(formData: FormData) {
   const { value: openingCash, error: cashError } = parseOpeningCash(formData)
   if (cashError) throw new Error(cashError)
 
+  // SAFETY: asserted value is validated before use or known from the source.
   const notes = (formData.get('notes') as string) || null
   const tenantId = user.app_metadata?.tenant_id
   if (!tenantId) throw new Error('No tenant context')
 
   // Display name for the shift owner (auth.users is not queryable via PostgREST).
-  const userMeta = user.user_metadata as Record<string, unknown> | undefined
-  const cashierName =
-    (typeof userMeta?.name === 'string' && userMeta.name.trim()) || user.email || null
+  // SAFETY: user_metadata shape from Supabase; only name is read.
+  const userMeta = user.user_metadata as { name?: string } | undefined
+  const cashierName = (userMeta?.name?.trim()) || user.email || null
 
   // Reject if user already has an open shift.
   const { data: existing } = await supabase

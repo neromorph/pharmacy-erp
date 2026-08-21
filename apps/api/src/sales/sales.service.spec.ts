@@ -5,16 +5,26 @@ import { SupabaseService } from '../supabase/supabase.service'
 
 // A fluent mock of the Supabase query builder.
 // Route by table name; record update payloads for assertions.
+interface TableState {
+  single?: unknown
+  list?: unknown[]
+}
+interface Tables {
+  sales: TableState
+  sale_items: TableState
+  product_batches: TableState
+}
+
 function buildClientMock() {
   const updates: { table: string; payload: any }[] = []
-  const tables: Record<string, { single?: any; list?: any[] }> = {
+  const tables: Tables = {
     sales: {},
     sale_items: {},
     product_batches: {},
   }
 
-  const chain = (table: string) => {
-    const state = tables[table] || (tables[table] = {})
+  const chain = (table: keyof Tables) => {
+    const state = tables[table]
     const query = {
       select: () => query,
       eq: () => query,
@@ -32,7 +42,8 @@ function buildClientMock() {
   }
 
   return {
-    from: (table: string) => chain(table),
+    // SAFETY: the real service only calls from() with these three table names.
+    from: (table: string) => chain(table as keyof Tables),
     tables,
     updates,
   }

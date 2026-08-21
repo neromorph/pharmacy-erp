@@ -20,11 +20,11 @@ function parseDate(value: string | null | undefined): string {
   return d.toLocaleDateString('id-ID', { dateStyle: 'medium' })
 }
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariant = {
   OPEN: 'default',
   CLOSED: 'secondary',
   FORCE_CLOSED: 'destructive',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
 export default async function ShiftsPage() {
   const supabase = await createClient()
@@ -106,10 +106,12 @@ export default async function ShiftsPage() {
                 const opening = Number(shift.opening_cash)
                 const closing = shift.closing_cash != null ? Number(shift.closing_cash) : null
                 const variance = closing !== null ? closing - opening : null
+                // SAFETY: shift.status is always one of the shift status values from the query.
+                const badgeVariant = statusVariant[shift.status as keyof typeof statusVariant] || 'secondary'
                 return (
                   <TableRow key={shift.id} className="h-10">
                     <TableCell>
-                      <Badge variant={statusVariant[shift.status] || 'secondary'}>
+                      <Badge variant={badgeVariant}>
                         {shift.status}
                       </Badge>
                     </TableCell>

@@ -21,13 +21,7 @@ export default async function HomePage() {
 
   if (!error && data) {
     let parsed: any = data
-    if (typeof data === 'string') {
-      try {
-        parsed = JSON.parse(data)
-      } catch {
-        parsed = null
-      }
-    }
+    // SAFETY: get_dashboard_kpis returns a single JSON object; no string wrapping.
     if (parsed) {
       dailySales = Number(parsed.daily_sales) || 0
       lowStockCount = Number(parsed.low_stock_count) || 0

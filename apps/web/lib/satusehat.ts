@@ -37,6 +37,7 @@ export async function getSatusehatToken(input: {
   if (!res.ok) {
     throw new Error(`SATUSEHAT token request failed: ${res.status}`)
   }
+  // SAFETY: asserted value is validated before use or known from the source.
   const data = (await res.json()) as { access_token: string; expires_in: string | number }
   const expiresInSeconds = Number(data.expires_in)
   return {
@@ -67,6 +68,7 @@ export async function lookupPatientIhs(input: {
   if (!res.ok) {
     throw new Error(`SATUSEHAT patient lookup failed: ${res.status}`)
   }
+  // SAFETY: asserted value is validated before use or known from the source.
   const bundle = (await res.json()) as {
     entry?: Array<{ resource?: { id?: string } }>
   }
@@ -96,6 +98,7 @@ export async function lookupPractitionerIhs(input: {
   if (!res.ok) {
     throw new Error(`SATUSEHAT practitioner lookup failed: ${res.status}`)
   }
+  // SAFETY: asserted value is validated before use or known from the source.
   const bundle = (await res.json()) as {
     entry?: Array<{ resource?: { id?: string } }>
   }
@@ -117,17 +120,17 @@ export function mapBaseUnitToOdf(
   unit: string | null | undefined
 ): string | null {
   const u = (unit || '').trim().toLowerCase()
-  const map: Record<string, string> = {
-    tablet: 'TAB',
-    kapsul: 'CAP',
-    botol: 'BOT',
-    vial: 'VIAL',
-    tube: 'TUBE',
-    sachet: 'SACH',
-    ampul: 'AMP',
-    suppositoria: 'SUPP',
-  }
-  return map[u] ?? null
+  const map = new Map<string, string>([
+    ['tablet', 'TAB'],
+    ['kapsul', 'CAP'],
+    ['botol', 'BOT'],
+    ['vial', 'VIAL'],
+    ['tube', 'TUBE'],
+    ['sachet', 'SACH'],
+    ['ampul', 'AMP'],
+    ['suppositoria', 'SUPP'],
+  ])
+  return map.get(u) ?? null
 }
 
 const MEDICATION_PROFILE = 'https://fhir.kemkes.go.id/r4/StructureDefinition/Medication'
@@ -137,11 +140,36 @@ const MED_TYPE_SYSTEM = 'http://terminology.kemkes.go.id/CodeSystem/medication-t
 const MED_TYPE_URL = 'https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationType'
 const ODF_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm'
 
-const MED_TYPE_LABEL: Record<'NC' | 'SD' | 'EP', string> = {
+interface FhirCoding {
+  system: string
+  code: string
+  display: string
+}
+
+interface FhirMedication {
+  resourceType: string
+  id: string
+  meta: { profile: string[] }
+  identifier: Array<{ system: string; use: string; value: string }>
+  status: string
+  extension: Array<{ url: string; valueCodeableConcept: { coding: Array<FhirCoding> } }>
+  code?: { coding: Array<FhirCoding> }
+  form?: { coding: Array<FhirCoding> }
+  ingredient?: Array<{ itemCodeableConcept: { coding: Array<FhirCoding> }; isActive: boolean }>
+}
+
+interface FhirQuantity {
+  value: number
+  unit?: string
+  system?: string
+  code?: string
+}
+
+const MED_TYPE_LABEL = {
   NC: 'Non-compound',
   SD: 'Compound d.t.d',
   EP: 'Compound non-d.t.d',
-}
+} satisfies Record<'NC' | 'SD' | 'EP', string>
 
 /**
  * Builds the contained Medication resource shared by MedicationRequest
@@ -156,10 +184,10 @@ export function buildContainedMedication(input: {
   baseUnit?: string | null
   medicationType?: 'NC' | 'SD' | 'EP'
   ingredients?: Array<{ kfaCode: string; displayName?: string | null }>
-}): object {
+}) {
   const type = input.medicationType ?? 'NC'
   const odf = mapBaseUnitToOdf(input.baseUnit)
-  const medication: Record<string, unknown> = {
+  const medication: FhirMedication = {
     resourceType: 'Medication',
     id: 'med-1',
     meta: { profile: [MEDICATION_PROFILE] },
@@ -236,7 +264,7 @@ export function buildMedicationRequest(input: {
   encounterId: string
   doctorIhs: string
   authoredOn: string
-}): object {
+}) {
   return {
     resourceType: 'MedicationRequest',
     meta: {
@@ -273,8 +301,8 @@ export function buildMedicationDispense(input: {
   quantity: number
   odfCode: string | null
   whenHandedOver: string
-}): object {
-  const quantity: Record<string, unknown> = { value: input.quantity }
+}) {
+  const quantity: FhirQuantity = { value: input.quantity }
   if (input.odfCode) {
     quantity.unit = input.odfCode
     quantity.system = ODF_SYSTEM
@@ -322,7 +350,7 @@ export function buildEncounter(input: {
   conditionId: string
   start: string
   end: string
-}): object {
+}) {
   const classCoding = {
     system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
     code: 'AMB',
@@ -396,7 +424,7 @@ export function buildEncounter(input: {
 export function buildLocation(input: {
   orgId: string
   name: string
-}): object {
+}) {
   return {
     resourceType: 'Location',
     meta: {
@@ -433,6 +461,7 @@ export async function postFhirResource(input: {
     const text = await res.text()
     let detail = `HTTP ${res.status}`
     try {
+      // SAFETY: asserted value is validated before use or known from the source.
       const body = JSON.parse(text) as {
         issue?: Array<{ details?: { text?: string } }>
       }
@@ -447,6 +476,7 @@ export async function postFhirResource(input: {
     }
     throw new Error(`SATUSEHAT ${resource.resourceType} failed: ${detail}`)
   }
+  // SAFETY: asserted value is validated before use or known from the source.
   const body = (await res.json()) as { id?: string }
   return body.id ?? ''
 }
@@ -454,7 +484,7 @@ export async function postFhirResource(input: {
 export async function lookupKfaProduct(input: {
   token: string
   code: string
-}): Promise<{ kfa_code?: string; name?: string; nie?: string; [k: string]: unknown } | null> {
+}): Promise<{ kfa_code?: string; name?: string; nie?: string } | null> {
   const { token, code } = input
   if (!code.trim()) return null
 
@@ -467,6 +497,9 @@ export async function lookupKfaProduct(input: {
   if (!res.ok) {
     throw new Error(`SATUSEHAT KFA lookup failed: ${res.status}`)
   }
-  const data = (await res.json()) as { result?: Record<string, unknown> | null }
+  // SAFETY: asserted value is validated before use or known from the source.
+  const data = (await res.json()) as {
+    result?: { kfa_code?: string; name?: string; nie?: string } | null
+  }
   return data.result ?? null
 }

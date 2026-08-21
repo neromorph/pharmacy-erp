@@ -30,12 +30,12 @@ function viewQuery(
   return params.toString()
 }
 
-const typeBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+const typeBadge = {
   IN: 'default',
   OUT: 'destructive',
   ADJUSTMENT: 'outline',
   VOID: 'secondary',
-}
+} satisfies Record<string, 'default' | 'destructive' | 'outline' | 'secondary'>
 
 function parseDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -64,6 +64,7 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
   const { data: { user } } = await supabase.auth.getUser()
   let hasAnchor = false
   if (user) {
+    // SAFETY: asserted value is validated before use or known from the source.
     const tenantId = user.app_metadata?.tenant_id as string | undefined
     if (tenantId) {
       const { data } = await supabase
@@ -238,11 +239,14 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {batchRows.map((row, i) => (
+                          {batchRows.map((row, i) => {
+                            // SAFETY: row.type is always one of the Kartu Stok movement types.
+                            const typeVariant = typeBadge[row.type as keyof typeof typeBadge] || 'secondary'
+                            return (
                             <TableRow key={`${row.source_id}-${i}`} className="h-10">
                               <TableCell>{parseDate(row.occurred_at)}</TableCell>
                               <TableCell>
-                                <Badge variant={typeBadge[row.type] || 'secondary'}>
+                                <Badge variant={typeVariant}>
                                   {formatKartuStokMovement(row.type)}
                                 </Badge>
                               </TableCell>
@@ -253,7 +257,8 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                                 {row.balance.toFixed(3)}
                               </TableCell>
                             </TableRow>
-                          ))}
+                          )
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -275,11 +280,14 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {productRows.map((row, i) => (
+                    {productRows.map((row, i) => {
+                      // SAFETY: row.type is always one of the Kartu Stok movement types.
+                      const typeVariant = typeBadge[row.type as keyof typeof typeBadge] || 'secondary'
+                      return (
                       <TableRow key={`${row.source_id}-${i}`} className="h-10">
                         <TableCell>{parseDate(row.occurred_at)}</TableCell>
                         <TableCell>
-                          <Badge variant={typeBadge[row.type] || 'secondary'}>
+                          <Badge variant={typeVariant}>
                             {formatKartuStokMovement(row.type)}
                           </Badge>
                         </TableCell>
@@ -292,7 +300,8 @@ export default async function KartuStokPage({ searchParams }: PageProps) {
                           {row.balance.toFixed(3)}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )
+                    })}
                   </TableBody>
                 </Table>
               )}

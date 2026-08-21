@@ -22,6 +22,7 @@ function enrich(formData: FormData) {
     rack_location: String(formData.get('rack_location') || '') || null,
     allow_fractional:
       formData.get('allow_fractional') === 'on',
+    // SAFETY: asserted value is validated before use or known from the source.
     regulatory_category: String(formData.get('regulatory_category') || 'BEBAS') as
       | 'BEBAS'
       | 'BEBAS_TERBATAS'

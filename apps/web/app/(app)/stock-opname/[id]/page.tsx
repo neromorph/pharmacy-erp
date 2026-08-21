@@ -13,12 +13,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariant = {
   DRAFT: 'secondary',
   PENDING_APPROVAL: 'outline',
   APPROVED: 'default',
   CANCELLED: 'destructive',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
 function parseDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -29,6 +29,7 @@ function parseDate(value: string | null | undefined): string {
 
 async function submitStockOpname(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const id = formData.get('id') as string
   const supabase = await createClient()
   const { data: op } = await supabase.from('stock_opnames').select('status').eq('id', id).single()
@@ -39,6 +40,7 @@ async function submitStockOpname(formData: FormData) {
 
 async function cancelStockOpname(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const id = formData.get('id') as string
   const supabase = await createClient()
   const { data: op } = await supabase.from('stock_opnames').select('status').eq('id', id).single()
@@ -49,6 +51,7 @@ async function cancelStockOpname(formData: FormData) {
 
 async function approveStockOpname(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const id = formData.get('id') as string
   const supabase = await createClient()
   const role = await getUserRole(supabase)
@@ -94,6 +97,8 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
     return <p className="text-sm text-destructive">Stock opname not found</p>
   }
 
+  // SAFETY: op.status is always one of the opname status values from the query.
+  const badgeVariant = statusVariant[op.status as keyof typeof statusVariant] || 'secondary'
   return (
     <section className="space-y-6">
       <div>
@@ -102,7 +107,7 @@ export default async function StockOpnameDetailPage({ params }: { params: Promis
         </Link>
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold text-slate-900">{op.opname_number}</h1>
-          <Badge variant={statusVariant[op.status] || 'secondary'}>{op.status}</Badge>
+          <Badge variant={badgeVariant}>{op.status}</Badge>
           <span className="text-sm text-slate-500">{op.type}</span>
         </div>
         <p className="mt-1 text-sm text-slate-500">

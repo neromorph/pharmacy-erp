@@ -99,6 +99,7 @@ export function CartBuilder({
       e.preventDefault()
       setLines((ls) => [...ls, emptyLine('racikan')])
     } else if (e.key === 'Escape') {
+      // SAFETY: asserted value is validated before use or known from the source.
       const el = document.activeElement as HTMLElement | null
       if (el?.id === 'scan-input') setScan('')
     }
@@ -176,6 +177,7 @@ export function CartBuilder({
   }
 
   const totals = useMemo(
+    // SAFETY: asserted value is validated before use or known from the source.
     () => computeSaleTotals(lines as any[], Number(tuslah || 0)),
     [lines, tuslah]
   )
@@ -511,6 +513,7 @@ export function CartBuilder({
             id="sale-type"
             value={effectiveType}
             disabled={forcedResep}
+            // SAFETY: asserted value is validated before use or known from the source.
             onChange={(e) => setSaleType(e.target.value as 'OTC' | 'RESEP' | 'BPJS' | 'SARANA')}
             className={fieldCls}
           >

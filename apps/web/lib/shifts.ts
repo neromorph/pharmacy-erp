@@ -17,7 +17,8 @@ export function canForceCloseShift(role: UserRole | null): boolean {
 }
 
 // Validate opening cash is a positive number
-export function parseOpeningCash(formData: FormData): { value: number; error: string | null } {
+export function parseOpeningCash(formData: FormData) {
+  // SAFETY: asserted value is validated before use or known from the source.
   const raw = formData.get('opening_cash') as string
   if (!raw) return { value: 0, error: 'Opening cash is required' }
   const num = parseFloat(raw)

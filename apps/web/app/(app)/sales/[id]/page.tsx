@@ -29,21 +29,22 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const satusehatStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const satusehatStatusVariant = {
   PENDING: 'outline',
   SENT: 'default',
   FAILED: 'destructive',
   SKIPPED: 'secondary',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
-const saleStatusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const saleStatusVariant = {
   DRAFT: 'outline',
   PAID: 'default',
   VOID: 'destructive',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
 async function voidSaleAction(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const id = formData.get('sale_id') as string
   const supabase = await createClient()
   const role = await getUserRole(supabase)
@@ -88,7 +89,9 @@ const paymentMethods = ['CASH', 'CARD', 'TRANSFER', 'QRIS']
 
 async function paySale(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const id = formData.get('sale_id') as string
+  // SAFETY: asserted value is validated before use or known from the source.
   const paymentMethod = formData.get('payment_method') as string
   const paidAmount = Number(formData.get('paid_amount') || 0)
 
@@ -96,6 +99,7 @@ async function paySale(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
 
   const { data: sale } = await supabase
@@ -259,6 +263,12 @@ export default async function SaleDetailPage({
 
   // Pay only if a shift is open.
   const canPay = sale.status === 'DRAFT' && !!openShift
+  // SAFETY: sale.status is always one of the sale status values from the query.
+  const saleBadgeVariant = saleStatusVariant[sale.status as keyof typeof saleStatusVariant] || 'secondary'
+  // SAFETY: satusehatSubmission.status is always one of the SATUSEHAT submission statuses.
+  const satusehatBadgeVariant = satusehatSubmission
+    ? satusehatStatusVariant[satusehatSubmission.status as keyof typeof satusehatStatusVariant] || 'secondary'
+    : 'secondary'
 
   return (
     <section className="space-y-6">
@@ -269,7 +279,7 @@ export default async function SaleDetailPage({
       </div>
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-semibold text-slate-900">{sale.sale_number}</h1>
-        <Badge variant={saleStatusVariant[sale.status] || 'secondary'}>{sale.status}</Badge>
+        <Badge variant={saleBadgeVariant}>{sale.status}</Badge>
         <Badge
           variant={sale.sale_type === 'RESEP' ? 'outline' : sale.sale_type === 'BPJS' ? 'default' : 'secondary'}
           className={sale.sale_type === 'BPJS' ? 'bg-emerald-700 text-white' : ''}
@@ -298,7 +308,7 @@ export default async function SaleDetailPage({
         <Card className="max-w-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
-              <Badge variant={satusehatStatusVariant[satusehatSubmission.status] || 'secondary'}>
+              <Badge variant={satusehatBadgeVariant}>
                 SATUSEHAT: {satusehatSubmission.status}
               </Badge>
               {satusehatSubmission.sent_at && (

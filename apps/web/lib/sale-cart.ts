@@ -7,13 +7,13 @@ export type RegulatoryCategory =
   | 'PSIKOTROPIKA'
   | 'NARKOTIKA'
 
-export const REGULATORY_CATEGORY_ORDER: Record<RegulatoryCategory, number> = {
+export const REGULATORY_CATEGORY_ORDER = {
   BEBAS: 0,
   BEBAS_TERBATAS: 0,
   KERAS: 1,
   PSIKOTROPIKA: 2,
   NARKOTIKA: 2,
-}
+} satisfies Record<RegulatoryCategory, number>
 
 export interface CartLine {
   kind: 'item' | 'racikan'

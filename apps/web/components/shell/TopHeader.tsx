@@ -72,6 +72,7 @@ export function TopHeader({ user, tenant, shift }: TopHeaderProps) {
         {user.role && (
           <Badge
             variant="secondary"
+            // SAFETY: asserted value is validated before use or known from the source.
             title={`${ROLE_LABELS[user.role as UserRole]?.name ?? user.role}: ${ROLE_LABELS[user.role as UserRole]?.hint ?? ''}`}
           >
             {user.role}

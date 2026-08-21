@@ -13,13 +13,13 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+const statusBadge = {
   DRAFT: 'outline',
   PENDING_APPROVAL: 'secondary',
   APPROVED: 'default',
   RECEIVED: 'secondary',
   CANCELLED: 'destructive',
-}
+} satisfies Record<string, 'default' | 'destructive' | 'outline' | 'secondary'>
 
 export default async function ProcurementPage() {
   const supabase = await createClient()
@@ -52,7 +52,10 @@ export default async function ProcurementPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {pos.map((po: any) => (
+              {pos.map((po: any) => {
+                // SAFETY: po.status is always one of the PO status values from the query.
+                const badgeVariant = statusBadge[po.status as keyof typeof statusBadge] || 'secondary'
+                return (
                 <TableRow key={po.id} className="h-10">
                   <TableCell>
                     <Link href={`/procurement/${po.id}`} className="text-primary hover:underline">
@@ -61,11 +64,12 @@ export default async function ProcurementPage() {
                   </TableCell>
                   <TableCell>{po.suppliers?.name || '-'}</TableCell>
                   <TableCell>
-                    <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
+                    <Badge variant={badgeVariant}>{po.status}</Badge>
                   </TableCell>
                   <TableCell>{parseDate(po.ordered_at || po.created_at)}</TableCell>
                 </TableRow>
-              ))}
+              )
+              })}
             </TableBody>
           </Table>
         </div>

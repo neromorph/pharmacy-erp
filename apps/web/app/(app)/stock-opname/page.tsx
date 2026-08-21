@@ -12,12 +12,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+const statusVariant = {
   DRAFT: 'secondary',
   PENDING_APPROVAL: 'outline',
   APPROVED: 'default',
   CANCELLED: 'destructive',
-}
+} satisfies Record<string, 'default' | 'secondary' | 'destructive' | 'outline'>
 
 function parseDate(value: string | null | undefined): string {
   if (!value) return '-'
@@ -60,7 +60,10 @@ export default async function StockOpnamePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {opnames.map((op: any) => (
+              {opnames.map((op: any) => {
+                // SAFETY: op.status is always one of the opname status values from the query.
+                const badgeVariant = statusVariant[op.status as keyof typeof statusVariant] || 'secondary'
+                return (
                 <TableRow key={op.id} className="h-10">
                   <TableCell>
                     <Link href={`/stock-opname/${op.id}`} className="text-sm text-primary hover:underline">
@@ -69,12 +72,13 @@ export default async function StockOpnamePage() {
                   </TableCell>
                   <TableCell>{op.type}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant[op.status] || 'secondary'}>{op.status}</Badge>
+                    <Badge variant={badgeVariant}>{op.status}</Badge>
                   </TableCell>
                   <TableCell>{(op.stock_opname_items || []).length}</TableCell>
                   <TableCell>{parseDate(op.created_at)}</TableCell>
                 </TableRow>
-              ))}
+              )
+              })}
             </TableBody>
           </Table>
         </div>

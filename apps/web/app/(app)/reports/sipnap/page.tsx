@@ -61,11 +61,13 @@ export default async function SipnapReportPage({
       .order('generated_at', { ascending: false })
       .range(from, from + 24)
 
+    // SAFETY: sipnap_exports rows match the ExportRow shape selected above.
+    const exportRows = (exports || []) as ExportRow[]
     return (
       <section className="max-w-[980px] space-y-6">
         <h1 className="text-xl font-semibold text-slate-900">SIPNAP Report</h1>
         {tabBar}
-        <HistoryTab exports={(exports || []) as ExportRow[]} />
+        <HistoryTab exports={exportRows} />
         <div className="flex gap-3 text-sm text-primary">
           {page > 1 ? (
             <Link href={`/reports/sipnap?tab=history&page=${page - 1}`} className="hover:underline">

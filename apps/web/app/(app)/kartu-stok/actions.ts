@@ -46,6 +46,7 @@ export async function getKartuStokRows(filters: KartuStokFilters = {}): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { rows: [], hasAnchor: false }
 
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user.app_metadata?.tenant_id as string | undefined
   if (!tenantId) return { rows: [], hasAnchor: false }
 

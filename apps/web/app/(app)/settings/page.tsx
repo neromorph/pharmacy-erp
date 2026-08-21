@@ -17,6 +17,7 @@ export default async function SettingsPage() {
   }
 
   const { data: { user } } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
   if (!tenantId) {
     return <p>No tenant context.</p>
@@ -32,10 +33,13 @@ export default async function SettingsPage() {
     return <p>Tenant not found.</p>
   }
 
+  // SAFETY: the tenants row selected above matches the TenantProfile shape.
+  const tenantProfile = tenant as TenantProfile
+
   return (
     <section className="max-w-[560px] space-y-6">
       <h1 className="text-xl font-semibold text-slate-900">Pengaturan</h1>
-      <SettingsForm tenant={tenant as TenantProfile} />
+      <SettingsForm tenant={tenantProfile} />
     </section>
   )
 }

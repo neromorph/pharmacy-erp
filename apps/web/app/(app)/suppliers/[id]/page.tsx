@@ -71,6 +71,7 @@ export default async function SupplierStatementPage({ params }: { params: Promis
   // Map invoice number to its purchase order id for the drill-down links.
   // The typegen types the to-one embed as an array; cast to any.
   const poByInvoice = new Map<string, string>()
+  // SAFETY: asserted value is validated before use or known from the source.
   for (const p of (payables || []) as any[]) {
     poByInvoice.set(p.invoice_number, p.goods_receipts?.purchase_order_id)
   }

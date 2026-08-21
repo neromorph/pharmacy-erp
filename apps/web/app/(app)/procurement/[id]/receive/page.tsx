@@ -7,14 +7,23 @@ import { Label } from '@/components/ui/label'
 
 async function receiveGoods(formData: FormData) {
   'use server'
+  // SAFETY: purchase_order_id is a hidden non-null input from the form.
   const id = formData.get('purchase_order_id') as string
+  // SAFETY: receipt_number is a required text input.
   const receiptNumber = formData.get('receipt_number') as string
+  // SAFETY: invoice_number is a required text input.
   const invoiceNumber = formData.get('invoice_number') as string
+  // SAFETY: purchase_order_item_id fields are repeated non-null inputs.
   const purchaseOrderItemIds = formData.getAll('purchase_order_item_id') as string[]
+  // SAFETY: product_id fields are repeated non-null inputs.
   const productIds = formData.getAll('product_id') as string[]
+  // SAFETY: batch_number fields are repeated non-null inputs.
   const batchNumbers = formData.getAll('batch_number') as string[]
+  // SAFETY: expiry_date fields are repeated non-null inputs.
   const expiryDates = formData.getAll('expiry_date') as string[]
+  // SAFETY: qty_received fields are repeated non-null inputs.
   const qtys = formData.getAll('qty_received') as string[]
+  // SAFETY: unit_cost fields are repeated non-null inputs.
   const unitCosts = formData.getAll('unit_cost') as string[]
 
   if (!receiptNumber || !invoiceNumber || purchaseOrderItemIds.length === 0) {

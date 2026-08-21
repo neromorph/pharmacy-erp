@@ -1,5 +1,5 @@
 import { Test } from '@nestjs/testing'
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common'
+import { Controller, Get, Post, UseGuards } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
 import type { NestExpressApplication } from '@nestjs/platform-express'
 import * as express from 'express'
@@ -16,12 +16,12 @@ const JWT_SECRET = 'super-secret-jwt-token-with-at-least-32-characters-long'
 @UseGuards(AuthGuard('jwt'))
 class SecureController {
   @Get()
-  who(@CurrentUser() user: unknown) {
+  who(@CurrentUser() user: jwt.JwtPayload) {
     return { user }
   }
 
   @Post()
-  create(@Body() _body: unknown) {
+  create() {
     return { ok: true }
   }
 }
@@ -47,7 +47,7 @@ describe('Security boundaries (e2e)', () => {
     await app.close()
   })
 
-  function sign(payload: Record<string, unknown>, opts?: jwt.SignOptions) {
+  function sign(payload: jwt.JwtPayload, opts?: jwt.SignOptions) {
     return jwt.sign(payload, JWT_SECRET, opts)
   }
 

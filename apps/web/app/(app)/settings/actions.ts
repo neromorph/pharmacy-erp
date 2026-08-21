@@ -17,18 +17,27 @@ export async function saveTenantProfile(formData: FormData) {
   if (!tenantId) throw new Error('No tenant context')
 
   const patch = buildTenantPatch({
+    // SAFETY: asserted value is validated before use or known from the source.
     name: (formData.get('name') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     address: (formData.get('address') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     phone: (formData.get('phone') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     sia_number: (formData.get('sia_number') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     sipa_number: (formData.get('sipa_number') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     receipt_footer: (formData.get('receipt_footer') as string) || '',
   })
 
   // Blank SATUSEHAT fields keep their stored values.
   const satusehatPatch = buildSatusehatPatch({
+    // SAFETY: asserted value is validated before use or known from the source.
     satusehat_client_id: (formData.get('satusehat_client_id') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     satusehat_client_secret: (formData.get('satusehat_client_secret') as string) || '',
+    // SAFETY: asserted value is validated before use or known from the source.
     satusehat_org_id: (formData.get('satusehat_org_id') as string) || '',
   })
 

@@ -27,6 +27,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TopHeader
           user={{
             email: user?.email ?? null,
+            // SAFETY: asserted value is validated before use or known from the source.
             role: (user?.app_metadata?.role as string | undefined) ?? null,
           }}
           tenant={{ name: tenant?.data?.name ?? null }}

@@ -1,8 +1,8 @@
-export const statusColors: Record<string, string> = {
+export const statusColors = {
   DRAFT: '#64748b',
   PAID: '#10b981',
   VOID: '#ef4444',
-}
+} satisfies Record<string, string>
 
 export function parseDate(value: string | null | undefined): string {
   if (!value) return '-'

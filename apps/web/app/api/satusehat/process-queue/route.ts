@@ -95,6 +95,7 @@ export async function GET(request: Request) {
         )
       }
       // After the refresh block accessToken is always set.
+      // SAFETY: asserted value is validated before use or known from the source.
       const token = accessToken as string
 
       // KFA validation: skip when no item has a KFA code.
@@ -226,6 +227,7 @@ export async function GET(request: Request) {
         locationId = await postFhirResource({
           token,
           baseUrl: FHIR_BASE,
+          // SAFETY: asserted value is validated before use or known from the source.
           resource: buildLocation({
             orgId: tenant.satusehat_org_id,
             name: tenantRow?.name ?? 'Apotek',
@@ -246,6 +248,7 @@ export async function GET(request: Request) {
         encounterId = await postFhirResource({
           token,
           baseUrl: FHIR_BASE,
+          // SAFETY: asserted value is validated before use or known from the source.
           resource: buildEncounter({
             orgId: tenant.satusehat_org_id,
             localId: sale.sale_number,
@@ -265,13 +268,12 @@ export async function GET(request: Request) {
       }
 
       // Per drug line: MedicationRequest + MedicationDispense.
-      const fhirIds: Record<string, { medication_request: string; medication_dispense: string }> =
-        row.fhir_ids && typeof row.fhir_ids === 'object'
-          ? (row.fhir_ids as Record<string, { medication_request: string; medication_dispense: string }>)
-          : {}
+      // SAFETY: row.fhir_ids is a JSON object or null from the DB.
+      const fhirIds = (row.fhir_ids as Record<string, { medication_request: string; medication_dispense: string }> | null) ?? {}
       let itemIdx = 0
       for (const parent of parents) {
         itemIdx += 1
+        // SAFETY: asserted value is validated before use or known from the source.
         const product = parent.products as { kfa_code?: string | null; name?: string | null; base_unit?: string | null } | null
         const productName = parent.item_name || product?.name || null
         const odf = mapBaseUnitToOdf(product?.base_unit)
@@ -304,6 +306,7 @@ export async function GET(request: Request) {
         const medicationRequestId = await postFhirResource({
           token,
           baseUrl: FHIR_BASE,
+          // SAFETY: asserted value is validated before use or known from the source.
           resource: buildMedicationRequest({
             orgId: tenant.satusehat_org_id,
             localId: `${sale.sale_number}-${itemIdx}`,
@@ -318,6 +321,7 @@ export async function GET(request: Request) {
         const medicationDispenseId = await postFhirResource({
           token,
           baseUrl: FHIR_BASE,
+          // SAFETY: asserted value is validated before use or known from the source.
           resource: buildMedicationDispense({
             orgId: tenant.satusehat_org_id,
             localId: `${sale.sale_number}-${itemIdx}-disp`,

@@ -13,7 +13,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
-const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secondary'> = {
+interface StatusBadgeMap {
+  DRAFT: 'outline'
+  PENDING_APPROVAL: 'secondary'
+  APPROVED: 'default'
+  RECEIVED: 'secondary'
+  CANCELLED: 'destructive'
+}
+const statusBadge: StatusBadgeMap = {
   DRAFT: 'outline',
   PENDING_APPROVAL: 'secondary',
   APPROVED: 'default',
@@ -23,6 +30,7 @@ const statusBadge: Record<string, 'default' | 'destructive' | 'outline' | 'secon
 
 async function submitPurchaseOrder(formData: FormData) {
   'use server'
+  // SAFETY: hidden form input 'id' is always a non-null UUID string.
   const id = formData.get('id') as string
   const supabase = await createClient()
   const { data: po } = await supabase
@@ -41,6 +49,7 @@ async function submitPurchaseOrder(formData: FormData) {
 
 async function approvePurchaseOrder(formData: FormData) {
   'use server'
+  // SAFETY: hidden form input 'id' is always a non-null UUID string.
   const id = formData.get('id') as string
   const supabase = await createClient()
   const { data: po } = await supabase
@@ -84,6 +93,9 @@ export default async function PurchaseOrderDetailPage({
     return <p className="text-sm text-destructive">Pesanan pembelian tidak ditemukan</p>
   }
 
+  // SAFETY: po.status is always one of the ProcurementStatus values from the query.
+  const badgeVariant = statusBadge[po.status as keyof StatusBadgeMap] || 'secondary'
+
   return (
     <section className="space-y-6">
       <div>
@@ -92,7 +104,7 @@ export default async function PurchaseOrderDetailPage({
         </Link>
         <div className="mt-1 flex items-center gap-3">
           <h1 className="text-xl font-semibold text-slate-900">{po.po_number}</h1>
-          <Badge variant={statusBadge[po.status] || 'secondary'}>{po.status}</Badge>
+          <Badge variant={badgeVariant}>{po.status}</Badge>
         </div>
         <p className="mt-1 text-sm text-slate-500">
           Pemasok: {po.suppliers?.name || '-'} • Dipesan: {parseDate(po.ordered_at || po.created_at)}

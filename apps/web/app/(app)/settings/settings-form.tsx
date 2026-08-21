@@ -90,6 +90,7 @@ export function SettingsForm({ tenant }: SettingsFormProps) {
         })
         return
       }
+      // SAFETY: asserted value is validated before use or known from the source.
       const data = (await res.json()) as { ok?: boolean; error?: string }
       setTestResult({
         type: data.ok ? 'success' : 'error',

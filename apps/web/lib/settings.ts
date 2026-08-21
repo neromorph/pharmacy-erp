@@ -20,14 +20,7 @@ export function buildTenantPatch(input: {
   sia_number: string
   sipa_number: string
   receipt_footer: string
-}): {
-  name: string
-  address: string | null
-  phone: string | null
-  sia_number: string | null
-  sipa_number: string | null
-  receipt_footer: string | null
-} {
+}) {
   const trim = (v: string) => (v.trim() ? v.trim() : null)
   const name = input.name.trim()
   if (!name) {
@@ -49,7 +42,7 @@ export function buildSatusehatPatch(input: {
   satusehat_client_id?: string | null
   satusehat_client_secret?: string | null
   satusehat_org_id?: string | null
-}): Record<string, string> {
+}) {
   const patch: Record<string, string> = {}
   const fields: Array<[string, string | null | undefined]> = [
     ['satusehat_client_id', input.satusehat_client_id],

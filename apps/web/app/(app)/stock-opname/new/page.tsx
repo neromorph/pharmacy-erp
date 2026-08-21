@@ -33,16 +33,21 @@ function expiryBadge(expiry: string | null) {
 
 async function createStockOpname(formData: FormData) {
   'use server'
+  // SAFETY: asserted value is validated before use or known from the source.
   const type = (formData.get('type') as string) || 'FULL_STORE'
   const opnameNumber = `SON-${Date.now()}`
+  // SAFETY: asserted value is validated before use or known from the source.
   const batchIds = formData.getAll('batch_id') as string[]
+  // SAFETY: asserted value is validated before use or known from the source.
   const physicalQtys = formData.getAll('physical_qty') as string[]
+  // SAFETY: asserted value is validated before use or known from the source.
   const reasons = formData.getAll('reason') as string[]
 
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  // SAFETY: asserted value is validated before use or known from the source.
   const tenantId = user?.app_metadata?.tenant_id as string | undefined
 
   const { data: opname, error: hErr } = await supabase
@@ -56,7 +61,16 @@ async function createStockOpname(formData: FormData) {
   }
 
   // Read current quantities for each batch, compute base variance.
-  const rows: Record<string, unknown>[] = []
+  const rows: Array<{
+    tenant_id: string | undefined
+    opname_id: string
+    product_id: string | null
+    batch_id: string
+    system_qty_base: number
+    physical_qty_base: number
+    variance_qty_base: number
+    reason: string
+  }> = []
   for (let i = 0; i < batchIds.length; i++) {
     const batchId = batchIds[i]
     const { data: batch } = await supabase
