@@ -307,7 +307,7 @@ jobs:
           # Ship the repo compose.yaml so the VPS compose stays in sync.
           scp -i "$HOME/.ssh/deploy_key" compose.yaml "$VPS_USER@$VPS_HOST:$VPS_DEPLOY_DIR/compose.yaml"
           ssh -i "$HOME/.ssh/deploy_key" "$VPS_USER@$VPS_HOST" \
-            "cd '$VPS_DEPLOY_DIR' && docker compose pull && docker compose up -d"
+            "cd '$VPS_DEPLOY_DIR' && docker compose pull && docker compose up -d && docker image prune -af --filter 'until=168h'"
 
   # k6-load-test:
   #   name: k6 load test (staging)
