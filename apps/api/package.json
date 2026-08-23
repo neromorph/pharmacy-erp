@@ -21,14 +21,14 @@
     ]
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.28",
-    "@nestjs/core": "^11.1.28",
+    "@nestjs/common": "^11.2.1",
+    "@nestjs/core": "^11.2.1",
     "@nestjs/passport": "^11.0.5",
-    "@nestjs/platform-express": "^11.1.28",
-    "@sentry/nestjs": "^10.69.0",
+    "@nestjs/platform-express": "^11.2.1",
+    "@sentry/nestjs": "^10.70.0",
     "@nestjs/throttler": "^6.5.0",
-    "@sentry/profiling-node": "^10.69.0",
-    "@supabase/supabase-js": "^2.111.0",
+    "@sentry/profiling-node": "^10.70.0",
+    "@supabase/supabase-js": "^2.112.3",
     "helmet": "^8.3.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -37,10 +37,10 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.24",
-    "@nestjs/testing": "^11.1.28",
+    "@nestjs/testing": "^11.2.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.1.2",
+    "@types/node": "^26.2.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^7.2.1",
@@ -48,6 +48,6 @@
     "jsonwebtoken": "^9.0.3",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.12",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   }
 }
