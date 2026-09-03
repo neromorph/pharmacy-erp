@@ -11,7 +11,7 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 - **Database/Auth:** Supabase self-hosted on remote VPS (Row-Level Security via JWT `app_metadata.tenant_id`)
 - **Shared domain:** `packages/domain` (constants/types)
 - **Package manager:** pnpm 11 (workspace; corepack pin in root `packageManager`)
-- **TypeScript:** 6.x everywhere (TS 7 breaks Next 16 + ts-jest — do not upgrade)
+- **TypeScript:** 7.0.2 everywhere. The API builds with plain `tsc -p tsconfig.build.json` (the tsgo CLI) — `@nestjs/cli` needs the compiler API that returns in TS 7.1. Tests run on vitest (ts-jest removed). Revisit `@nestjs/cli` at TS 7.1 stable.
 
 ## Status
 
