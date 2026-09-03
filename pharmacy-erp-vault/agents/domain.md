@@ -3,7 +3,7 @@
 This repo uses a **single-context** domain layout. All markdown files live in the `pharmacy-erp-vault/` Obsidian vault.
 
 - `CONTEXT.md` in the vault holds the shared vocabulary and UI design reference.
-- Architectural decision records live in the vault `adr/`.
+- Architectural decision records live in two places: project ADRs (0001–0005) in the vault `adr/`; new ADRs go to the Obsidian second brain at `/Users/mufid/pintar/pintar/ADR/` as `ADR-NNN <Title>.md`. Lessons Learned RCAs live in the second brain `Lessons Learned/`.
 - Progress, next steps, and infrastructure knowledge live in `AGENTS.md` at the repo root.
 
 ## Consumer rules
@@ -15,6 +15,6 @@ This repo uses a **single-context** domain layout. All markdown files live in th
 ## Cross-references
 
 - `CONTEXT.md` — domain vocabulary and UI reference
-- `adr/` — architectural decision records
+- `adr/` — project ADRs (0001–0005, historical). New ADRs: second brain `/Users/mufid/pintar/pintar/ADR/`
 - `AGENTS.md` — operational state, progress, next plan, infra knowledge
 - `supabase-deployment.md` — deep deployment/infra details
