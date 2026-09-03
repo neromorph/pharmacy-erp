@@ -10,6 +10,7 @@
     "dev": "bun run --workspaces --parallel dev",
     "lint": "bun run --workspaces lint && bunx oxlint .",
     "test": "bun run --workspaces test",
+    "test:integration": "bun run --filter @pharmacy/web test:integration",
     "provision": "tsx scripts/provision-tenant.ts",
     "prepare": "husky"
   },
