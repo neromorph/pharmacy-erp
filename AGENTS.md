@@ -10,13 +10,13 @@ SaaS dashboard for pharmacy **sales (POS)**, **procurement**, and **stock** mana
 - **Backend:** NestJS 11 — `apps/api`
 - **Database/Auth:** Supabase self-hosted on remote VPS (Row-Level Security via JWT `app_metadata.tenant_id`)
 - **Shared domain:** `packages/domain` (constants/types)
-- **Package manager:** pnpm 11 (workspace; corepack pin in root `packageManager`)
+- **Package manager:** Bun 1.4 (workspace; `trustedDependencies` in root `package.json`)
 - **TypeScript:** 7.0.2 everywhere. The API builds with plain `tsc -p tsconfig.build.json` (the tsgo CLI) — `@nestjs/cli` needs the compiler API that returns in TS 7.1. Tests run on vitest (ts-jest removed). Revisit `@nestjs/cli` at TS 7.1 stable.
 
 ## Status
 
 ### Done
-- Workspace skeleton (web/api/domain), all tests + builds green (`pnpm -r test`, `pnpm -r build`)
+- Workspace skeleton (web/api/domain), all tests + builds green (`bun run test`, `bun run build`)
 - Domain docs: `pharmacy-erp-vault/CONTEXT.md`, ADRs in `pharmacy-erp-vault/adr/` (tenant=branch, FEFO primary, UI reference, user=one tenant)
 - Auth: Supabase login page + middleware (`apps/web`), NestJS JWT strategy extracting `tenant_id` (`apps/api/src/auth`), provisioning script (`scripts/provision-tenant.ts`)
 - Master data: `tenants`, `products`, `product_units`, `product_batches` tables with RLS (migration in `supabase/migrations/`); NestJS `ProductsModule` with scoped Supabase service
@@ -43,15 +43,15 @@ Done: procurement, POS (sales), stock, dashboard, prescriptions + racikan, accou
 ## Commands
 
 ```bash
-pnpm install                 # install all workspaces
-pnpm -r test                 # all tests
-pnpm -r build                # all builds
-pnpm --filter @pharmacy/web dev      # frontend (port 3000)
-pnpm --filter @pharmacy/api dev      # backend (port 3000 conflict — run with PORT=3001)
-pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .env.local)
+bun install                 # install all workspaces
+bun run test                # all tests
+bun run build               # all builds
+bun run --filter @pharmacy/web dev      # frontend (port 3000)
+bun run --filter @pharmacy/api dev      # backend (port 3000 conflict — run with PORT=3001)
+bun run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .env.local)
 ```
 
-- NestJS dev uses port 3000 by default; Next dev also 3000 — start one on a different port (`PORT=3001 pnpm --filter @pharmacy/api dev`).
+- NestJS dev uses port 3000 by default; Next dev also 3000 — start one on a different port (`PORT=3001 bun run --filter @pharmacy/api dev`).
 
 ## Infrastructure / Knowledge
 
@@ -64,7 +64,7 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Cloudflare Universal SSL covers only **one label**: use `pharmacy-api.nmrooms.biz.id`, **not** `api.pharmacy.nmrooms.biz.id`
 - Run migrations as **`supabase_admin`** role (public schema CREATE is restricted for `postgres`)
 - New tables auto-get grants for `anon`/`authenticated`/`service_role`
-- pnpm 11: supply-chain policy (`minimum-release-age=0` in `.npmrc`), build scripts gated (`allowBuilds` in `pnpm-workspace.yaml`)
+- Bun 1.4: scripts run under Bun; lifecycle scripts gated (`trustedDependencies` in root `package.json`)
 - If Traefik loses docker.sock access: `docker compose up -d --force-recreate` (needs group 988)
 - Email autoconfirm is ON for dev provisioning — revisit for production
 
@@ -78,7 +78,7 @@ pnpm run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .
 - Example: "We end the process" not "We are going to be concluding the operation in the near future."
 - Follow `pharmacy-erp-vault/CONTEXT.md` vocabulary (FEFO, Batch, Goods Receipt, etc.) and UI reference (Emerald/Teal on Slate, light-first, compact, no dark POS screens)
 - Respect RLS: backend passes the user's JWT through; never use service_role in request paths
-- Tests: keep `pnpm -r test` + `pnpm -r build` green after every change
+- Tests: keep `bun run test` + `bun run build` green after every change
 - Git repo initialized (main branch). Commits are expected; keep the tree clean.
 
 ## Agent skills

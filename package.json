@@ -1,12 +1,15 @@
 {
   "name": "pharmacy-erp",
   "private": true,
-  "packageManager": "pnpm@11.18.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "build": "pnpm -r build",
-    "dev": "pnpm -r --parallel dev",
-    "lint": "pnpm -r lint && pnpm exec oxlint .",
-    "test": "pnpm -r test",
+    "build": "bun run --workspaces build",
+    "dev": "bun run --workspaces --parallel dev",
+    "lint": "bun run --workspaces lint && bunx oxlint .",
+    "test": "bun run --workspaces test",
     "provision": "tsx scripts/provision-tenant.ts",
     "prepare": "husky"
   },
@@ -16,5 +19,19 @@
     "husky": "^9.1.7",
     "oxlint": "1.81.0",
     "tsx": "^4.23.13"
+  },
+  "trustedDependencies": [
+    "@nestjs/core",
+    "esbuild",
+    "sharp",
+    "unrs-resolver",
+    "husky",
+    "@sentry/node-cpu-profiler",
+    "@sentry/cli"
+  ],
+  "overrides": {
+    "postcss": "^8.5.23",
+    "sharp": "^0.35.0",
+    "nanoid": "^3.3.17"
   }
 }

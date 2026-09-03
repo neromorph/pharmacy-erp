@@ -1,25 +1,25 @@
 #!/usr/bin/env sh
-# Pre-commit: lint + build, then pnpm audit + trivy scan.
+# Pre-commit: lint + build, then bun audit + trivy scan.
 # Fail the commit on lint/build errors or HIGH/CRITICAL vulnerabilities.
 
 set -e
 
-echo "==> pnpm run lint"
-pnpm run lint
+echo "==> bun run lint"
+bun run lint
 
 echo "==> oxlint anti-slop check"
-pnpm exec oxlint .
+bunx oxlint .
 
-echo "==> pnpm run build"
-pnpm run build
+echo "==> bun run build"
+bun run build
 
 if ! command -v trivy >/dev/null 2>&1; then
   echo "ERROR: trivy is not installed. Install it with: brew install trivy"
   exit 1
 fi
 
-echo "==> pnpm audit"
-pnpm audit --prod --audit-level high
+echo "==> bun audit"
+bun audit --audit-level=high
 
-echo "==> trivy scan (pnpm-lock.yaml)"
-trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 pnpm-lock.yaml
+echo "==> trivy scan (bun.lock)"
+trivy fs --scanners vuln --severity HIGH,CRITICAL --exit-code 1 bun.lock
