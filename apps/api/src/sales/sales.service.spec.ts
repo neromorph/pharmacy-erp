@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest'
 import { Test } from '@nestjs/testing'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { SalesService } from './sales.service'

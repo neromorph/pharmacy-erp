@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest'
 import { Test } from '@nestjs/testing'
 import { SalesController } from './sales.controller'
 import { SalesService } from './sales.service'
