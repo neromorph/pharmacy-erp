@@ -1,5 +1,5 @@
 # Setup
 
-- Install pnpm.
-- Install dependencies: `pnpm install`
-- Run the web and api apps: `pnpm --filter @pharmacy/web dev` and `pnpm --filter @pharmacy/api dev`.
+- Install Bun.
+- Install dependencies: `bun install`
+- Run the web and api apps: `bun run dev` (runs all workspaces) or `cd apps/web && bun run dev` / `cd apps/api && bun run dev`.

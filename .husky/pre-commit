@@ -3,6 +3,7 @@
 # Fail the commit on lint/build errors or HIGH/CRITICAL vulnerabilities.
 
 set -e
+export PATH="$HOME/.bun/bin:$PATH"
 
 echo "==> bun run lint"
 bun run lint
