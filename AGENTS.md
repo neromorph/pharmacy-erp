@@ -79,6 +79,7 @@ bun run provision -- <email> <pw> <tenant-name>   # create tenant+user (loads .e
 - **Always use ASD-STE100 Simplified Technical English** (controlled vocabulary, short sentences, one meaning per word) in all written output: code comments, commit messages, ADRs, docs, and chat responses.
 - Avoid jargon, idioms, passive voice, and long sentences. Prefer simple approved words. Use the noun/verb directly.
 - Example: "We end the process" not "We are going to be concluding the operation in the near future."
+- **This project vault is `pharmacy-erp-vault/` only.** Do not read or write to external vaults such as `/Users/mufid/pintar/pintar/` or any other Obsidian vault outside the repo. All ADRs, RCAs, specs, maps, and domain docs go under `pharmacy-erp-vault/`.
 - Follow `pharmacy-erp-vault/CONTEXT.md` vocabulary (FEFO, Batch, Goods Receipt, etc.) and UI reference (Emerald/Teal on Slate, light-first, compact, no dark POS screens)
 - Record architecture decisions as `NNNN-short-title.md` in `pharmacy-erp-vault/adr/`, and incident RCAs in `pharmacy-erp-vault/lessons-learned/`. Link related notes with `[[wikilinks]]`.
 - Respect RLS: backend passes the user's JWT through; never use service_role in request paths
