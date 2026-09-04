@@ -102,7 +102,7 @@ export default async function NewPurchaseOrderPage() {
         <h2 className="text-sm font-medium text-slate-900">Item Barang</h2>
         <div id="items" className="grid gap-2">
           <div className="grid grid-cols-[2fr_1fr_1fr] gap-2">
-            <select name="product_id" required className={selectClass}>
+            <select name="product_id" required aria-label="Produk" className={selectClass}>
               <option value="">Produk</option>
               {(products || []).map((p: any) => (
                 <option key={p.id} value={p.id}>
