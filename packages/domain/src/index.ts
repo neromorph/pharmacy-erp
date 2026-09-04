@@ -1,6 +1,2 @@
 export * from './tenant.ts'
-export * from './stock.ts'
-export * from './procurement.ts'
-export * from './sales.ts'
-export * from './opname.ts'
 export * from './shifts.ts'
