@@ -136,11 +136,11 @@ jobs:
         language: ['javascript-typescript']
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+      - uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           languages: ${{ matrix.language }}
           build-mode: none # JS/TS analysis needs no build
-      - uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+      - uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: /language:${{ matrix.language }}
 
@@ -167,7 +167,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # DL3006 is ignored: the distroless runtime base (nodejs24-debian13)
       # has no versioned tags — only the rolling stable tag.
-      - uses: hadolint/hadolint-action@2a66e89f53d0771bb131a7fa31f3136336094aa6 # v3.4.0
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: apps/web/Dockerfile
           failure-threshold: warning
@@ -222,7 +222,7 @@ jobs:
       - name: Resolve Docker Hub image name
         run: |
           echo "IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/pharmacy-erp-${{ matrix.component }}" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Log in to Docker Hub
         if: ${{ github.event_name != 'pull_request' && github.event_name != 'schedule' }}
@@ -266,7 +266,7 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
 
       - name: Generate SBOM (SPDX)
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           image: ${{ env.IMAGE }}:${{ github.sha }}
           format: spdx-json
@@ -357,7 +357,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: ZAP baseline scan
         if: inputs.scan_type == 'baseline'
-        uses: zaproxy/action-baseline@6c5a007541891231cd9e0ddec25d4f25c59c9874 # v0.15.0
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         with:
           target: ${{ inputs.target_url }}
           fail_action: true # fail the job when ZAP reports alerts
@@ -365,7 +365,7 @@ jobs:
           artifact_name: zap-baseline
       - name: ZAP full scan
         if: inputs.scan_type == 'full'
-        uses: zaproxy/action-full-scan@bee4e5be916301228d2b1b2dcad73aab6fa6a25b # v0.13.0
+        uses: zaproxy/action-full-scan@3c58388149901b9a03b7718852c5ba889646c27c # v0.13.0
         with:
           target: ${{ inputs.target_url }}
           fail_action: true # fail the job when ZAP reports alerts
